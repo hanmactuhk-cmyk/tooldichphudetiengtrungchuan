@@ -9,7 +9,7 @@ def separate_audio(source,models,cache,ffmpeg,progress,cancelled):
  model=models/'separation'/'separator.onnx'
  if not model.is_file() or not (model.parent/'config.json').is_file():raise ValueError('Thiếu bộ tách âm thanh. Hãy cài đủ bản cập nhật HNstudio 5.5.0.')
  config=json.loads((model.parent/'config.json').read_text(encoding='utf-8'))
- digest=hashlib.sha256(b'separation-v2')
+ digest=hashlib.sha256(b'separation-v3')
  with Path(source).open('rb') as f:
   for data in iter(lambda:f.read(8*1024*1024),b''):
    if cancelled():raise RuntimeError('Đã dừng tách âm thanh.')
@@ -59,7 +59,7 @@ def separate_audio(source,models,cache,ffmpeg,progress,cancelled):
     other.write(original.read(len(block),dtype='float32',always_2d=True)-block)
   targets=[(temp/'other.wav' if primary_is_background else temp/'primary.wav',vocal),(temp/'primary.wav' if primary_is_background else temp/'other.wav',background)]
   try:
-   for src,dest in targets:ffmpeg('-i',src,'-ar',48000,'-ac',1,'-af','alimiter=limit=0.97:level=false',dest)
+   for src,dest in targets:ffmpeg('-i',src,'-ar',48000,'-ac',1,'-af','alimiter=limit=0.97:level=false:latency=true',dest)
    if cancelled():raise RuntimeError('Đã dừng tách âm thanh.')
   except BaseException:
    vocal.unlink(missing_ok=True);background.unlink(missing_ok=True);raise

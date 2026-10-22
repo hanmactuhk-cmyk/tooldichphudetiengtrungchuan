@@ -30,6 +30,7 @@ jobs:
       - run: pnpm run lint
       - run: pnpm run build
       - run: pnpm exec tsx scripts/test-caption-layout.ts
+      - run: pnpm exec tsx scripts/test-timeline.ts
       - run: node --check electron-main.cjs
       - run: python -m compileall -q resources/backend scripts
       - run: python scripts/test_video_subtitles.py

@@ -6,7 +6,7 @@ import cv2,imageio_ffmpeg
 def render_video(source,options,cache,dubbing,progress,cancelled):
  cap=cv2.VideoCapture(str(source));w=int(cap.get(3));h=int(cap.get(4));fps=cap.get(5);frames=cap.get(7);cap.release()
  if min(w,h)<2 or not fps or not frames:raise ValueError('Không đọc được hình ảnh video.')
- duration=frames/fps;dub=dubbing.resolve(options['dubAudioUrl']) if options.get('dubAudioUrl') else None
+ duration=max(frames/fps,float(options.get('timelineDuration') or 0));dub=dubbing.resolve(options['dubAudioUrl']) if options.get('dubAudioUrl') else None
  if dub:
   import soundfile
   duration=max(duration,soundfile.info(str(dub)).duration)

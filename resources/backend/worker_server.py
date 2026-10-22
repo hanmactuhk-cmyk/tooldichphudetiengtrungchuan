@@ -22,7 +22,7 @@ from translation import OfflineTranslator
 from browser_translation import BrowserTranslator
 from subtitle_contract import validate_cues,from_srt,parse_srt
 from jobs import JOBS
-app = FastAPI(title='HN Voice Studio', version='5.2.0')
+app = FastAPI(title='HN Voice Studio', version='5.3.0')
 DUBBING=DubbingService(MODELS,CACHE,lambda *args:ffmpeg(*args))
 TRANSLATOR=OfflineTranslator(MODELS)
 BROWSER_HOME=Path(os.environ.get('HN_BROWSER_HOME',APP_DIR/'data/chrome-profiles'))
@@ -51,7 +51,7 @@ def ffmpeg(*args):
 @app.get('/health')
 @app.get('/api/health')
 def health():
-    return {'status':'ok','device':'cpu','models':{n:(MODELS/n).is_dir() for n in ['whisper-small','qwen3','vieneu','ocr-zh']},'modelDirectory':str(MODELS),'version':'5.2.0','instanceId':os.environ.get('HN_INSTANCE_ID'),'activeModel':POOL.name,'modelLoads':POOL.loads}
+    return {'status':'ok','device':'cpu','models':{n:(MODELS/n).is_dir() for n in ['whisper-small','qwen3','vieneu','ocr-zh']},'modelDirectory':str(MODELS),'version':'5.3.0','instanceId':os.environ.get('HN_INSTANCE_ID'),'activeModel':POOL.name,'modelLoads':POOL.loads}
 @app.post('/api/transcribe')
 def transcribe(file: UploadFile=File(...)):
     from faster_whisper import WhisperModel
@@ -127,6 +127,30 @@ def ocr_video(file:UploadFile=File(...),crop_top:float=Form(default=0.55,ge=0,lt
     finally:
         if cap is not None:cap.release()
         source.unlink(missing_ok=True)
+
+class TimelineMixRequest(BaseModel):
+    clips:list[dict]
+    duration:float=Field(default=0,ge=0,le=86400)
+@app.post('/api/timeline/mix')
+def timeline_mix(req:TimelineMixRequest):
+    from timeline_audio import mix_timeline
+    return JOBS.submit('timeline-mix',req.model_dump(),lambda progress,cancelled:mix_timeline(req.clips,req.duration,CACHE,DUBBING,progress,cancelled))
+
+@app.post('/api/timeline/import-audio')
+def timeline_import_audio(file:UploadFile=File(...)):
+    import soundfile
+    source=CACHE/(uuid.uuid4().hex+Path(file.filename or 'audio.mp4').suffix)
+    target=CACHE/(uuid.uuid4().hex+'.wav')
+    try:
+        with source.open('wb') as handle:
+            while chunk:=file.file.read(8*1024*1024):
+                handle.write(chunk)
+                if handle.tell()>2*1024**3:raise ValueError('Tệp vượt 2 GB.')
+        ffmpeg('-i',source,'-vn','-ar','48000','-ac','1','-c:a','pcm_s16le',target)
+        return {'audioUrl':'/cache/'+target.name,'duration':soundfile.info(str(target)).duration}
+    except Exception as exc:
+        target.unlink(missing_ok=True);raise HTTPException(422,'Không lấy được âm thanh: '+str(exc))
+    finally:source.unlink(missing_ok=True)
 
 @app.post('/api/video/export')
 def export_video(file:UploadFile=File(...),options:str=Form(...)):
@@ -252,6 +276,17 @@ def job(identifier:str):
 def cancel_job(identifier:str):
     try:JOBS.cancel(identifier);return {'status':'cancelling'}
     except KeyError:raise HTTPException(404,'Tác vụ không tồn tại.')
+
+@app.get('/api/audio/peaks/{filename}')
+def audio_peaks(filename:str):
+    import soundfile,numpy as np,math
+    try:
+        path=DUBBING.resolve('/cache/'+filename)
+        with soundfile.SoundFile(str(path)) as audio:
+            step=max(1,math.ceil(audio.frames/512));peaks=[]
+            for block in audio.blocks(blocksize=step,dtype='float32',always_2d=True):peaks.append(round(float(np.abs(block).max()),4))
+        return {'peaks':peaks}
+    except ValueError as exc:raise HTTPException(422,str(exc))
 
 @app.get('/cache/{filename}')
 def audio(filename:str):

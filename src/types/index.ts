@@ -1,3 +1,4 @@
+export interface TimelineAudioClip { id:string; subtitleId?:string; origin?:'video'|'file'; track:'voice'|'audio'; name:string; audioUrl:string; startTime:number; trimStart:number; trimEnd:number; sourceDuration:number; volume:number; muted?:boolean; }
 export interface BlurRegion { enabled:boolean; x:number; y:number; width:number; height:number; strength:number; }
 export interface CaptionPosition { x:number; y:number; }
 export interface CaptionLayout { aspect:'auto'|'16:9'|'9:16'; position:CaptionPosition; width:number; fontSize:number; }
@@ -84,6 +85,8 @@ export interface ProjectData {
   videoHeight?:number;
   captionLayout?:CaptionLayout;
   blurRegion?:BlurRegion;
+  audioClips?:TimelineAudioClip[];
+  manualTimeline?:boolean;
   duration: number;
   originalAudioVolume: number; // 0 to 1
   originalAudioMuted: boolean;

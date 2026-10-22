@@ -20,6 +20,8 @@ interface VideoPlayerProps {
   layout:CaptionLayout;
   onLayoutChange:(v:CaptionLayout)=>void;
   onCuePositionChange:(id:string,p:CaptionPosition)=>void;
+  originalDetached?:boolean;
+  manualTimeline?:boolean;
   dubAudioUrl?:string;
   dubDuration?:number;
   subtitles: Subtitle[];
@@ -39,7 +41,7 @@ interface VideoPlayerProps {
 
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   videoUrl,blur,onBlurChange,layout,onLayoutChange,onCuePositionChange,expanded,onToggleExpanded,
-  dubAudioUrl,
+  dubAudioUrl,manualTimeline,originalDetached,
   dubDuration,
   subtitles,
   characters,
@@ -76,16 +78,16 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const video=videoRef.current;if(!video)return;
     video.playbackRate=playbackSpeed;
     video.volume=Math.min(1,Math.max(0,originalAudioVolume*(bgmDucking&&subtitles.some(s=>s.ttsAudioUrl&&currentTime>=s.startTime&&currentTime<s.endTime)?0.25:1)));
-    if(Math.abs(video.currentTime-Math.min(video.duration||currentTime,currentTime))>0.6)video.currentTime=Math.min(video.duration||currentTime,currentTime);
+    if(Math.abs(video.currentTime-Math.min(video.duration||currentTime,currentTime))>(isPlaying?.6:.005))video.currentTime=Math.min(video.duration||currentTime,currentTime);
     if(isPlaying&&(!Number.isFinite(video.duration)||currentTime<video.duration-.05))video.play().catch(()=>{});else video.pause();
   },[videoUrl,isPlaying,currentTime,playbackSpeed,originalAudioVolume,bgmDucking,subtitles]);
 
   // Find currently active subtitle
   const activeSub = useMemo(() => {
     return subtitles.find(
-      (s) => currentTime >= (dubAudioUrl?s.dubStartTime??s.startTime:s.startTime) && currentTime < (dubAudioUrl?s.dubEndTime??s.endTime:s.endTime)
+      (s) => currentTime >= (dubAudioUrl&&!manualTimeline?s.dubStartTime??s.startTime:s.startTime) && currentTime < (dubAudioUrl&&!manualTimeline?s.dubEndTime??s.endTime:s.endTime)
     );
-  }, [subtitles, currentTime, dubAudioUrl]);
+  }, [subtitles, currentTime, dubAudioUrl,manualTimeline]);
 
   // Find character speaking
   const activeChar = useMemo(() => {
@@ -96,13 +98,13 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   useEffect(()=>{
     if(!dubAudioUrl)return;
     const audio=new Audio(dubAudioUrl);dubRef.current=audio;
-    audio.ontimeupdate=()=>{if(!videoRef.current||videoRef.current.ended||audio.currentTime>=(videoRef.current.duration||Infinity)-.05)onTimeUpdate(audio.currentTime);};
+    audio.ontimeupdate=()=>{if(audio.paused)return;if(!videoRef.current||videoRef.current.ended||audio.currentTime>=(videoRef.current.duration||Infinity)-.05)onTimeUpdate(audio.currentTime);};
     return()=>{audio.pause();audio.src='';dubRef.current=null;};
   },[dubAudioUrl]);
   useEffect(()=>{
     const audio=dubRef.current;if(!audio)return;
     audio.playbackRate=playbackSpeed;
-    if(Math.abs(audio.currentTime-currentTime)>.35)audio.currentTime=currentTime;
+    if(Math.abs(audio.currentTime-currentTime)>(isPlaying?.35:.005))audio.currentTime=currentTime;
     if(isPlaying){stopAudioPreview();audio.play().catch(()=>{});}else audio.pause();
   },[isPlaying,currentTime,playbackSpeed,dubAudioUrl]);
   useEffect(()=>{const pauseForPreview=()=>{dubRef.current?.pause();videoRef.current?.pause();if(isPlaying)onTogglePlay();};window.addEventListener('hnvoice-preview',pauseForPreview);return()=>window.removeEventListener('hnvoice-preview',pauseForPreview);},[isPlaying,onTogglePlay]);
@@ -132,7 +134,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         <div data-testid="video-picture" className="absolute overflow-hidden" style={{width:pw,height:ph,left:(fw-pw)/2,top:(fh-ph)/2}}>
           {videoUrl?<video ref={videoRef} src={videoUrl} className="absolute inset-0 w-full h-full" muted={originalAudioMuted}
             onLoadedMetadata={e=>{const v=e.currentTarget;if(v.videoWidth&&v.videoHeight)setNativeRatio(v.videoWidth/v.videoHeight);}}
-            onTimeUpdate={e=>{if(currentTime<=e.currentTarget.duration+.05)onTimeUpdate(e.currentTarget.currentTime);}}
+            onTimeUpdate={e=>{if(!e.currentTarget.paused&&currentTime<=e.currentTarget.duration+.05)onTimeUpdate(e.currentTarget.currentTime);}}
             onEnded={()=>{if(isPlaying&&(!dubAudioUrl||(dubDuration||0)<=(videoRef.current?.duration||0)+.05))onTogglePlay();}}/>:
             <div className="absolute inset-0 flex items-center justify-center text-xs text-zinc-500">Chọn video hoặc nhập SRT</div>}
           {videoUrl&&blur.enabled&&<div data-testid="blur-region" aria-label="Kéo vùng làm mờ" className="absolute z-[5] border border-cyan-300/70 cursor-move touch-none" style={{left:blur.x*100+'%',top:blur.y*100+'%',width:blur.width*100+'%',height:blur.height*100+'%',backdropFilter:`blur(${blur.strength*pw/Math.max(1,videoRef.current?.videoWidth||pw)}px)`}} onPointerDown={e=>{if(e.button!==0)return;blurDrag.current={x:e.clientX,y:e.clientY,region:{...blur},resize:(e.target as HTMLElement).dataset.resize==='yes'};e.currentTarget.setPointerCapture(e.pointerId);e.preventDefault();}} onPointerMove={blurMove} onPointerUp={()=>{blurDrag.current=null;}} onPointerCancel={()=>{blurDrag.current=null;}}><span data-resize="yes" aria-label="Đổi kích thước vùng mờ" className="absolute right-0 bottom-0 w-5 h-5 bg-cyan-400 cursor-se-resize"/></div>}
@@ -179,21 +181,21 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           {/* Original Audio controls */}
           <div className="flex items-center space-x-2 bg-[#1b1b20] px-2.5 py-1 rounded-md border border-zinc-800">
             <button
-              onClick={onToggleOriginalMute}
+              disabled={originalDetached} onClick={onToggleOriginalMute}
               className={`p-1 rounded ${
                 originalAudioMuted ? 'text-red-400' : 'text-zinc-400 hover:text-white'
               }`}
-              title={originalAudioMuted ? 'Bật tiếng gốc' : 'Tắt tiếng gốc'}
+              title={originalDetached?'Tiếng gốc đã tách: chỉnh ở timeline':originalAudioMuted ? 'Bật tiếng gốc' : 'Tắt tiếng gốc'}
             >
               {originalAudioMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
             </button>
-            <span className="text-[11px] text-zinc-400">Âm thanh gốc:</span>
+            <span className="text-[11px] text-zinc-400">{originalDetached?'Tiếng gốc ở timeline':'Âm thanh gốc:'}</span>
             <input
               type="range"
               min="0"
               max="1"
               step="0.05"
-              value={originalAudioMuted ? 0 : originalAudioVolume}
+              disabled={originalDetached} value={originalAudioMuted ? 0 : originalAudioVolume}
               onChange={(e) => onChangeOriginalVolume(parseFloat(e.target.value))}
               className="w-16 h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-rose-500"
             />

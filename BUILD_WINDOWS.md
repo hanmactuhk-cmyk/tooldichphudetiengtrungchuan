@@ -1,10 +1,10 @@
-# HN Voice Studio 5.2 — Windows Electron
+# HN Voice Studio 5.3 — Windows Electron
 
 Đọc lời nói hoặc chữ phụ đề tiếng Trung từ video MP4, dịch sang tiếng Việt và tạo giọng VieNeu-TTS. Giao diện mở trong cửa sổ ứng dụng Windows; không phải mở trình duyệt để dùng các chức năng offline. Gemini và ChatGPT vẫn dùng Chrome riêng để đăng nhập và dịch theo lựa chọn của người dùng.
 
 ## Tải bản chạy đầy đủ
 
-Vào [Releases](https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan/releases/latest). Bản 5.2 dùng lại bộ model của [bản đầy đủ 5.1](https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan/releases/tag/v5.1.0). Tải và giải nén đầy đủ 5.1, đóng ứng dụng, sau đó giải nén `HNVoice-5.2.0-update.zip` vào cùng thư mục cha để ghi đè thư mục `HNVoice-Electron`. Các model không đổi. Với bộ đầy đủ 5.1, tải **tất cả** các phần `HNVoice-Electron-5.1.0-Windows.zip.001`, `.002`… cùng `release-parts.json`, `GIAI-NEN.ps1`, `GIAI-NEN.bat` vào cùng một thư mục. Chạy `GIAI-NEN.bat`: chương trình kiểm tra SHA256, giải nén trực tiếp các phần, không cần ghép thêm một ZIP lớn. Mở `HNVoice-Electron/HN Voice Studio.exe`. Có thể chạy `TAO-LOI-TAT.bat` bên trong để tạo lối tắt Desktop; giữ nguyên cả thư mục ứng dụng.
+Vào [Releases](https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan/releases/latest). Bản 5.3 dùng lại bộ model của [bản đầy đủ 5.1](https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan/releases/tag/v5.1.0). Tải và giải nén đầy đủ 5.1, đóng ứng dụng, sau đó giải nén `HNVoice-5.3.0-update.zip` vào cùng thư mục cha để ghi đè thư mục `HNVoice-Electron`. Các model không đổi. Với bộ đầy đủ 5.1, tải **tất cả** các phần `HNVoice-Electron-5.1.0-Windows.zip.001`, `.002`… cùng `release-parts.json`, `GIAI-NEN.ps1`, `GIAI-NEN.bat` vào cùng một thư mục. Chạy `GIAI-NEN.bat`: chương trình kiểm tra SHA256, giải nén trực tiếp các phần, không cần ghép thêm một ZIP lớn. Mở `HNVoice-Electron/HN Voice Studio.exe`. Có thể chạy `TAO-LOI-TAT.bat` bên trong để tạo lối tắt Desktop; giữ nguyên cả thư mục ứng dụng.
 
 Bộ tải đầy đủ có Electron, Python đã đóng gói, FFmpeg, Whisper-small, RapidOCR Trung, Qwen3-4B Q4 và VieNeu v3 Turbo ONNX FP32 + codec + giọng mẫu. Người dùng bản chạy không cần cài Node, Python hay nhập API key. Cần Windows 10/11 x64, CPU x64 hỗ trợ AVX2, khuyến nghị RAM 16 GB; máy RAM 8 GB có thể phải dùng bộ nhớ ảo và chậm hơn. Gói sau giải nén khoảng 4,4 GB; cần đủ dung lượng cho cả phần tải và thư mục giải nén. Bản EXE chưa ký chứng thư thương mại.
 
@@ -41,7 +41,7 @@ python scripts/prepare_models.py --verify
 python scripts/package-desktop.py release/win-unpacked release/download
 ```
 
-`package-desktop.py` chia ZIP thành phần nhỏ hơn giới hạn asset GitHub. Nếu thiếu chỗ trống, dùng `--upload-repo OWNER/REPO --tag v5.2.0 --gh gh` để tải từng phần lên draft release bằng GitHub CLI đã đăng nhập rồi bỏ bản trung gian sau khi kiểm tra upload. Sau đó chép `scripts/GIAI-NEN.*` cạnh manifest. Không cần token trong mã nguồn.
+`package-desktop.py` chia ZIP thành phần nhỏ hơn giới hạn asset GitHub. Nếu thiếu chỗ trống, dùng `--upload-repo OWNER/REPO --tag v5.3.0 --gh gh` để tải từng phần lên draft release bằng GitHub CLI đã đăng nhập rồi bỏ bản trung gian sau khi kiểm tra upload. Sau đó chép `scripts/GIAI-NEN.*` cạnh manifest. Không cần token trong mã nguồn.
 
 ## Kiểm thử ứng dụng thật
 
@@ -70,3 +70,14 @@ Kiểm tra bố cục: `node scripts/test-layout.cjs` với `HN_TEST_URL` trỏ 
 Bật “Làm mờ phụ đề gốc” dưới thanh bố cục. Kéo vùng xanh, kéo góc dưới phải để thay đổi kích thước; thanh Độ mờ chỉnh cường độ. Vùng mờ được tính theo phần hình ảnh thật. Vào Xuất file → Xuất video MP4; có thể bỏ chọn ghép phụ đề. MP4 có khung tự động/16:9/9:16, phụ đề Việt ở vị trí đã chọn, vùng mờ và track VieNeu. Nếu giọng dài hơn video, giữ hình cuối đến hết giọng. Tắt tiếng gốc để tránh nghe thêm lớp lời nói cũ.
 
 Gemini tự mở Chrome và đợi kết nối; nếu trang hiện Sign in/Đăng nhập, cần đăng nhập lại. Hỗ trợ nhãn nút tải tệp tiếng Việt và tiếng Anh, thử mở menu lại khi trang chưa sẵn sàng, xác nhận thành phần video đính kèm trước khi gửi.
+
+## Timeline kéo/cắt (5.3)
+
+- Tạo giọng trước để có các đoạn VieNeu. Kéo giữa đoạn để di chuyển, kéo cạnh trái/phải để cắt khoảng dùng; nguồn WAV giữ nguyên. Hai hàng phụ đề Trung/Việt dùng chung mốc.
+- Nút dây xích bật: kéo/cắt/xóa phụ đề cùng giọng liên quan. Tắt dây xích để chỉnh riêng. Các đoạn âm thanh trên cùng hàng không được chồng nhau; nếu trùng, app giữ bản cũ và báo để kéo vào khoảng trống.
+- Chọn đoạn, đặt vạch phát bên trong, bấm kéo hoặc C / Ctrl+B để cắt. Có bỏ phần trước/sau vạch phát, nhân đôi Ctrl+D, xóa Delete, hoàn tác Ctrl+Z và làm lại Ctrl+Shift+Z / Ctrl+Y.
+- Nam châm bắt dính vào vạch phát/cạnh đoạn. Có khóa hàng, tắt tiếng đoạn, âm lượng %, thanh thu/phóng, vừa toàn bộ và mở rộng timeline. Phím mũi tên tua 1/25 giây, Shift+mũi tên tua 1 giây khi timeline được chọn.
+- “Tách tiếng gốc” lấy âm thanh video ra thành đoạn có thể sửa và tắt tiếng nhúng trong video để tránh phát trùng. “Thêm âm thanh” nhận WAV/MP3/M4A và đưa vào hàng âm thanh. Sóng âm tính từ WAV thật.
+- WAV và MP4 dùng bản âm thanh đã ghép từ timeline. Khi sửa nội dung câu làm giọng cũ không còn phù hợp, tạo lại giọng hoặc bấm “Ghép lại âm thanh” cho những đoạn còn lại. Video gốc giữ cố định; các hàng phụ đề/âm thanh có thể chỉnh.
+
+Kiểm thử: `pnpm exec tsx scripts/test-timeline.ts`, `python scripts/test_timeline_audio.py`, `node scripts/test-timeline-ui.cjs` và `node scripts/test-original-audio-ui.cjs` (các bài giao diện dùng HN_TEST_URL hoặc bộ xử lý thử tại cổng 8008). Đặt HN_TEST_MP4=1 cho bài thử Electron.

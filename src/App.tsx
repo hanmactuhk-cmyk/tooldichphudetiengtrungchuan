@@ -1,3 +1,4 @@
+import {editTimeline,projectClips,timelineEnd,TimelineEdit,validateTimeline} from './lib/timeline-engine';
 import {DEFAULT_CAPTION_LAYOUT,splitCue,generateAss} from './lib/caption-layout';
 import {apiJson,runJob} from './lib/jobs';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -47,19 +48,20 @@ export default function App() {
   const handleCancel=async()=>{if(jobId)await apiJson('/api/jobs/'+jobId+'/cancel',{method:'POST'});};
   const handleImportSrt=async(file:File,language:'zh'|'vi')=>{
     try{const data=await apiJson('/api/subtitles/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({srt:await file.text(),language})});
-      pushHistory(project);setProject(p=>({...p,subtitles:data.subtitles,dubAudioUrl:undefined,dubDuration:undefined,title:file.name.replace(/\.srt$/i,''),duration:Math.max(p.duration,...data.subtitles.map((s:Subtitle)=>s.endTime))}));setActiveSidebarTab(language==='vi'?'characters':'translation');
+      pushHistory(project);setProject(p=>({...p,subtitles:data.subtitles,audioClips:p.audioClips?.filter(c=>c.track==='audio'),dubAudioUrl:undefined,dubDuration:undefined,title:file.name.replace(/\.srt$/i,''),duration:p.videoUrl?p.duration:Math.max(p.duration,...data.subtitles.map((s:Subtitle)=>s.endTime))}));setActiveSidebarTab(language==='vi'?'characters':'translation');
     }catch(e){alert(String(e));}
   };
   const handleImportTranslation=async(srt:string)=>{
     try{const data=await apiJson('/api/translation/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({srt,subtitles:project.subtitles})});
-      const map=new Map<string,any>(data.translations.map((r:any)=>[r.id,r]));pushHistory(project);setProject(p=>({...p,dubAudioUrl:undefined,dubDuration:undefined,subtitles:p.subtitles.map(s=>({...s,textVi:map.get(s.id).viFull,ttsAudioUrl:undefined,ttsDuration:undefined,status:'translated'}))}));setActiveSidebarTab('characters');
+      const map=new Map<string,any>(data.translations.map((r:any)=>[r.id,r]));pushHistory(project);setProject(p=>({...p,dubAudioUrl:undefined,dubDuration:undefined,audioClips:p.audioClips?.filter(c=>c.track==='audio'),subtitles:p.subtitles.map(s=>({...s,textVi:map.get(s.id).viFull,ttsAudioUrl:undefined,ttsDuration:undefined,status:'translated'}))}));setActiveSidebarTab('characters');
     }catch(e){alert(String(e));}
   };
 
-  const handleSplitCue=(id:string)=>{try{const cue=project.subtitles.find(s=>s.id===id);if(!cue)return;const parts=splitCue(cue);stopAudioPreview();setIsPlaying(false);pushHistory(project);setProject(p=>({...p,subtitles:p.subtitles.flatMap(s=>s.id===id?parts:[s]),dubAudioUrl:undefined,dubDuration:undefined,selectedSubtitleId:parts[0].id}));}catch(e){alert(String(e));}};
+  const handleSplitCue=(id:string)=>{try{const cue=project.subtitles.find(s=>s.id===id);if(!cue)return;const parts=splitCue(cue);if(project.manualTimeline){handleTimelineEdit({track:'subtitle',id,kind:'split',time:parts[0].endTime,linked:true});return;}stopAudioPreview();setIsPlaying(false);pushHistory(project);setProject(p=>({...p,subtitles:p.subtitles.flatMap(s=>s.id===id?parts:[s]),dubAudioUrl:undefined,dubDuration:undefined,selectedSubtitleId:parts[0].id}));}catch(e){alert(String(e));}};
   const handleExportMp4=async(captions:boolean)=>{
     if(!project.videoUrl)return;stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,progressPercent:0,currentTaskName:'Chuẩn bị xuất MP4...'}));
-    try{const form=new FormData();form.append('file',await (await fetch(project.videoUrl)).blob(),project.videoFileName||'video.mp4');form.append('options',JSON.stringify({ass:captions&&project.subtitles.length?generateAss(project):'',blur:project.blurRegion,aspect:project.captionLayout?.aspect||'auto',dubAudioUrl:project.dubAudioUrl,originalMuted:project.originalAudioMuted,originalVolume:project.originalAudioVolume}));
+    try{let exportProject=project;if(project.manualTimeline&&!project.dubAudioUrl){const mixed=await runJob('/api/timeline/mix',{clips:projectClips(project),duration:timelineEnd(project)},(v,t)=>setHardwareStatus(h=>({...h,progressPercent:v,currentTaskName:t})));exportProject={...project,dubAudioUrl:mixed.audioUrl,dubDuration:mixed.duration};setProject(exportProject);}
+      const form=new FormData();form.append('file',await (await fetch(exportProject.videoUrl!)).blob(),exportProject.videoFileName||'video.mp4');form.append('options',JSON.stringify({timelineDuration:timelineEnd(exportProject),ass:captions&&exportProject.subtitles.length?generateAss(exportProject):'',blur:exportProject.blurRegion,aspect:exportProject.captionLayout?.aspect||'auto',dubAudioUrl:exportProject.dubAudioUrl,originalMuted:exportProject.originalAudioMuted,originalVolume:exportProject.originalAudioVolume}));
       const body=await apiJson('/api/video/export',{method:'POST',body:form});window.dispatchEvent(new CustomEvent('hn-job',{detail:body.jobId}));
       for(;;){const job=await apiJson('/api/jobs/'+body.jobId);setHardwareStatus(h=>({...h,progressPercent:job.percent,currentTaskName:job.message}));if(job.state==='done'){const a=document.createElement('a');a.href=job.result.url;a.download=project.title+'_HNVoice.mp4';a.click();break;}if(['error','cancelled'].includes(job.state))throw new Error(job.message);await new Promise(r=>setTimeout(r,750));}
     }catch(e){alert(String(e));}finally{window.dispatchEvent(new CustomEvent('hn-job',{detail:null}));setHardwareStatus(h=>({...h,isProcessing:false,progressPercent:0,currentTaskName:''}));}
@@ -72,10 +74,24 @@ export default function App() {
       window.dispatchEvent(new CustomEvent('hn-job',{detail:body.jobId}));
       let result:any;
       for(;;){const job=await apiJson('/api/jobs/'+body.jobId);setHardwareStatus(h=>({...h,progressPercent:job.percent,currentTaskName:job.message}));if(job.state==='done'){result=job.result;break;}if(job.state==='error'||job.state==='cancelled')throw new Error(job.error||job.message);await new Promise(r=>setTimeout(r,750));}
-      pushHistory(project);setProject(p=>({...p,subtitles:result.subtitles,dubAudioUrl:undefined,dubDuration:undefined}));triggerDownload(result.srt,project.title+'_Gemini_Trung.srt','text/plain');setActiveSidebarTab('translation');
+      pushHistory(project);setProject(p=>({...p,subtitles:result.subtitles,audioClips:p.audioClips?.filter(c=>c.track==='audio'),dubAudioUrl:undefined,dubDuration:undefined}));triggerDownload(result.srt,project.title+'_Gemini_Trung.srt','text/plain');setActiveSidebarTab('translation');
     }catch(e){alert(String(e));}finally{window.dispatchEvent(new CustomEvent('hn-job',{detail:null}));setHardwareStatus(h=>({...h,isProcessing:false,progressPercent:0,currentTaskName:''}));}
   };
 
+  const applyTimeline=async(next:ProjectData)=>{
+    if(hardwareStatus.isProcessing)return;stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,progressPercent:0,currentTaskName:'Cập nhật timeline...'}));
+    try{validateTimeline(next);const mixed=await runJob('/api/timeline/mix',{clips:projectClips(next),duration:timelineEnd(next)},(v,t)=>setHardwareStatus(h=>({...h,progressPercent:v,currentTaskName:t})));pushHistory(project);setProject({...next,dubAudioUrl:mixed.audioUrl,dubDuration:mixed.duration});setCurrentTime(t=>Math.min(t,mixed.duration));}
+    catch(e){alert(String(e));}finally{setHardwareStatus(h=>({...h,isProcessing:false,progressPercent:0,currentTaskName:''}));}
+  };
+  const handleTimelineEdit=(edit:TimelineEdit)=>{try{applyTimeline(editTimeline(project,edit));}catch(e){alert(String(e));}};
+  const handleTimelineAudio=async(file?:File)=>{
+    if(hardwareStatus.isProcessing)return;stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,progressPercent:0,currentTaskName:file?'Đọc tệp âm thanh...':'Tách tiếng gốc từ video...'}));
+    try{const form=new FormData();if(file)form.append('file',file);else{if(!project.videoUrl)throw Error('Chưa chọn video.');form.append('file',await (await fetch(project.videoUrl)).blob(),project.videoFileName);}
+      const result=await apiJson('/api/timeline/import-audio',{method:'POST',body:form});const clips=projectClips(project);const at=file?Math.max(currentTime,...clips.filter(c=>c.track==='audio').map(c=>c.startTime+c.trimEnd-c.trimStart),0):0;
+      const next={...project,manualTimeline:true,originalAudioMuted:file?project.originalAudioMuted:true,audioClips:[...clips,{id:crypto.randomUUID(),origin:file?'file' as const:'video' as const,track:'audio' as const,name:file?.name||'Tiếng gốc · '+project.videoFileName,audioUrl:result.audioUrl,startTime:at,trimStart:0,trimEnd:result.duration,sourceDuration:result.duration,volume:1}]};validateTimeline(next);
+      const mixed=await runJob('/api/timeline/mix',{clips:next.audioClips,duration:timelineEnd(next)},(v,t)=>setHardwareStatus(h=>({...h,progressPercent:v,currentTaskName:t})));pushHistory(project);setProject({...next,dubAudioUrl:mixed.audioUrl,dubDuration:mixed.duration});setCurrentTime(t=>Math.min(t,mixed.duration));
+    }catch(e){alert(String(e));}finally{setHardwareStatus(h=>({...h,isProcessing:false,progressPercent:0,currentTaskName:''}));}
+  };
   // Undo / Redo history
   const [historyPast, setHistoryPast] = useState<ProjectData[]>([]);
   const [historyFuture, setHistoryFuture] = useState<ProjectData[]>([]);
@@ -87,19 +103,21 @@ export default function App() {
   }, []);
 
   const handleUndo = () => {
-    if (historyPast.length === 0) return;
+    if (hardwareStatus.isProcessing||historyPast.length === 0) return;
+    stopAudioPreview();setIsPlaying(false);
     const previous = historyPast[historyPast.length - 1];
     setHistoryFuture((f) => [project, ...f]);
     setHistoryPast((p) => p.slice(0, p.length - 1));
-    setProject(previous);
+    setProject(previous);setCurrentTime(t=>Math.min(t,timelineEnd(previous)));
   };
 
   const handleRedo = () => {
-    if (historyFuture.length === 0) return;
+    if (hardwareStatus.isProcessing||historyFuture.length === 0) return;
+    stopAudioPreview();setIsPlaying(false);
     const next = historyFuture[0];
     setHistoryPast((p) => [...p, project]);
     setHistoryFuture((f) => f.slice(1));
-    setProject(next);
+    setProject(next);setCurrentTime(t=>Math.min(t,timelineEnd(next)));
   };
 
   // Hardware / VRAM monitor simulation (NVIDIA GTX 1050 Ti 4GB, 16GB RAM)
@@ -147,6 +165,7 @@ export default function App() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't trigger if user is typing in input or textarea
+      if(e.defaultPrevented)return;
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement ||
@@ -187,7 +206,7 @@ export default function App() {
         selectedSubtitleId: null,
         dubAudioUrl:undefined,
         dubDuration:undefined,
-        videoFileName: file.name,
+        videoFileName: file.name,audioClips:undefined,manualTimeline:false,
         duration: dur,
         videoWidth:videoEl.videoWidth,videoHeight:videoEl.videoHeight,
         title: file.name.replace(/\.[^/.]+$/, ''),
@@ -275,7 +294,7 @@ export default function App() {
 
       setProject((p) => ({
         ...p,
-        subtitles: translated,
+        subtitles: translated,audioClips:p.audioClips?.filter(c=>c.track==='audio'),
         translationMode: mode,
         dubAudioUrl:undefined,
         dubDuration:undefined,
@@ -313,7 +332,11 @@ export default function App() {
     try {
       const subtitles=project.subtitles.map(sub=>({...sub,voiceId:sub.voiceId||project.characters.find(c=>c.id===sub.characterId)?.voiceId||'Hải Đăng'}));
       const result=await runJob('/api/dub',{subtitles,videoDuration:project.duration},(percent,message)=>setHardwareStatus(h=>({...h,progressPercent:percent,currentTaskName:message})));
-      setProject(p=>({...p,subtitles:result.subtitles.map((s:Subtitle)=>({...s,status:(s.ttsShift||0)>.15?'warning_overflow':'synced'})),dubAudioUrl:result.audioUrl,dubDuration:result.duration,originalAudioMuted:true}));
+      const rows=result.subtitles.map((s:Subtitle)=>({...s,status:(s.ttsShift||0)>.15?'warning_overflow':'synced'}));
+      let next:ProjectData={...project,subtitles:rows,audioClips:undefined,dubAudioUrl:result.audioUrl,dubDuration:result.duration,originalAudioMuted:true};
+      const imported=projectClips(project).filter(c=>c.track==='audio');
+      if(project.manualTimeline||imported.length){next={...next,manualTimeline:true,audioClips:[...projectClips(next),...imported]};const mix=await runJob('/api/timeline/mix',{clips:next.audioClips,duration:timelineEnd(next)},(v,t)=>setHardwareStatus(h=>({...h,progressPercent:v,currentTaskName:t})));next={...next,dubAudioUrl:mix.audioUrl,dubDuration:mix.duration};}
+      setProject(next);
     } catch (err) {
       alert(String(err));
     } finally {
@@ -334,7 +357,7 @@ export default function App() {
     if(updates.characterId){const person=project.characters.find(c=>c.id===updates.characterId);updates={...updates,voiceId:person?.voiceId};}
     const affectsAudio=['textZh','textVi','speed','pitch','volume','voiceId','characterId'].some(key=>key in updates);
     if(affectsAudio){stopAudioPreview();setIsPlaying(false);}
-    setProject(p=>({...p,...(affectsAudio?{dubAudioUrl:undefined,dubDuration:undefined}:{}),subtitles:p.subtitles.map(s=>s.id===id?{...s,...(affectsAudio?{ttsAudioUrl:undefined,ttsDuration:undefined}:{}),...updates}:s)}));
+    setProject(p=>({...p,...(affectsAudio?{dubAudioUrl:undefined,dubDuration:undefined,audioClips:p.audioClips?.filter(c=>c.subtitleId!==id)}:{}),subtitles:p.subtitles.map(s=>s.id===id?{...s,...(affectsAudio?{ttsAudioUrl:undefined,ttsDuration:undefined}:{}),...updates}:s)}));
   };
 
   // Retranslate a single sentence
@@ -395,10 +418,8 @@ export default function App() {
     );
 
     const updated=project.subtitles.map(s=>s.id===id?{...s,ttsAudioUrl:synthResult.audioUrl,ttsDuration:synthResult.duration}:s);
-    const ready=updated.filter(s=>s.ttsAudioUrl&&s.textVi);
-    const mixed=await apiJson('/api/mix',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subtitles:ready,videoDuration:project.duration})});
-    const map=new Map<string,Subtitle>(mixed.subtitles.map((s:Subtitle)=>[s.id,s]));
-    setProject(p=>({...p,subtitles:updated.map(s=>map.get(s.id)||s),dubAudioUrl:mixed.audioUrl,dubDuration:mixed.duration,originalAudioMuted:true}));
+    if(project.manualTimeline){const previous=projectClips(project);const old=previous.find(c=>c.subtitleId===id);const next:ProjectData={...project,subtitles:updated,audioClips:[...previous.filter(c=>c.subtitleId!==id),{id:old?.id||crypto.randomUUID(),subtitleId:id,track:'voice',name:sub.textVi,audioUrl:synthResult.audioUrl,startTime:old?.startTime??sub.startTime,trimStart:0,trimEnd:synthResult.duration,sourceDuration:synthResult.duration,volume:1}]};validateTimeline(next);const mix=await runJob('/api/timeline/mix',{clips:next.audioClips,duration:timelineEnd(next)},(v,t)=>setHardwareStatus(h=>({...h,progressPercent:v,currentTaskName:t})));pushHistory(project);setProject({...next,dubAudioUrl:mix.audioUrl,dubDuration:mix.duration,originalAudioMuted:true});}
+    else{const ready=updated.filter(s=>s.ttsAudioUrl&&s.textVi);const mixed=await apiJson('/api/mix',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subtitles:ready,videoDuration:project.duration})});const map=new Map<string,Subtitle>(mixed.subtitles.map((s:Subtitle)=>[s.id,s]));setProject(p=>({...p,audioClips:undefined,subtitles:updated.map(s=>map.get(s.id)||s),dubAudioUrl:mixed.audioUrl,dubDuration:mixed.duration,originalAudioMuted:true}));}
     } catch(e) {alert(String(e));} finally {
     setHardwareStatus((h) => ({
       ...h,
@@ -417,43 +438,6 @@ export default function App() {
     alert('Bản này dùng Whisper-small. Chưa cài Paraformer.');
   };
 
-  // Split subtitle at time
-  const handleSplitSubtitle = (id: string, splitTime: number) => {
-    const sub = project.subtitles.find((s) => s.id === id);
-    if (!sub || splitTime <= sub.startTime || splitTime >= sub.endTime) return;
-
-    pushHistory(project);
-    const newSub1: Subtitle = {
-      ...sub,
-      endTime: splitTime,
-      status: 'needs_retranslation',
-    };
-    const newSub2: Subtitle = {
-      ...sub,
-      id: `sub-${Date.now().toString().slice(-4)}`,
-      startTime: splitTime,
-      textZh: '...',
-      textVi: '...',
-      status: 'needs_retranslation',
-      ttsAudioUrl: undefined,
-    };
-
-    setProject((p) => ({
-      ...p,
-      subtitles: p.subtitles.flatMap((s) => (s.id === id ? [newSub1, newSub2] : [s])),
-    }));
-  };
-
-  // Delete subtitle
-  const handleDeleteSubtitle = (id: string) => {
-    pushHistory(project);
-    setProject((p) => ({
-      ...p,
-      subtitles: p.subtitles.filter((s) => s.id !== id),
-      selectedSubtitleId: null,
-    }));
-  };
-
   // Update Character properties
   const handleAddCharacter=()=>{
     pushHistory(project);const count=project.characters.length;
@@ -463,7 +447,7 @@ export default function App() {
     pushHistory(project);
     const audioChanged=['voiceId','speed','pitch'].some(k=>k in updates);
     if(audioChanged){stopAudioPreview();setIsPlaying(false);}
-    setProject(p=>({...p,characters:p.characters.map(c=>c.id===id?{...c,...updates}:c),...(audioChanged?{dubAudioUrl:undefined,dubDuration:undefined,subtitles:p.subtitles.map(s=>s.characterId===id?{...s,...updates,ttsAudioUrl:undefined,ttsDuration:undefined,status:'needs_tts'}:s)}:{})}));
+    setProject(p=>({...p,characters:p.characters.map(c=>c.id===id?{...c,...updates}:c),...(audioChanged?{dubAudioUrl:undefined,dubDuration:undefined,audioClips:p.audioClips?.filter(c=>!p.subtitles.some(s=>s.id===c.subtitleId&&s.characterId===id)),subtitles:p.subtitles.map(s=>s.characterId===id?{...s,...updates,ttsAudioUrl:undefined,ttsDuration:undefined,status:'needs_tts'}:s)}:{})}));
   };
 
   // Export functions
@@ -474,7 +458,7 @@ export default function App() {
   };
 
   const handleExportDubSrt=()=>{
-    const cues=project.subtitles.filter(s=>s.ttsAudioUrl&&s.dubStartTime!==undefined).map(s=>({...s,startTime:s.dubStartTime!,endTime:s.dubEndTime!}));
+    const cues=project.manualTimeline?project.subtitles:project.subtitles.filter(s=>s.ttsAudioUrl&&s.dubStartTime!==undefined).map(s=>({...s,startTime:s.dubStartTime!,endTime:s.dubEndTime!}));
     triggerDownload(generateSrt(cues,'vi'),project.title+'_theo_giong.srt','text/plain');
   };
   const handleExportWav = async () => {
@@ -534,6 +518,7 @@ export default function App() {
 
         {/* Center: Video Player Preview */}
         <VideoPlayer
+          manualTimeline={project.manualTimeline} originalDetached={projectClips(project).some(c=>c.origin==='video')}
           blur={project.blurRegion||{enabled:false,x:.1,y:.78,width:.8,height:.15,strength:16}} onBlurChange={b=>setProject(p=>({...p,blurRegion:b}))}
           expanded={previewExpanded} onToggleExpanded={()=>setPreviewExpanded(v=>!v)}
           layout={project.captionLayout||DEFAULT_CAPTION_LAYOUT}
@@ -574,15 +559,11 @@ export default function App() {
 
       {/* 3. Bottom: CapCut-Style Multi-Track Timeline */}
       <div className={previewExpanded?'hidden':'contents'}><Timeline
-        subtitles={project.subtitles}
-        characters={project.characters}
-        currentTime={currentTime}
-        duration={project.duration}
-        selectedSubtitleId={project.selectedSubtitleId}
-        onSelectSubtitle={(id) => setProject((p) => ({ ...p, selectedSubtitleId: id }))}
-        onSeek={(t) => setCurrentTime(t)}
-        onSplitSubtitle={handleSplitSubtitle}
-        onDeleteSubtitle={handleDeleteSubtitle}
+        project={project} currentTime={currentTime} busy={hardwareStatus.isProcessing}
+        canUndo={historyPast.length>0} canRedo={historyFuture.length>0} onUndo={handleUndo} onRedo={handleRedo}
+        onSeek={setCurrentTime} onPause={()=>{stopAudioPreview();setIsPlaying(false);}}
+        onSelectSubtitle={id=>setProject(p=>({...p,selectedSubtitleId:id}))}
+        onRemix={()=>applyTimeline({...project,manualTimeline:true})} onEdit={handleTimelineEdit} onImportAudio={file=>handleTimelineAudio(file)} onExtractOriginal={()=>handleTimelineAudio()}
       /></div>
 
       {/* 4. Offline Packaging & Manifest Modal */}

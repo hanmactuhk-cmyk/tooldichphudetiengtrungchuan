@@ -1,4 +1,4 @@
-# Kiểm thử Windows — Electron 5.2.0
+# Kiểm thử Windows — Electron 5.3.0
 
 Ngày 22/10/2026, trên máy Windows của người dùng. Bản EXE đóng gói, CPU và model offline đã có.
 
@@ -27,3 +27,12 @@ SRT không lưu tọa độ; chọn ASS để lưu vị trí. Khung xem trước
 - Giao diện: bật/tắt vùng mờ, kéo, kéo góc thay kích thước, tải MP4 đều đạt.
 - Gemini: hồ sơ hết đăng nhập được nhận diện; hỗ trợ nhãn nút tiếng Việt/Anh; đợi CDP, thử lại menu chưa sẵn sàng, xác nhận thành phần tệp đính kèm dù nút xóa chỉ hiện khi rê chuột.
 - Prompt mới: “Lấy phụ đề này giúp tôi, phụ đề khớp thời gian trên video.” kèm định dạng SRT; video mẫu trả SRT hợp lệ. Có một lượt yêu cầu lại tự động khi Gemini trả khác định dạng.
+
+## Bổ sung 5.3
+
+- EXE Electron 5.3: phát giọng thật, chỉ một nguồn giọng, giữ giọng qua cuối video, xuất WAV/SRT/MP4 và dừng worker khi đóng: đạt.
+- Timeline giao diện: kéo phụ đề/âm thanh, cắt tại vạch phát, trim, khóa hàng, nhân đôi, xóa, hoàn tác/làm lại, giữ vị trí vạch phát sau khi ghép: đạt.
+- WAV và audio giải mã từ MP4 sau chỉnh: đúng đoạn có tiếng và khoảng im lặng đã cắt.
+- Tách tiếng gốc, chỉnh âm lượng đoạn, sóng âm từ WAV thật, cắt nguồn gốc, chặn phát trùng tiếng nhúng trong video: đạt.
+- Cắt không thay tệp nguồn; clip trên cùng hàng trùng nhau bị từ chối; hủy ghép dọn WAV tạm: đạt.
+- [Ảnh timeline](timeline.png).

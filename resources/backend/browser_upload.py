@@ -6,7 +6,7 @@ those transfers at 50 MB even when Chrome and the worker run on this same PC.
 from pathlib import Path
 import uuid
 
-def attach_local_video(page,locator,source):
+def attach_local_file(page,locator,source,allow_cleared=False):
     path=Path(source).resolve(strict=True)
     if not path.is_file():raise ValueError('Không tìm thấy tệp video để tải lên Chrome.')
     expected=path.stat().st_size
@@ -23,6 +23,10 @@ def attach_local_video(page,locator,source):
         # Only a local path crosses CDP. Chrome reads every byte from disk itself.
         session.send('DOM.setFileInputFiles',{'nodeId':node,'files':[str(path)]})
         files=handle.evaluate('(input) => Array.from(input.files || []).map(f => ({name:f.name, size:f.size}))')
+        if not files and allow_cleared:
+            # ChatGPT clears input.value in its change handler. Its attachment card
+            # must be verified by the caller before sending.
+            return {'name':path.name,'size':expected,'inputCleared':True}
         if len(files)!=1 or files[0]['size']!=expected or files[0]['name']!=path.name:
             raise ValueError('Chrome chưa chọn đúng toàn bộ tệp video. Chưa gửi yêu cầu Gemini.')
         return files[0]
@@ -32,3 +36,6 @@ def attach_local_video(page,locator,source):
         if session is not None:
             try:session.detach()
             except Exception:pass
+
+# Existing Gemini callers retain strict name/size verification.
+attach_local_video=attach_local_file

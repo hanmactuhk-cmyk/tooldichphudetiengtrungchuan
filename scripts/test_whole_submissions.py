@@ -37,10 +37,16 @@ class Page:
  def __init__(self):self.url='https://gemini.google.com/app/test';self.uploads=[];self.prompts=[];self.context=type('Context',(),{'new_cdp_session':lambda _,page:Session(page)})();self.keyboard=type('Keyboard',(),{'press':lambda *_:None})()
  def goto(self,url,**kwargs):self.url=url
  def bring_to_front(self):pass
+ def set_default_timeout(self,*args):pass
+ def is_closed(self):return False
  def locator(self,*_):return Element(self)
 class Service(BrowserTranslator):
  def __init__(self,page,cues):super().__init__('profiles');self.page=page;self.cues=cues;self.sends=0;self.waits=0
  def open(self,*_):pass
+ def attach_srt(self,page,source,*args):
+  self.page.srt_text=source.read_text(encoding='utf-8');return {'name':source.name,'size':source.stat().st_size}
+ def send_prompt_once(self,page,cfg,prompt,before,progress,cancelled,**kwargs):Element(page).fill(prompt)
+
  def visible(self,page,selectors):
   if any('Sign in' in s or 'Đăng nhập' in s or 'progress' in s or 'spinner' in s for s in selectors):return None
   return Element(page)
@@ -56,7 +62,17 @@ class WholeSubmissionTests(unittest.TestCase):
   with self.playwright(page):
    result=service.translate('chatgpt',cues)
   self.assertEqual(len(page.prompts),1);self.assertEqual(service.waits,1);self.assertEqual(result['submissions'],1);self.assertEqual(len(result['translations']),81)
-  self.assertIn(to_srt(cues),page.prompts[0]);self.assertEqual(result['translations'][-1]['id'],'80')
+  self.assertEqual(to_srt(cues),page.srt_text);self.assertLess(len(page.prompts[0]),2000);self.assertNotIn('<SRT_CAN_DICH>',page.prompts[0]);self.assertEqual(result['inputMode'],'srt-file');self.assertEqual(result['translations'][-1]['id'],'80')
+ def test_incomplete_reply_retries_whole_file(self):
+  page=Page();cues=[dict(id=str(i),startTime=i*2,endTime=i*2+1,textZh='你好。') for i in range(81)];service=Service(page,cues)
+  original=service.wait_response;calls=[]
+  def response(*args,**kwargs):
+   calls.append(1)
+   if len(calls)==1:raise ValueError('Incomplete SRT')
+   return original(*args,**kwargs)
+  service.wait_response=response;service.pause=lambda *_:None
+  with self.playwright(page):result=service.translate('chatgpt',cues)
+  self.assertEqual(result['submissions'],2);self.assertEqual(len(result['translations']),81);self.assertEqual(to_srt(cues),page.srt_text);self.assertEqual(len(page.prompts),2)
  def test_long_video_original_file_single_upload(self):
   page=Page();cue=dict(id='one',startTime=598,endTime=599,textZh='你好。');service=Service(page,[cue])
   temp_root=Path(__file__).resolve().parents[1]/'test-results';temp_root.mkdir(exist_ok=True)

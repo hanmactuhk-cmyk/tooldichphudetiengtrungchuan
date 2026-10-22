@@ -1,10 +1,10 @@
-# HN Voice Studio 5.4.1 — Bộ cài Windows
+# HN Voice Studio 5.4.2 — Bộ cài Windows
 
 Đọc lời nói hoặc chữ phụ đề tiếng Trung từ video MP4, dịch sang tiếng Việt và tạo giọng VieNeu-TTS. Giao diện mở trong cửa sổ ứng dụng Windows; không phải mở trình duyệt để dùng các chức năng offline. Gemini và ChatGPT vẫn dùng Chrome riêng để đăng nhập và dịch theo lựa chọn của người dùng.
 
 ## Cài đặt Windows
 
-**Đã cài bản đầy đủ 5.4:** đóng ứng dụng sau khi xuất WAV/SRT cần giữ, tải `HNVoice-Studio-5.4.1-Update-Setup.exe` ở [bản cập nhật 5.4.1](https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan/releases/tag/v5.4.1) rồi cài vào đúng thư mục hiện tại. Bản cập nhật giữ model đã cài; không phải tải lại model. 5.4.1 gửi nguyên video Gemini một lần và toàn bộ SRT ChatGPT một lần.
+**Đã cài bản đầy đủ 5.4:** đóng ứng dụng sau khi xuất WAV/SRT cần giữ, tải `HNVoice-Studio-5.4.2-Update-Setup.exe` ở [bản cập nhật 5.4.2](https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan/releases/tag/v5.4.2) rồi cài vào đúng thư mục hiện tại. Bản cập nhật giữ model đã cài; không phải tải lại model. 5.4.2 sửa lỗi tệp lớn hơn 50 MB khi tải Gemini qua CDP: Chrome đọc trực tiếp đường dẫn cục bộ, không chuyển toàn bộ byte video qua Playwright. Vẫn gửi nguyên video Gemini một lần và toàn bộ SRT ChatGPT một lần. Video mẫu 210 MiB được thử tải thực tế; giới hạn của tài khoản/dịch vụ vẫn áp dụng.
 
 **Máy chưa cài:** vào [bộ cài đầy đủ 5.4.0](https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan/releases/tag/v5.4.0), tải `HNVoice-Studio-5.4.0-Setup.exe` và **tất cả** file `HNVoice-Studio-5.4.0-Setup-*.bin` vào cùng một thư mục. Chạy Setup.exe, chọn thư mục cài, chờ hoàn tất rồi mở HN Voice Studio từ Desktop hoặc Start Menu. Không cần giải nén, cài Python/Node hay tải thêm model. Giữ nguyên tên các file tải xuống. `installer-sha256.json` chứa kích thước và SHA256 để đối chiếu.
 

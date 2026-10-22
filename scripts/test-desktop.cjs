@@ -65,13 +65,14 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
   await page.getByRole('button',{name:'3. Dịch',exact:true}).click();assert.equal(await page.getByLabel('Chọn cách dịch',{exact:true}).locator('option').count(),3);
   await page.screenshot({path:path.join(out,'electron-app.png')});report.pageErrors=errors;assert.equal(errors.length,0);
   if(process.env.HN_TEST_GEMINI_VIDEO){
-    await page.getByRole('button',{name:'1. Video / SRT',exact:true}).click();await page.getByLabel('Chọn video',{exact:true}).setInputFiles(path.join(root,'tests/fixtures/video-tieng-trung.mp4'));await page.getByRole('heading',{name:'Nhận diện tiếng Trung',exact:true}).waitFor();
+    await page.getByRole('button',{name:'1. Video / SRT',exact:true}).click();await page.getByLabel('Chọn video',{exact:true}).setInputFiles(process.env.HN_TEST_GEMINI_FIXTURE||path.join(root,'tests/fixtures/video-tieng-trung.mp4'));await page.getByRole('heading',{name:'Nhận diện tiếng Trung',exact:true}).waitFor();
     await page.getByRole('button',{name:'Mở Gemini / đăng nhập',exact:true}).click();
     await page.waitForFunction(async()=>{const r=await fetch('/api/browser/status');return r.ok&&(await r.json()).gemini.connected;},{},{timeout:30000});
     await page.getByRole('button',{name:'Tải video lên Gemini → lấy SRT',exact:true}).click();
     await page.getByRole('heading',{name:'Dịch Trung–Việt',exact:true}).waitFor({timeout:660000});
     report.geminiCues=await page.locator('textarea:not([placeholder])').count();assert(report.geminiCues>0);
     report.geminiVideoImported=true;
+    if(process.env.HN_TEST_GEMINI_FIXTURE)report.geminiInputBytes=fs.statSync(process.env.HN_TEST_GEMINI_FIXTURE).size;
     if(!process.env.HN_TEST_GEMINI_READ_ONLY){
     await page.getByLabel('Chọn cách dịch',{exact:true}).selectOption(process.env.HN_TEST_GEMINI_TO_CHATGPT?'chatgpt':'gemini');await page.getByRole('button',{name:'Dịch sang tiếng Việt',exact:true}).click();
     await page.getByRole('heading',{name:'VieNeu-TTS v3 Turbo',exact:true}).waitFor({timeout:360000});

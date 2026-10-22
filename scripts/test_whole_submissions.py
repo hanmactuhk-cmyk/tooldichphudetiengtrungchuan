@@ -15,12 +15,26 @@ class Element:
  def first(self):return self
  def count(self):return 0
  def wait_for(self,**kwargs):pass
- def set_input_files(self,path,**kwargs):self.page.uploads.append(Path(path))
+ def set_input_files(self,*args,**kwargs):raise AssertionError('Must not use Playwright payload file upload')
+ def element_handle(self):return self
+ def evaluate(self,script,arg=None):
+  if 'Array.from' in script:
+   source=self.page.uploads[-1];return [{'name':source.name,'size':source.stat().st_size}]
  def fill(self,text):self.page.prompts.append(text)
  def click(self):pass
  def is_enabled(self):return True
+class Session:
+ def __init__(self,page):self.page=page
+ def send(self,method,params):
+  if method=='DOM.getDocument':return {'root':{'nodeId':1}}
+  if method=='DOM.querySelector':return {'nodeId':2}
+  if method=='DOM.setFileInputFiles':
+   assert set(params)=={'nodeId','files'}
+   self.page.uploads.extend(Path(p) for p in params['files']);return {}
+  raise AssertionError(method)
+ def detach(self):pass
 class Page:
- def __init__(self):self.url='https://gemini.google.com/app/test';self.uploads=[];self.prompts=[];self.keyboard=type('Keyboard',(),{'press':lambda *_:None})()
+ def __init__(self):self.url='https://gemini.google.com/app/test';self.uploads=[];self.prompts=[];self.context=type('Context',(),{'new_cdp_session':lambda _,page:Session(page)})();self.keyboard=type('Keyboard',(),{'press':lambda *_:None})()
  def goto(self,url,**kwargs):self.url=url
  def bring_to_front(self):pass
  def locator(self,*_):return Element(self)
@@ -48,10 +62,10 @@ class WholeSubmissionTests(unittest.TestCase):
   temp_root=Path(__file__).resolve().parents[1]/'test-results';temp_root.mkdir(exist_ok=True)
   with tempfile.TemporaryDirectory(dir=temp_root) as folder:
    source=Path(folder)/'original.mp4'
-   with source.open('wb') as f:f.truncate(65*1024*1024)
+   with source.open('wb') as f:f.truncate(210*1024*1024)
    with self.playwright(page),patch('browser_translation.cdp_get',return_value={}),patch('video_subtitles.time.sleep'),patch('video_subtitles.time.monotonic',side_effect=range(10000)):
     result=extract_with_gemini(service,source,600,lambda *_:self.fail('Must never cut or transcode video'))
-   self.assertEqual(page.uploads,[source.resolve()]);self.assertEqual(len(page.prompts),1);self.assertEqual(result['chunks'],1);self.assertTrue(result['wholeVideo']);self.assertEqual(result['subtitles'][0]['startTime'],598)
+   self.assertEqual(page.uploads,[source.resolve()]);self.assertEqual(len(page.prompts),1);self.assertEqual(result['chunks'],1);self.assertTrue(result['wholeVideo']);self.assertEqual(result['uploadedFile']['size'],210*1024*1024);self.assertEqual(result['subtitles'][0]['startTime'],598)
  def test_partial_srt_never_imported(self):
   cues=[dict(id=str(i),startTime=i,endTime=i+.5,textZh='你好') for i in range(81)]
   with self.assertRaises(ValueError):from_srt(to_srt([dict(cues[0],textZh='Xin chào')]),cues)

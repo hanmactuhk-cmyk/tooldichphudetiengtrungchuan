@@ -3,6 +3,7 @@ import math,re,time
 from pathlib import Path
 from urllib.parse import urlparse
 from subtitle_contract import parse_srt,to_srt,validate_cues
+from browser_upload import attach_local_video
 
 VIDEO_PROMPT=('Lấy phụ đề này giúp tôi, phụ đề khớp thời gian trên video. '
  'Trả về nội dung file SRT tiếng Trung với số thứ tự và thời gian HH:MM:SS,mmm --> HH:MM:SS,mmm. '
@@ -67,7 +68,7 @@ def extract_with_gemini(service,source,duration,ffmpeg,progress=lambda *_:None,c
     except Exception:time.sleep(1)
    if not attached:raise ValueError('Gemini chưa mở được mục tải tệp. Hãy kiểm tra thông báo/đăng nhập trong Chrome rồi thử lại.')
    progress(5,'Gemini: tải nguyên video lên một lần...')
-   inputs.last.set_input_files(str(source.resolve()),timeout=180000);page.keyboard.press('Escape')
+   uploaded=attach_local_video(page,inputs.last,source);page.keyboard.press('Escape')
    # Do not send until the attachment is actually represented in Gemini's composer.
    try:page.locator('button[aria-label="đóng tệp đính kèm"],button[aria-label*="Remove attachment" i],button[aria-label*="Remove file" i],button[aria-label*="Close attachment" i]').first.wait_for(state='attached',timeout=60000)
    except Exception:raise ValueError('Gemini chưa xác nhận video đính kèm. Chưa gửi yêu cầu để tránh trả lời không có video.')
@@ -87,5 +88,5 @@ def extract_with_gemini(service,source,duration,ffmpeg,progress=lambda *_:None,c
    valid=service.wait_response(page,cfg,before,lambda answer:source_cues(answer,duration),cancelled,timeout=1800)
    for i,c in enumerate(valid,1):c['id']=f'gemini-{i:04d}'
    validate_cues(valid);progress(100,'Đã lấy SRT toàn bộ video từ Gemini, chuyển sang bước Dịch.')
-   return {'subtitles':valid,'srt':to_srt(valid),'modelUsed':'Gemini video qua Chrome CDP','conversationUrls':[page.url],'chunks':1,'wholeVideo':True}
+   return {'subtitles':valid,'srt':to_srt(valid),'modelUsed':'Gemini video qua Chrome CDP','conversationUrls':[page.url],'chunks':1,'wholeVideo':True,'uploadedFile':uploaded}
  finally:service.locks['gemini'].release()

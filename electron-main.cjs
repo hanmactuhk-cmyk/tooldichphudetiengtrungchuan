@@ -48,7 +48,8 @@ async function start(){
  }
  if(quitting)return;if(!ready)throw new Error('Bộ xử lý không sẵn sàng sau 90 giây.');
  session.defaultSession.setPermissionRequestHandler((_wc,_permission,callback)=>callback(false));
- mainWindow=new BrowserWindow({title:'HN Voice Studio',width:1440,height:930,minWidth:1100,minHeight:700,show:false,backgroundColor:'#101827',autoHideMenuBar:true,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true,preload:path.join(__dirname,'preload.cjs')}});
+ mainWindow=new BrowserWindow({title:'HN Voice Studio '+app.getVersion(),width:1440,height:930,minWidth:1100,minHeight:700,show:false,backgroundColor:'#101827',autoHideMenuBar:true,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true,preload:path.join(__dirname,'preload.cjs')}});
+ mainWindow.on('page-title-updated',event=>{event.preventDefault();mainWindow.setTitle('HN Voice Studio '+app.getVersion());});
  mainWindow.webContents.setWindowOpenHandler(()=>({action:'deny'}));
  mainWindow.webContents.on('will-navigate',(event,url)=>{if(new URL(url).origin!==origin)event.preventDefault();});
  mainWindow.webContents.on('will-attach-webview',event=>event.preventDefault());

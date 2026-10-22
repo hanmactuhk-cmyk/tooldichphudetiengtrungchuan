@@ -1,0 +1,25 @@
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
+module.exports=function({ipcMain,dialog,mainWindow,trusted,cacheHome,origin}){
+ const cacheFile=url=>{if(typeof url!=='string'||!/^\/cache\/[a-zA-Z0-9_.-]+\.(wav|mp4)$/.test(url))throw Error('Media dự án không hợp lệ.');return path.join(cacheHome,path.basename(url));};
+ ipcMain.handle('hn-save-project',async(event,payload)=>{
+  if(!trusted(event))throw Error('Nguồn không hợp lệ.');
+  const project=JSON.parse(JSON.stringify(payload.project));if(!Array.isArray(project.subtitles)||project.subtitles.length>20000)throw Error('Dự án không hợp lệ.');
+  const result=await dialog.showSaveDialog(mainWindow,{title:'Lưu dự án HNstudio',defaultPath:path.basename(String(project.title||'Du-an')).replace(/[<>:"/\\|?*]/g,'_')+'.hnproject',filters:[{name:'Dự án HNstudio',extensions:['hnproject']}]});if(result.canceled)return null;
+  const destination=result.filePath,assets=path.basename(destination)+'.media-'+crypto.randomUUID().slice(0,8),folder=path.join(path.dirname(destination),assets);await fs.promises.mkdir(folder);
+  const media={},urls=new Set([project.dubAudioUrl,...(project.audioClips||[]).map(c=>c.audioUrl),...project.subtitles.map(c=>c.ttsAudioUrl)].filter(Boolean));
+  for(const url of urls){const name=crypto.randomUUID()+'.wav';await fs.promises.copyFile(cacheFile(url),path.join(folder,name));media[url]=name;}
+  let video=null;if(project.videoUrl){const source=payload.videoPath||cacheFile(project.videoUrl);if(!/\.(mp4|mov|mkv|webm|avi|m4v|ts|mts|m2ts|mpeg|mpg|3gp|wmv|mp3|wav|m4a|aac|ogg|flac)$/i.test(source))throw Error('Tệp video hoặc âm thanh không hợp lệ.');if(!fs.statSync(source).isFile())throw Error('Không đọc được video nguồn.');video='video.mp4';await fs.promises.copyFile(source,path.join(folder,video));}
+  const document={format:'HNstudio',version:1,assets,video,media,project};const temp=destination+'.'+crypto.randomUUID()+'.tmp';await fs.promises.writeFile(temp,JSON.stringify(document));await fs.promises.rename(temp,destination);return destination;
+ });
+ ipcMain.handle('hn-open-project',async event=>{
+  if(!trusted(event))throw Error('Nguồn không hợp lệ.');const chosen=await dialog.showOpenDialog(mainWindow,{title:'Mở dự án HNstudio',filters:[{name:'Dự án HNstudio',extensions:['hnproject']}],properties:['openFile']});if(chosen.canceled)return null;
+  const file=chosen.filePaths[0];if(fs.statSync(file).size>32*1024*1024)throw Error('File dự án quá lớn.');const document=JSON.parse(await fs.promises.readFile(file,'utf8'));
+  if(document.format!=='HNstudio'||document.version!==1||!Array.isArray(document.project?.subtitles)||document.project.subtitles.length>20000||Object.keys(document.media||{}).length>4000)throw Error('Không đúng định dạng dự án HNstudio.');
+  const basename=name=>{if(typeof name!=='string'||!name||name!==path.basename(name)||name==='.'||name==='..')throw Error('Đường dẫn media không hợp lệ.');return name;};const folder=path.join(path.dirname(file),basename(document.assets));
+  if((await fs.promises.lstat(folder)).isSymbolicLink())throw Error('Thư mục media không hợp lệ.');
+  const copy=async(name,extension)=>{const source=path.join(folder,basename(name));if((await fs.promises.lstat(source)).isSymbolicLink())throw Error('Media không hợp lệ.');const target=crypto.randomUUID()+extension;await fs.promises.copyFile(source,path.join(cacheHome,target));return '/cache/'+target;};
+  const media={};for(const [url,name] of Object.entries(document.media||{}))media[url]=await copy(name,'.wav');const p=document.project;
+  if(p.dubAudioUrl&&!media[p.dubAudioUrl])throw Error('Thiếu bản âm thanh đã ghép.');p.dubAudioUrl=media[p.dubAudioUrl];for(const c of p.audioClips||[]){if(!media[c.audioUrl])throw Error('Thiếu media âm thanh.');c.audioUrl=media[c.audioUrl];}for(const s of p.subtitles)if(s.ttsAudioUrl)s.ttsAudioUrl=media[s.ttsAudioUrl];
+  p.videoUrl=document.video?await copy(document.video,'.mp4'):null;p.currentTime=0;return {project:p,path:file};
+ });
+};

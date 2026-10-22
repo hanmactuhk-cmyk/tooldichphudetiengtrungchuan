@@ -9,10 +9,12 @@
 #endif
 
 [Setup]
+SetupIconFile=..\public\hnstudio.ico
+UninstallDisplayIcon={app}\hnstudio.ico
 AppId={{768FC19A-91B4-47F8-A8C4-1F35DB6D5001}
 AppName=HN Voice Studio
 AppVersion={#AppVersion}
-AppPublisher=hanmactuhk-cmyk
+AppPublisher=Hoài Nguyễn Studio
 AppPublisherURL=https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan
 AppSupportURL=https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan/issues
 AppUpdatesURL=https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan/releases
@@ -23,7 +25,6 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.17763
 UninstallDisplayName=HN Voice Studio {#AppVersion}
-UninstallDisplayIcon={app}\HN Voice Studio.exe
 OutputDir={#OutputDir}
 #ifdef UpdateOnly
 OutputBaseFilename=HNVoice-Studio-{#AppVersion}-Update-Setup
@@ -57,6 +58,10 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Excludes: "resources\models\*,HUONG-DAN.md,*.log,START.bat,TAO-LOI-TAT.bat,TAO-LOI-TAT.ps1,local-settings.json,desktop-settings.json,data\*,cache\*,chrome-profiles\*"; Flags: ignoreversion recursesubdirs createallsubdirs
+#ifdef UpdateOnly
+Source: "{#SourceDir}\resources\models\separation\*"; DestDir: "{app}\resources\models\separation"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#SourceDir}\resources\models\manifest.json"; DestDir: "{app}\resources\models"; Flags: ignoreversion
+#endif
 #ifndef UpdateOnly
 Source: "{#SourceDir}\resources\models\*"; DestDir: "{app}\resources\models"; Flags: ignoreversion recursesubdirs createallsubdirs nocompression
 #endif
@@ -64,8 +69,8 @@ Source: "..\README.md"; DestDir: "{app}"; DestName: "HUONG-DAN.md"; Flags: ignor
 Source: "installed-mode"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\HN Voice Studio"; Filename: "{app}\HN Voice Studio.exe"; WorkingDir: "{app}"
-Name: "{autodesktop}\HN Voice Studio"; Filename: "{app}\HN Voice Studio.exe"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{autoprograms}\HN Voice Studio"; Filename: "{app}\HN Voice Studio.exe"; WorkingDir: "{app}"; IconFilename: "{app}\hnstudio.ico"
+Name: "{autodesktop}\HN Voice Studio"; Filename: "{app}\HN Voice Studio.exe"; WorkingDir: "{app}"; Tasks: desktopicon; IconFilename: "{app}\hnstudio.ico"
 Name: "{autoprograms}\Uninstall HN Voice Studio"; Filename: "{uninstallexe}"
 
 [Run]

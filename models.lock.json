@@ -24,6 +24,18 @@
     "vieneu-codec": {
       "repo": "OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX",
       "revision": "ceff0d0749bfb3fa2d61149794ec6feef0d1e1ae"
+    },
+    "separation": {
+      "source": "https://github.com/TRvlvr/model_repo/releases/download/all_public_uvr_models/UVR-MDX-NET-Inst_HQ_2.onnx",
+      "config": {
+        "compensate": 1.033,
+        "mdx_dim_f_set": 3072,
+        "mdx_dim_t_set": 8,
+        "mdx_n_fft_scale_set": 6144,
+        "primary_stem": "Instrumental"
+      },
+      "architecture": "MDX-Net ONNX",
+      "upstream": "https://github.com/Anjok07/ultimatevocalremovergui"
     }
   },
   "files": [
@@ -156,6 +168,16 @@
       "path": "vieneu-codec/moss_audio_tokenizer_encode.onnx",
       "size": 815775,
       "sha256": "eadea4a645abdcf98714c7aead122ee2ce7da6e080f9f80b977cd1ca8e19473a"
+    },
+    {
+      "path": "separation/separator.onnx",
+      "size": 66759214,
+      "sha256": "197f8ab296df850f961e68c595f6649acb7d9e621b5600b460f3458967299112"
+    },
+    {
+      "path": "separation/config.json",
+      "size": 125,
+      "sha256": "2523f555c06189d77ed8034faaa8e877bd3acdab6e5a2fef388517a790d52f4c"
     }
   ]
 }

@@ -11,3 +11,6 @@
 - React, Vite, Tailwind, Lucide, FastAPI, ONNX Runtime, Playwright và các phụ thuộc khác giữ giấy phép riêng. pnpm-lock.yaml khóa phụ thuộc JS; requirements-desktop.txt khóa các phụ thuộc Python trực tiếp; requirements-lock.txt lưu môi trường kiểm thử.
 
 Các dịch vụ Gemini và ChatGPT không được nhúng vào bản offline. Người dùng tự đăng nhập tài khoản của mình và tuân theo điều khoản/hạn mức của dịch vụ. Không phát hành credential, hồ sơ đăng nhập hay model lấy từ nguồn không ghi nhận.
+
+- Tách giọng/nền: MDX-Net UVR-MDX-NET-Inst_HQ_2 từ https://github.com/TRvlvr/model_repo và cấu hình https://github.com/TRvlvr/application_data; mã suy luận cục bộ độc lập dùng ONNX Runtime và NumPy STFT, xử lý stereo theo cửa sổ có chồng lấn. Nguồn và SHA256 khóa trong models.lock.json. Tham khảo triển khai/giấy phép UVR tại https://github.com/Anjok07/ultimatevocalremovergui.
+- Phông chữ được đọc từ Windows đã cài; không phân phối lại các file phông của Microsoft.

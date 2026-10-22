@@ -31,7 +31,7 @@ async function start(){
  const settingsPath=path.join(data,'desktop-settings.json');
  if(fs.existsSync(settingsPath))settings=JSON.parse(fs.readFileSync(settingsPath,'utf8'));
  splash=new BrowserWindow({width:490,height:230,resizable:false,center:true,autoHideMenuBar:true,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true}});
- await splash.loadURL('data:text/html;charset=utf-8,'+encodeURIComponent('<html lang="vi"><body style="background:#101827;color:#eef2ff;font:16px Segoe UI;padding:28px"><h2>HN Voice Studio</h2><p>Đang khởi động ứng dụng…</p><p style="color:#9ca3af">Đọc video · Dịch Trung–Việt · VieNeu-TTS</p></body></html>'));
+ await splash.loadURL('data:text/html;charset=utf-8,'+encodeURIComponent('<html lang="vi"><body style="background:#101827;color:#eef2ff;font:16px Segoe UI;padding:28px"><h2>HNstudio</h2><p>Đang khởi động ứng dụng…</p><p style="color:#9ca3af">Đọc video · Dịch phụ đề · Tạo giọng đọc</p></body></html>'));
  const port=await freePort(),instance=crypto.randomUUID(),origin=`http://127.0.0.1:${port}`;
  const cacheHome=process.env.HN_CACHE_DIR||settings.cacheHome||path.join(data,'cache');
  fs.mkdirSync(cacheHome,{recursive:true});
@@ -48,8 +48,8 @@ async function start(){
  }
  if(quitting)return;if(!ready)throw new Error('Bộ xử lý không sẵn sàng sau 90 giây.');
  session.defaultSession.setPermissionRequestHandler((_wc,_permission,callback)=>callback(false));
- mainWindow=new BrowserWindow({title:'HN Voice Studio '+app.getVersion(),width:1440,height:930,minWidth:1100,minHeight:700,show:false,backgroundColor:'#101827',autoHideMenuBar:true,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true,preload:path.join(__dirname,'preload.cjs')}});
- mainWindow.on('page-title-updated',event=>{event.preventDefault();mainWindow.setTitle('HN Voice Studio '+app.getVersion());});
+ mainWindow=new BrowserWindow({icon:path.join(__dirname,'dist','hnstudio.ico'),title:'HNstudio '+app.getVersion(),width:1440,height:930,minWidth:1100,minHeight:700,show:false,backgroundColor:'#101827',autoHideMenuBar:true,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true,preload:path.join(__dirname,'preload.cjs')}});
+ mainWindow.on('page-title-updated',event=>{event.preventDefault();mainWindow.setTitle('HNstudio '+app.getVersion());});
  mainWindow.webContents.setWindowOpenHandler(()=>({action:'deny'}));
  mainWindow.webContents.on('will-navigate',(event,url)=>{if(new URL(url).origin!==origin)event.preventDefault();});
  mainWindow.webContents.on('will-attach-webview',event=>event.preventDefault());
@@ -65,6 +65,7 @@ async function start(){
   const source=path.join(cacheHome,path.basename(url)),destination=chosenExport;chosenExport=null;
   await fs.promises.copyFile(source,destination);lastExport=destination;settings.exportHome=path.dirname(destination);fs.writeFileSync(settingsPath,JSON.stringify(settings,null,2));return destination;
  });
+ require('./desktop-project.cjs')({ipcMain,dialog,mainWindow,trusted,cacheHome,origin});
  ipcMain.handle('hn-reveal-export',event=>{if(trusted(event)&&lastExport)shell.showItemInFolder(lastExport);});
  session.defaultSession.on('will-download',(_event,item)=>{item.setSaveDialogOptions({title:'Lưu file xuất từ HN Voice Studio',defaultPath:path.join(app.getPath('downloads'),path.basename(item.getFilename()))});});
  mainWindow.once('ready-to-show',()=>{mainWindow.show();if(splash){splash.destroy();splash=null;}});

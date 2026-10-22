@@ -15,7 +15,12 @@ def prepare(verify_only=False):
   if not path.is_file():
    if verify_only:raise RuntimeError('Missing '+str(path))
    name=relative.parts[0];source=manifest['models'][name];path.parent.mkdir(parents=True,exist_ok=True)
-   if name=='ocr-zh':
+   if name=='separation':
+    if relative.name=='config.json':path.write_text(json.dumps(source['config']),encoding='utf-8')
+    else:
+     import urllib.request
+     urllib.request.urlretrieve(source['source'],path)
+   elif name=='ocr-zh':
     import rapidocr_onnxruntime
     shutil.copy2(Path(rapidocr_onnxruntime.__file__).parent/'models'/relative.name,path)
    elif relative.name=='SOURCE.txt':path.write_text(source['repo']+'\n'+source['revision'])

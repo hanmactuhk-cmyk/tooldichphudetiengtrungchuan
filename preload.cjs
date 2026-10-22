@@ -1,2 +1,2 @@
-const {contextBridge,ipcRenderer}=require('electron');
-contextBridge.exposeInMainWorld('hnDesktop',{chooseExport:name=>ipcRenderer.invoke('hn-choose-export',name),saveExport:url=>ipcRenderer.invoke('hn-save-export',url),revealExport:()=>ipcRenderer.invoke('hn-reveal-export')});
+const {contextBridge,ipcRenderer,webUtils}=require('electron');
+contextBridge.exposeInMainWorld('hnDesktop',{filePath:file=>webUtils.getPathForFile(file),saveProject:payload=>ipcRenderer.invoke('hn-save-project',payload),openProject:()=>ipcRenderer.invoke('hn-open-project'),chooseExport:name=>ipcRenderer.invoke('hn-choose-export',name),saveExport:url=>ipcRenderer.invoke('hn-save-export',url),revealExport:()=>ipcRenderer.invoke('hn-reveal-export')});

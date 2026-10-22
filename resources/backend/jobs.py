@@ -24,7 +24,7 @@ class Jobs:
                 with self.lock:item.update(state='running',percent=percent,message=message)
             try:
                 if item['cancel'].is_set():raise RuntimeError('Đã dừng tác vụ.')
-                progress(1,'Đang chuẩn bị model...')
+                progress(1,'Đang chuẩn bị xử lý...')
                 result=run(progress,item['cancel'].is_set)
                 with self.lock:
                     if item['cancel'].is_set():item.update(state='cancelled',message='Đã dừng tác vụ.')

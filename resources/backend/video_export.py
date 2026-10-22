@@ -10,7 +10,7 @@ def render_video(source,options,cache,dubbing,progress,cancelled):
  if dub:
   import soundfile
   duration=max(duration,soundfile.info(str(dub)).duration)
- fingerprint=hashlib.sha256(('export-v544:'+json.dumps(options,sort_keys=True)).encode());
+ fingerprint=hashlib.sha256(('export-v550:'+json.dumps(options,sort_keys=True)).encode());
  with Path(source).open('rb') as handle:
   for chunk in iter(lambda:handle.read(8*1024*1024),b''):
    if cancelled():raise RuntimeError('Đã hủy xuất MP4.')
@@ -28,14 +28,17 @@ def render_video(source,options,cache,dubbing,progress,cancelled):
   folder=Path(folder);ass=str(options.get('ass') or '')
   if ass:
    if len(ass)>4*1024*1024:raise ValueError('Phụ đề xuất quá lớn.')
-   (folder/'captions.ass').write_text(ass,encoding='utf-8');filters.append(f'[{label}]ass=captions.ass[captioned]');label='captioned'
+   (folder/'captions.ass').write_text(ass,encoding='utf-8')
   aspect=options.get('aspect','auto');ratio=16/9 if aspect=='16:9' else 9/16 if aspect=='9:16' else w/h
   ow=math.ceil(max(w,h*ratio)/2)*2;oh=math.ceil(max(h,w/ratio)/2)*2
   copy_video=not ass and not blur.get('enabled') and ow==w and oh==h and duration<=frames/fps+.001
   if output.is_file():
    progress(100,'MP4 đã sẵn sàng từ lần xuất trước.');return {'url':'/cache/'+output.name,'duration':duration,'cached':True,'width':ow,'height':oh,'videoCopied':copy_video}
   completed_output=output;output=cache/(uuid.uuid4().hex+'.mp4')
-  filters.append(f'[{label}]pad={ow}:{oh}:(ow-iw)/2:(oh-ih)/2:black,setsar=1,tpad=stop_mode=clone:stop_duration={max(0,duration-frames/fps):.3f},format=yuv420p[outv]')
+  filters.append(f'[{label}]pad={ow}:{oh}:(ow-iw)/2:(oh-ih)/2:black,setsar=1,tpad=stop_mode=clone:stop_duration={max(0,duration-frames/fps):.3f},format=yuv420p[{'padded' if ass else 'outv'}]')
+  if ass:
+   fonts=str(Path(os.environ.get('WINDIR','C:/Windows'))/'Fonts').replace('\\','/').replace(':','\\:')
+   filters.append(f"[padded]ass=captions.ass:fontsdir='{fonts}'[outv]")
   # Probe presence of original audio; a video without audio is a valid input.
   probe=subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(),'-hide_banner','-i',str(source)],capture_output=True,creationflags=0x08000000 if os.name=='nt' else 0)
   has_audio='Audio:' in probe.stderr.decode(errors='replace');original=has_audio and not options.get('originalMuted',False)

@@ -1,10 +1,19 @@
-# HN Voice Studio 5.4.4 — Bộ cài Windows
+# HNstudio 5.5.0 — Bộ cài Windows
 
 Đọc lời nói hoặc chữ phụ đề tiếng Trung từ video MP4, dịch sang tiếng Việt và tạo giọng VieNeu-TTS. Giao diện mở trong cửa sổ ứng dụng Windows; không phải mở trình duyệt để dùng các chức năng offline. Gemini và ChatGPT vẫn dùng Chrome riêng để đăng nhập và dịch theo lựa chọn của người dùng.
 
 ## Cài đặt Windows
 
-**Đã cài bản đầy đủ 5.4:** đóng ứng dụng sau khi xuất WAV/SRT cần giữ, tải `HNVoice-Studio-5.4.4-Update-Setup.exe` ở [bản cập nhật 5.4.4](https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan/releases/tag/v5.4.4) rồi cài vào đúng thư mục hiện tại. Bản cập nhật giữ model đã cài; không phải tải lại model. 5.4.4 thêm kéo khoanh vùng/Ctrl chọn nhiều đoạn phụ đề và âm thanh, Delete xóa nhóm, hoàn tác một lần cho cả nhóm. Tắt Liên kết để chỉ xóa phụ đề; bật để xóa cả giọng đi kèm. Timeline chỉ vẽ các đoạn đang nhìn thấy, sóng âm dùng một nét SVG; bảng phụ đề không dựng lại theo thời gian phát. Chỉnh riêng chữ giữ lại bản âm thanh đã ghép. Xuất MP4 hỏi nơi lưu trước, nhớ thư mục và có nút mở thư mục sau khi xong. Khi hình không đổi, FFmpeg chép luồng video; nếu đã xuất đúng nội dung đó, dùng lại MP4 trong cache. Ghép chữ/làm mờ/đổi khung hình vẫn cần mã hóa lại bằng H.264 preset superfast. Giữ chức năng gửi nguyên video Gemini và nguyên tệp SRT ChatGPT.
+**Đã cài bản đầy đủ 5.4:** đóng ứng dụng sau khi xuất WAV/SRT cần giữ, tải `HNVoice-Studio-5.5.0-Update-Setup.exe` ở [bản cập nhật 5.5.0](https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan/releases/tag/v5.5.0) rồi cài vào đúng thư mục hiện tại. Bản cập nhật giữ model đã cài; không phải tải lại model. 5.5.0 có logo HNstudio, hướng dẫn và giới thiệu Hoài Nguyễn Studio. Giao diện không hiện tên model hoặc các màn hình kỹ thuật.
+
+- Timeline: hàng phụ đề gốc, phụ đề Việt, giọng và âm thanh độc lập. Chọn/xóa/cắt/kéo một ngôn ngữ không đổi ngôn ngữ khác hoặc âm thanh. Ctrl/Shift bấm để chọn nhiều, kéo vùng trống để khoanh chọn, Delete xóa, Ctrl+Z hoàn tác.
+- Tách tiếng gốc: chọn Toàn bộ / Chỉ tiếng nói / Chỉ âm thanh nền. Hai stem có cùng thời lượng, xử lý trên máy; tiếng gốc trong video được tắt khi đưa stem vào timeline để tránh trùng. Có thể còn sót giọng/nhạc tùy bản thu, và tách âm cần thời gian xử lý.
+- Kiểu phụ đề: phông chữ, màu chữ/nền và độ đục từ 0% trong suốt đến 100% đục. Xem trước và MP4 dùng cùng bố cục dòng/chữ/nền. Có thể thêm chữ kéo thả, bật dải nền trên/dưới với tiêu đề và màu tùy chọn.
+- Tab Dịch có ô tải file SRT đã dịch bên ngoài; phải giữ số câu và thời gian của phụ đề gốc. Tab Video / SRT cũng nhận SRT Việt trực tiếp nếu không cần dịch.
+- Xuất file chỉ còn MP4, SRT và Lưu/Mở dự án. MP4 hỏi nơi lưu và nhớ thư mục, dùng lại bản xuất khi nội dung không đổi. Khi ghép chữ/làm mờ/đổi khung vẫn cần mã hóa lại.
+- **Lưu dự án (.hnproject)** sao chép video và các WAV cần dùng vào thư mục `.hnproject.media-...` cạnh file dự án. Giữ hai phần cùng nhau khi di chuyển/chia sẻ. **Mở dự án** phục hồi phụ đề, media, cắt ghép, font/màu/nền, chữ thêm và các dải tiêu đề. Đây là lưu thủ công; hãy lưu trước khi đóng. Không còn xuất JSON rời thiếu media.
+
+Bản cập nhật đã kèm bộ tách âm thanh bổ sung; không cần tải thêm trong lần đầu dùng. Giữ nguyên tính năng Gemini tải nguyên video và ChatGPT gửi nguyên SRT đính kèm.
 
 **Máy chưa cài:** vào [bộ cài đầy đủ 5.4.0](https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan/releases/tag/v5.4.0), tải `HNVoice-Studio-5.4.0-Setup.exe` và **tất cả** file `HNVoice-Studio-5.4.0-Setup-*.bin` vào cùng một thư mục. Chạy Setup.exe, chọn thư mục cài, chờ hoàn tất rồi mở HN Voice Studio từ Desktop hoặc Start Menu. Không cần giải nén, cài Python/Node hay tải thêm model. Giữ nguyên tên các file tải xuống. `installer-sha256.json` chứa kích thước và SHA256 để đối chiếu.
 

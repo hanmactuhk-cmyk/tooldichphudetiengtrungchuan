@@ -36,6 +36,7 @@ jobs:
       - run: pnpm exec tsx scripts/test-caption-layout.ts
       - run: pnpm exec tsx scripts/test-timeline.ts
       - run: node --check electron-main.cjs
+      - run: node scripts/test-project-storage.cjs
       - run: python -m compileall -q resources/backend scripts
       - run: python scripts/test_video_subtitles.py
       - run: python scripts/test_whole_submissions.py

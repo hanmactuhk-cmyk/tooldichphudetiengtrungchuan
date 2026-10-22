@@ -1,7 +1,7 @@
 {
   "name": "tooldichphudetiengtrungchuan",
   "private": true,
-  "version": "5.4.4",
+  "version": "5.5.0",
   "type": "module",
   "main": "electron-main.cjs",
   "scripts": {
@@ -52,13 +52,15 @@
       "target": [
         "dir"
       ],
-      "signAndEditExecutable": false
+      "signAndEditExecutable": false,
+      "icon": "public/hnstudio.ico"
     },
     "files": [
       "dist/**/*",
       "electron-main.cjs",
       "preload.cjs",
-      "package.json"
+      "package.json",
+      "desktop-project.cjs"
     ],
     "extraResources": [
       {
@@ -72,5 +74,5 @@
   },
   "packageManager": "pnpm@11.25.0",
   "description": "Ứng dụng Windows đọc phụ đề Trung, dịch Việt và tạo giọng VieNeu",
-  "author": "hanmactuhk-cmyk"
+  "author": "Hoài Nguyễn Studio"
 }

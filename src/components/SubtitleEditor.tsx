@@ -203,7 +203,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
               {/* Chinese original field (Editable) */}
               <div className="mb-2">
                 <div className="flex items-center justify-between text-[10px] text-zinc-400 mb-1">
-                  <span className="font-semibold text-amber-400">Tiếng Trung ({sub.modelUsedZh||'SRT'}):</span>
+                  <span className="font-semibold text-amber-400">Phụ đề gốc:</span>
 
                 </div>
                 <textarea
@@ -292,7 +292,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
                       onRegenerateTtsSentence(sub.id);
                     }}
                     className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[10px] flex items-center space-x-1 border border-zinc-700"
-                    title="Tạo lại giọng đọc VieNeu-TTS v3 Turbo câu này"
+                    title="Tạo lại giọng đọc tiếng Việt câu này"
                   >
                     <Mic className="w-2.5 h-2.5 text-rose-400" />
                     <span>Tạo lại TTS</span>

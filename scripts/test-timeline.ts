@@ -15,3 +15,7 @@ console.log('TIMELINE MOVE / LINK / SPLIT / TRIM / DELETE / MUTE / COLLISION TES
 
 const batch=deleteTimelineSelection(cut,[{track:'subtitle',id:cut.subtitles[0].id},{track:'voice',id:b.id}],false);assert.equal(batch.subtitles.length,1);assert.equal(projectClips(batch).length,1);
 const linkedBatch=deleteTimelineSelection(cut,[{track:'subtitle',id:cut.subtitles[0].id},{track:'voice',id:b.id}],true);assert.equal(linkedBatch.subtitles.length,0);assert.equal(projectClips(linkedBatch).length,0);
+
+const viDeleted=deleteTimelineSelection(p,[{track:'vi',id:'s'}],false);assert(viDeleted.subtitles[0].hiddenVi);assert(!viDeleted.subtitles[0].hiddenZh);assert.equal(projectClips(viDeleted).length,1);
+const viMoved=editTimeline(p,{track:'vi',id:'s',kind:'move',time:8,linked:false});assert.equal(viMoved.subtitles[0].viStartTime,8);assert.equal(viMoved.subtitles[0].zhStartTime,undefined);assert.equal(projectClips(viMoved)[0].startTime,2);
+const viSplit=editTimeline(p,{track:'vi',id:'s',kind:'split',time:4,linked:false});assert.equal(viSplit.subtitles.filter(s=>!s.hiddenVi).length,2);assert.equal(viSplit.subtitles.filter(s=>!s.hiddenZh).length,1);assert.equal(projectClips(viSplit).length,1);

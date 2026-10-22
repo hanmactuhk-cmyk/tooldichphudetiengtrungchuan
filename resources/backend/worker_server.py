@@ -22,7 +22,7 @@ from translation import OfflineTranslator
 from browser_translation import BrowserTranslator
 from subtitle_contract import validate_cues,from_srt,parse_srt
 from jobs import JOBS
-app = FastAPI(title='HN Voice Studio', version='5.4.4')
+app = FastAPI(title='HN Voice Studio', version='5.5.0')
 DUBBING=DubbingService(MODELS,CACHE,lambda *args:ffmpeg(*args))
 TRANSLATOR=OfflineTranslator(MODELS)
 BROWSER_HOME=Path(os.environ.get('HN_BROWSER_HOME',APP_DIR/'data/chrome-profiles'))
@@ -51,7 +51,7 @@ def ffmpeg(*args):
 @app.get('/health')
 @app.get('/api/health')
 def health():
-    return {'status':'ok','device':'cpu','models':{n:(MODELS/n).is_dir() for n in ['whisper-small','qwen3','vieneu','ocr-zh']},'modelDirectory':str(MODELS),'version':'5.4.4','instanceId':os.environ.get('HN_INSTANCE_ID'),'activeModel':POOL.name,'modelLoads':POOL.loads}
+    return {'status':'ok','device':'cpu','models':{n:(MODELS/n).is_dir() for n in ['whisper-small','qwen3','vieneu','ocr-zh']},'modelDirectory':str(MODELS),'version':'5.5.0','instanceId':os.environ.get('HN_INSTANCE_ID'),'activeModel':POOL.name,'modelLoads':POOL.loads}
 @app.post('/api/transcribe')
 def transcribe(file: UploadFile=File(...)):
     from faster_whisper import WhisperModel
@@ -151,6 +151,19 @@ def timeline_import_audio(file:UploadFile=File(...)):
     except Exception as exc:
         target.unlink(missing_ok=True);raise HTTPException(422,'Không lấy được âm thanh: '+str(exc))
     finally:source.unlink(missing_ok=True)
+
+@app.post('/api/audio/separate')
+def separate_original(file:UploadFile=File(...)):
+    from audio_separation import separate_audio
+    source=CACHE/(uuid.uuid4().hex+'.source')
+    try:
+        with source.open('wb') as handle:
+            while chunk:=file.file.read(8*1024*1024):
+                handle.write(chunk)
+                if handle.tell()>2*1024**3:raise ValueError('Video vượt 2 GB.')
+        return JOBS.submit('separate-audio',{'source':source.name},lambda progress,cancelled:separate_audio(source,MODELS,CACHE,ffmpeg,progress,cancelled),cleanup=lambda:source.unlink(missing_ok=True))
+    except Exception as exc:
+        source.unlink(missing_ok=True);raise HTTPException(422,str(exc))
 
 @app.post('/api/video/export')
 def export_video(file:UploadFile=File(...),options:str=Form(...)):

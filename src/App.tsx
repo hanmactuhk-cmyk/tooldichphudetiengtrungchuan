@@ -1,3 +1,4 @@
+import {DEFAULT_DECORATION} from './lib/styled-caption';
 import {rememberVideo,readVideo} from './lib/video-source';
 import {deleteTimelineSelection,editTimeline,projectClips,timelineEnd,TimelineEdit,validateTimeline} from './lib/timeline-engine';
 import {DEFAULT_CAPTION_LAYOUT,splitCue,generateAss} from './lib/caption-layout';
@@ -62,8 +63,8 @@ export default function App() {
   const [lastExport,setLastExport]=useState('');
   const handleExportMp4=async(captions:boolean)=>{
     if(!project.videoUrl)return;const desktop=(window as any).hnDesktop;if(desktop&&!await desktop.chooseExport(project.title.replace(/[<>:\x22/\\|?*]/g,'_')+'_HNVoice.mp4'))return;stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,progressPercent:0,currentTaskName:'Chuẩn bị xuất MP4...'}));
-    try{let exportProject=project;if(project.manualTimeline&&!project.dubAudioUrl){const mixed=await runJob('/api/timeline/mix',{clips:projectClips(project),duration:timelineEnd(project)},(v,t)=>setHardwareStatus(h=>({...h,progressPercent:v,currentTaskName:t})));exportProject={...project,dubAudioUrl:mixed.audioUrl,dubDuration:mixed.duration};setProject(exportProject);}
-      const form=new FormData();form.append('file',await readVideo(exportProject.videoUrl!),exportProject.videoFileName||'video.mp4');form.append('options',JSON.stringify({timelineDuration:timelineEnd(exportProject),ass:captions&&exportProject.subtitles.length?generateAss(exportProject):'',blur:exportProject.blurRegion,aspect:exportProject.captionLayout?.aspect||'auto',dubAudioUrl:exportProject.dubAudioUrl,originalMuted:exportProject.originalAudioMuted,originalVolume:exportProject.originalAudioVolume}));
+    try{await document.fonts.ready;let exportProject=project;if(project.manualTimeline&&!project.dubAudioUrl){const mixed=await runJob('/api/timeline/mix',{clips:projectClips(project),duration:timelineEnd(project)},(v,t)=>setHardwareStatus(h=>({...h,progressPercent:v,currentTaskName:t})));exportProject={...project,dubAudioUrl:mixed.audioUrl,dubDuration:mixed.duration};setProject(exportProject);}
+      const form=new FormData();form.append('file',await readVideo(exportProject.videoUrl!),exportProject.videoFileName||'video.mp4');form.append('options',JSON.stringify({timelineDuration:timelineEnd(exportProject),ass:generateAss(captions?exportProject:{...exportProject,captionLayout:{...DEFAULT_CAPTION_LAYOUT,...exportProject.captionLayout,language:'off'}}),blur:exportProject.blurRegion,aspect:exportProject.captionLayout?.aspect||'auto',dubAudioUrl:exportProject.dubAudioUrl,originalMuted:exportProject.originalAudioMuted,originalVolume:exportProject.originalAudioVolume}));
       const body=await apiJson('/api/video/export',{method:'POST',body:form});window.dispatchEvent(new CustomEvent('hn-job',{detail:body.jobId}));
       for(;;){const job=await apiJson('/api/jobs/'+body.jobId);setHardwareStatus(h=>({...h,progressPercent:job.percent,currentTaskName:job.message}));if(job.state==='done'){if(desktop){setLastExport(await desktop.saveExport(job.result.url));break;}const a=document.createElement('a');a.href=job.result.url;a.download=project.title+'_HNVoice.mp4';a.click();break;}if(['error','cancelled'].includes(job.state))throw new Error(job.message);await new Promise(r=>setTimeout(r,750));}
     }catch(e){alert(String(e));}finally{window.dispatchEvent(new CustomEvent('hn-job',{detail:null}));setHardwareStatus(h=>({...h,isProcessing:false,progressPercent:0,currentTaskName:''}));}
@@ -86,13 +87,13 @@ export default function App() {
     catch(e){alert(String(e));}finally{setHardwareStatus(h=>({...h,isProcessing:false,progressPercent:0,currentTaskName:''}));}
   };
   const handleTimelineEdit=(edit:TimelineEdit)=>{try{applyTimeline(editTimeline(project,edit));}catch(e){alert(String(e));}};
-  const handleTimelineAudio=async(file?:File)=>{
+  const handleTimelineAudio=async(file?:File,stem:'all'|'voice'|'background'='all')=>{
     if(hardwareStatus.isProcessing)return;stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,progressPercent:0,currentTaskName:file?'Đọc tệp âm thanh...':'Tách tiếng gốc từ video...'}));
     try{const form=new FormData();if(file)form.append('file',file);else{if(!project.videoUrl)throw Error('Chưa chọn video.');form.append('file',await readVideo(project.videoUrl),project.videoFileName);}
-      const result=await apiJson('/api/timeline/import-audio',{method:'POST',body:form});const clips=projectClips(project);const at=file?Math.max(currentTime,...clips.filter(c=>c.track==='audio').map(c=>c.startTime+c.trimEnd-c.trimStart),0):0;
-      const next={...project,manualTimeline:true,originalAudioMuted:file?project.originalAudioMuted:true,audioClips:[...clips,{id:crypto.randomUUID(),origin:file?'file' as const:'video' as const,track:'audio' as const,name:file?.name||'Tiếng gốc · '+project.videoFileName,audioUrl:result.audioUrl,startTime:at,trimStart:0,trimEnd:result.duration,sourceDuration:result.duration,volume:1}]};validateTimeline(next);
+      let result:any;if(!file&&stem!=='all'){const body=await apiJson('/api/audio/separate',{method:'POST',body:form});window.dispatchEvent(new CustomEvent('hn-job',{detail:body.jobId}));for(;;){const job=await apiJson('/api/jobs/'+body.jobId);setHardwareStatus(h=>({...h,progressPercent:job.percent,currentTaskName:job.message}));if(job.state==='done'){result={audioUrl:stem==='voice'?job.result.voiceUrl:job.result.backgroundUrl,duration:job.result.duration};break;}if(['error','cancelled'].includes(job.state))throw Error(job.message);await new Promise(r=>setTimeout(r,500));}}else result=await apiJson('/api/timeline/import-audio',{method:'POST',body:form});const clips=projectClips(project).filter(c=>file||c.origin!=='video');const at=file?Math.max(currentTime,...clips.filter(c=>c.track==='audio').map(c=>c.startTime+c.trimEnd-c.trimStart),0):0;
+      const next={...project,manualTimeline:true,originalAudioMuted:file?project.originalAudioMuted:true,audioClips:[...clips,{id:crypto.randomUUID(),origin:file?'file' as const:'video' as const,track:'audio' as const,name:file?.name||(stem==='voice'?'Tiếng nói gốc · ':stem==='background'?'Âm thanh nền · ':'Toàn bộ tiếng gốc · ')+project.videoFileName,audioUrl:result.audioUrl,startTime:at,trimStart:0,trimEnd:result.duration,sourceDuration:result.duration,volume:1}]};validateTimeline(next);
       const mixed=await runJob('/api/timeline/mix',{clips:next.audioClips,duration:timelineEnd(next)},(v,t)=>setHardwareStatus(h=>({...h,progressPercent:v,currentTaskName:t})));pushHistory(project);setProject({...next,dubAudioUrl:mixed.audioUrl,dubDuration:mixed.duration});setCurrentTime(t=>Math.min(t,mixed.duration));
-    }catch(e){alert(String(e));}finally{setHardwareStatus(h=>({...h,isProcessing:false,progressPercent:0,currentTaskName:''}));}
+    }catch(e){alert(String(e));}finally{window.dispatchEvent(new CustomEvent('hn-job',{detail:null}));setHardwareStatus(h=>({...h,isProcessing:false,progressPercent:0,currentTaskName:''}));}
   };
   // Undo / Redo history
   const [historyPast, setHistoryPast] = useState<ProjectData[]>([]);
@@ -226,7 +227,7 @@ export default function App() {
       isProcessing: true,
       activeModel: model==='OCR-ZH'?'RapidOCR Chinese':'Whisper-small CPU INT8',
       vramUsedMb: 2350,
-      currentTaskName: `Đang chạy nhận diện tiếng Trung (${model})...`,
+      currentTaskName: 'Đang nhận diện phụ đề tiếng Trung...',
     }));
 
     try {
@@ -470,11 +471,8 @@ export default function App() {
     triggerDownload(await response.blob(),project.title+'_VieNeu.wav','audio/wav');
   };
 
-  const handleExportProjectJson = () => {
-    const jsonStr = JSON.stringify(project, null, 2);
-    triggerDownload(jsonStr, `${project.title}_project.json`, 'application/json');
-  };
-
+  const handleExportProjectJson=async()=>{const desktop=(window as any).hnDesktop;if(!desktop){alert('Lưu dự án dùng trong ứng dụng Windows.');return;}stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,currentTaskName:'Đang lưu dự án và media…',progressPercent:1}));try{let videoPath='';if(project.videoUrl){const file=await readVideo(project.videoUrl);if(file instanceof File)videoPath=desktop.filePath(file);}const saved=await desktop.saveProject({project,videoPath});if(saved)alert('Đã lưu dự án: '+saved);}catch(e){alert(String(e));}finally{setHardwareStatus(h=>({...h,isProcessing:false,currentTaskName:'',progressPercent:0}));}};
+  const handleOpenProject=async()=>{const desktop=(window as any).hnDesktop;if(!desktop){alert('Mở dự án dùng trong ứng dụng Windows.');return;}stopAudioPreview();setIsPlaying(false);try{const result=await desktop.openProject();if(result){validateTimeline(result.project);pushHistory(project);setProject({...result.project,captionLayout:{...DEFAULT_CAPTION_LAYOUT,...result.project.captionLayout}});setCurrentTime(0);setActiveSidebarTab('export');}}catch(e){alert(String(e));}};
   const editorPanel=React.useMemo(()=>(
         <div className={previewExpanded?'hidden':'contents'}><SubtitleEditor
           isProcessing={hardwareStatus.isProcessing}
@@ -520,6 +518,7 @@ export default function App() {
           onImportTranslation={handleImportTranslation}
           voices={voices}
           onRunAsr={handleRunAsr}
+          onOpenProject={handleOpenProject}
           onExportMp4={handleExportMp4}
           onGeminiVideo={handleGeminiVideo}
           onExportAss={()=>triggerDownload(generateAss(project),project.title+'.ass','text/plain')}
@@ -552,6 +551,7 @@ export default function App() {
           originalAudioVolume={project.originalAudioVolume}
           originalAudioMuted={project.originalAudioMuted}
           bgmDucking={project.bgmDucking}
+          decoration={project.decoration||DEFAULT_DECORATION} onDecorationChange={decoration=>setProject(p=>({...p,decoration}))}
           onTimeUpdate={(t) => setCurrentTime(t)}
           onTogglePlay={() => setIsPlaying((p) => !p)}
           onChangeOriginalVolume={(vol) => setProject((p) => ({ ...p, originalAudioVolume: vol }))}
@@ -571,32 +571,9 @@ export default function App() {
         canUndo={historyPast.length>0} canRedo={historyFuture.length>0} onUndo={handleUndo} onRedo={handleRedo}
         onSeek={setCurrentTime} onPause={()=>{stopAudioPreview();setIsPlaying(false);}}
         onSelectSubtitle={id=>setProject(p=>({...p,selectedSubtitleId:id}))}
-        onDeleteMany={(items,linked)=>{try{applyTimeline(deleteTimelineSelection(project,items,linked));}catch(e){alert(String(e));}}} onRemix={()=>applyTimeline({...project,manualTimeline:true})} onEdit={handleTimelineEdit} onImportAudio={file=>handleTimelineAudio(file)} onExtractOriginal={()=>handleTimelineAudio()}
+        onDeleteMany={(items,linked)=>{try{applyTimeline(deleteTimelineSelection(project,items,linked));}catch(e){alert(String(e));}}} onRemix={()=>applyTimeline({...project,manualTimeline:true})} onEdit={handleTimelineEdit} onImportAudio={file=>handleTimelineAudio(file)} onExtractOriginal={mode=>handleTimelineAudio(undefined,mode)}
       /></div>
 
-      {/* 4. Offline Packaging & Manifest Modal */}
-      <OfflinePackagingModal
-        isOpen={isPackagingModalOpen}
-        onClose={() => setIsPackagingModalOpen(false)}
-      />
-
-      {/* 5. Model Architecture & Tensor Breakdown Modal */}
-      <ModelArchitectureModal
-        isOpen={isModelAnalysisOpen}
-        onClose={() => setIsModelAnalysisOpen(false)}
-      />
-
-      {/* 6. Desktop Model Downloader & Loader Modal */}
-      <DesktopModelLoaderModal
-        isOpen={isModelLoaderOpen}
-        onClose={() => setIsModelLoaderOpen(false)}
-        onModelsLoaded={() => {
-          setHardwareStatus((h) => ({
-            ...h,
-            activeModel: 'SenseVoice + Qwen3-4B + VieNeu-TTS (Đã nạp đầy đủ)',
-          }));
-        }}
-      />
     </div>
   );
 }

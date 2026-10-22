@@ -12,7 +12,7 @@ export interface AsrOptions {
 
 export async function runOfflineASR(video: Blob | string, options: AsrOptions, onProgress: (percent: number, text: string) => void): Promise<Subtitle[]> {
   if (!video) throw new Error('Hãy chọn video trước khi nhận diện.');
-  onProgress(10, options.model==='OCR-ZH'?'Đang quét chữ phụ đề trên khung hình...':'Đang nghe âm thanh bằng Whisper-small offline...');
+  onProgress(10, options.model==='OCR-ZH'?'Đang quét chữ phụ đề trên khung hình...':'Đang nhận diện lời nói trên máy...');
   const blob = await readVideo(video);
   const body = new FormData(); body.append('file', blob, 'video.mp4');
   if(options.model==='OCR-ZH')body.append('crop_top',String(options.cropTop??0.55));

@@ -1,17 +1,18 @@
 import {ProjectData,Subtitle,TimelineAudioClip} from '../types';
-export type TimelineEdit={track:'subtitle'|'voice'|'audio';id:string;kind:'move'|'left'|'right'|'split'|'delete'|'duplicate'|'mute'|'volume';time:number;linked:boolean};
+export type TimelineEdit={track:'subtitle'|'zh'|'vi'|'voice'|'audio';id:string;kind:'move'|'left'|'right'|'split'|'delete'|'duplicate'|'mute'|'volume';time:number;linked:boolean};
 const round=(n:number)=>Math.round(n*1000)/1000;
 export const audioEnd=(c:TimelineAudioClip)=>c.startTime+c.trimEnd-c.trimStart;
-export function deleteTimelineSelection(original:ProjectData,items:{track:'subtitle'|'voice'|'audio';id:string}[],linked:boolean):ProjectData{
+export function deleteTimelineSelection(original:ProjectData,items:{track:'subtitle'|'zh'|'vi'|'voice'|'audio';id:string}[],linked:boolean):ProjectData{
  const subtitles=timelineSubtitles(original),clips=projectClips(original);
  const subIds=new Set(items.filter(i=>i.track==='subtitle').map(i=>i.id));
- const clipIds=new Set(items.filter(i=>i.track!=='subtitle').map(i=>i.id));
+ const clipIds=new Set(items.filter(i=>i.track==='voice'||i.track==='audio').map(i=>i.id));
  if(linked)for(const c of clips)if(clipIds.has(c.id)&&c.subtitleId)subIds.add(c.subtitleId);
- return validateTimeline({...original,manualTimeline:true,selectedSubtitleId:null,subtitles:subtitles.filter(s=>!subIds.has(s.id)),audioClips:clips.filter(c=>!clipIds.has(c.id)&&!(linked&&c.subtitleId&&subIds.has(c.subtitleId)))});
+ const zhIds=new Set(items.filter(i=>i.track==='zh').map(i=>i.id)),viIds=new Set(items.filter(i=>i.track==='vi').map(i=>i.id));
+ return validateTimeline({...original,manualTimeline:true,selectedSubtitleId:null,subtitles:subtitles.filter(s=>!subIds.has(s.id)).map(s=>({...s,hiddenZh:zhIds.has(s.id)||s.hiddenZh,hiddenVi:viIds.has(s.id)||s.hiddenVi})),audioClips:clips.filter(c=>!clipIds.has(c.id)&&!(linked&&c.subtitleId&&subIds.has(c.subtitleId)))});
 }
 export function projectClips(p:ProjectData):TimelineAudioClip[]{return p.audioClips??p.subtitles.filter(s=>s.ttsAudioUrl).map(s=>({id:'voice-'+s.id,subtitleId:s.id,track:'voice',name:s.textVi||s.textZh,audioUrl:s.ttsAudioUrl!,startTime:s.dubStartTime??s.startTime,trimStart:0,trimEnd:s.ttsDuration||s.endTime-s.startTime,sourceDuration:s.ttsDuration||s.endTime-s.startTime,volume:1}));}
 export function timelineSubtitles(p:ProjectData){return p.manualTimeline||!p.dubAudioUrl?p.subtitles:p.subtitles.map(s=>({...s,startTime:s.dubStartTime??s.startTime,endTime:s.dubEndTime??s.endTime}));}
-export function timelineEnd(p:ProjectData){return Math.max(p.duration,...p.subtitles.map(s=>s.endTime),...projectClips(p).map(audioEnd),0);}
+export function timelineEnd(p:ProjectData){return Math.max(p.duration,...p.subtitles.flatMap(s=>[s.endTime,s.zhEndTime||0,s.viEndTime||0]),...projectClips(p).map(audioEnd),0);}
 export function validateTimeline(p:ProjectData){
  for(const s of p.subtitles)if(!Number.isFinite(s.startTime+s.endTime)||s.startTime<0||s.endTime-s.startTime<.039)throw Error('Phụ đề cần dài ít nhất 0,04 giây.');
  const clips=projectClips(p);const ids=new Set<string>();
@@ -20,6 +21,19 @@ export function validateTimeline(p:ProjectData){
  if(timelineEnd(p)>86400)throw Error('Timeline tối đa 24 giờ.');return p;
 }
 export function editTimeline(original:ProjectData,e:TimelineEdit):ProjectData{
+ if(e.track==='zh'||e.track==='vi'){
+  const lang=e.track,s=timelineSubtitles(original).find(c=>c.id===e.id);if(!s)return original;
+  const a=lang==='zh'?s.zhStartTime??s.startTime:s.viStartTime??s.startTime,b=lang==='zh'?s.zhEndTime??s.endTime:s.viEndTime??s.endTime;
+  const isolated={...original,subtitles:[{...s,startTime:a,endTime:b}],audioClips:[],manualTimeline:true};
+  const edited=editTimeline(isolated,{...e,track:'subtitle',linked:false});
+  const timing=(c:Subtitle)=>lang==='zh'?{zhStartTime:c.startTime,zhEndTime:c.endTime}:{viStartTime:c.startTime,viEndTime:c.endTime};
+  if(e.kind==='delete')return deleteTimelineSelection(original,[{track:lang,id:s.id}],false);
+  if(e.kind==='split'||e.kind==='duplicate'){
+   const parts=edited.subtitles.filter(c=>e.kind==='split'||c.id!==s.id).map(c=>({...c,id:crypto.randomUUID(),ttsAudioUrl:undefined,ttsDuration:undefined,...timing(c),hiddenZh:lang!=='zh',hiddenVi:lang!=='vi'}));
+   return validateTimeline({...original,audioClips:projectClips(original),subtitles:[...original.subtitles.map(c=>c.id===s.id&&e.kind==='split'?{...c,...(lang==='zh'?{hiddenZh:true}:{hiddenVi:true})}:c),...parts]});
+  }
+  return validateTimeline({...original,audioClips:projectClips(original),subtitles:original.subtitles.map(c=>c.id===s.id?{...c,...timing(edited.subtitles[0])}:c)});
+ }
  const p={...original,manualTimeline:true,subtitles:timelineSubtitles(original).map(s=>({...s})),audioClips:projectClips(original).map(c=>({...c}))};const clips=p.audioClips;const makeId=()=>crypto.randomUUID();
  const splitSub=(s:Subtitle,t:number)=>{if(t-s.startTime<.04||s.endTime-t<.04)throw Error('Đặt vạch phát bên trong đoạn để cắt.');const f=(t-s.startTime)/(s.endTime-s.startTime);function text(v:string){const a=[...v.trim()];let k=Math.max(1,Math.min(a.length-1,Math.round(a.length*f)));const words=[...v.matchAll(/\s+|[，。！？、,.!?;]/gu)].map(m=>m.index!+m[0].length).filter(i=>i>0&&i<v.length);if(words.length)k=words.reduce((x,y)=>Math.abs(y-v.length*f)<Math.abs(x-v.length*f)?y:x);else k=a.slice(0,k).join('').length;return [v.slice(0,k).trim(),v.slice(k).trim()];}const zh=text(s.textZh),vi=text(s.textVi||'');return [{...s,endTime:t,textZh:zh[0],textVi:s.textVi?vi[0]:undefined},{...s,id:makeId(),startTime:t,textZh:zh[1],textVi:s.textVi?vi[1]:undefined}];};
  const splitAudio=(c:TimelineAudioClip,t:number,secondSub?:string)=>{if(t<=c.startTime+.039)return [{...c,subtitleId:secondSub??c.subtitleId}];if(audioEnd(c)-t<.04)return [c];const cut=c.trimStart+t-c.startTime;return [{...c,trimEnd:cut},{...c,id:makeId(),subtitleId:secondSub??c.subtitleId,startTime:t,trimStart:cut}];};

@@ -15,6 +15,7 @@ $target=Join-Path $root 'release/win-unpacked'
 Copy-Item -LiteralPath (Join-Path $root 'resources/models') -Destination (Join-Path $target 'resources/models') -Recurse -Force
 foreach($name in @('TAO-LOI-TAT.ps1','TAO-LOI-TAT.bat')){Copy-Item -LiteralPath (Join-Path $PSScriptRoot $name) -Destination $target -Force}
 Copy-Item -LiteralPath (Join-Path $root 'README.md') -Destination (Join-Path $target 'HUONG-DAN.md') -Force
+Copy-Item -LiteralPath (Join-Path $root 'public/hnstudio.ico') -Destination (Join-Path $target 'hnstudio.ico') -Force
 Copy-Item -LiteralPath (Join-Path $root 'THIRD_PARTY.md') -Destination $target -Force
 Copy-Item -LiteralPath (Join-Path $root 'VERIFY-MODELS.bat') -Destination $target -Force
 Copy-Item -LiteralPath (Join-Path $root 'resources/backend/VIENEU-LICENSE') -Destination $target -Force

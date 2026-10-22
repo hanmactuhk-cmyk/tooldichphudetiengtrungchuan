@@ -16,18 +16,9 @@ export function generateSrt(
   subtitles: Subtitle[],
   type: 'zh' | 'vi' | 'bilingual'
 ): string {
-  const sorted = [...subtitles].sort((a, b) => a.startTime - b.startTime);
-  return sorted
-    .map((sub, index) => {
-      const idx = index + 1;
-      const timeStr = `${formatSrtTimestamp(sub.startTime)} --> ${formatSrtTimestamp(sub.endTime)}`;
-      let text = '';
-      if (type === 'zh') text = sub.textZh;
-      else if (type === 'vi') text = sub.textVi || '';
-      else text = `${sub.textVi || ''}\n${sub.textZh}`;
-      return `${idx}\n${timeStr}\n${text.trim()}\n`;
-    })
-    .join('\n');
+  const entries:{start:number;end:number;text:string}[]=[];
+  for(const sub of subtitles){for(const language of type==='bilingual'?['vi','zh']: [type]){const text=language==='zh'?(sub.hiddenZh?'':sub.textZh):(sub.hiddenVi?'':sub.textVi||'');if(!text.trim())continue;const start=language==='zh'?sub.zhStartTime??sub.startTime:sub.viStartTime??sub.startTime,end=language==='zh'?sub.zhEndTime??sub.endTime:sub.viEndTime??sub.endTime;const same=type==='bilingual'?entries.find(e=>e.start===start&&e.end===end):undefined;if(same)same.text+='\n'+text;else entries.push({start,end,text});}}
+  return entries.sort((a,b)=>a.start-b.start).map((e,i)=>`${i+1}\n${formatSrtTimestamp(e.start)} --> ${formatSrtTimestamp(e.end)}\n${e.text.trim()}\n`).join('\n');
 }
 
 // Trigger file download in browser

@@ -1,0 +1,579 @@
+import {apiJson,runJob} from './lib/jobs';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  TranslationProvider,
+  ProjectData,
+  Subtitle,
+  Character,
+  HardwareVramStatus,
+} from './types';
+import { Header } from './components/Header';
+import { VideoPlayer } from './components/VideoPlayer';
+import { Timeline } from './components/Timeline';
+import { SubtitleEditor } from './components/SubtitleEditor';
+import { SidebarTabs } from './components/SidebarTabs';
+import { OfflinePackagingModal } from './components/OfflinePackagingModal';
+import { ModelArchitectureModal } from './components/ModelArchitectureModal';
+import { DesktopModelLoaderModal } from './components/DesktopModelLoaderModal';
+import { runOfflineASR } from './lib/asr-engine';
+import { runQwenTranslation, retranslateSingleSentence } from './lib/translator-engine';
+import { bufferToWavBlob, synthesizeVieNeuTTS, VIENEU_VOICES, loadVieNeuVoices, stopAudioPreview } from './lib/vieneu-engine';
+import { generateSrt, triggerDownload } from './lib/export-engine';
+
+export default function App() {
+  // Main Project State
+  const [project, setProject] = useState<ProjectData>(() => ({
+    id: 'proj-chinese-drama-01',
+    title: 'Dự án mới — chọn video để bắt đầu',
+    videoUrl: null,
+    videoFileName: '',
+    duration: 0,
+    originalAudioVolume: 0.8,
+    originalAudioMuted: false,
+    bgmDucking: true,
+    subtitles: [],
+    characters: [{id:'speaker-1',name:'Người nói',gender:'female',role:'Chưa phân vai',relationship:'Chưa xác định',pronounSelf:'',pronounCall:'',color:'#3B82F6',voiceId:'Hải Đăng',speed:1,pitch:0}],
+    translationMode: 'offline',
+    selectedSubtitleId: 'sub-01',
+    currentTime: 0,
+  }));
+
+  const [voices,setVoices]=useState<any[]>([]);
+  const [jobId,setJobId]=useState<string|null>(null);
+  useEffect(()=>{loadVieNeuVoices().then(data=>setVoices(data.voices)).catch(console.error);},[]);
+  useEffect(()=>{const handler=(e:Event)=>setJobId((e as CustomEvent).detail);window.addEventListener('hn-job',handler);return()=>window.removeEventListener('hn-job',handler);},[]);
+  const handleCancel=async()=>{if(jobId)await apiJson('/api/jobs/'+jobId+'/cancel',{method:'POST'});};
+  const handleImportSrt=async(file:File,language:'zh'|'vi')=>{
+    try{const data=await apiJson('/api/subtitles/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({srt:await file.text(),language})});
+      pushHistory(project);setProject(p=>({...p,subtitles:data.subtitles,dubAudioUrl:undefined,dubDuration:undefined,title:file.name.replace(/\.srt$/i,''),duration:Math.max(p.duration,...data.subtitles.map((s:Subtitle)=>s.endTime))}));setActiveSidebarTab(language==='vi'?'characters':'translation');
+    }catch(e){alert(String(e));}
+  };
+  const handleImportTranslation=async(srt:string)=>{
+    try{const data=await apiJson('/api/translation/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({srt,subtitles:project.subtitles})});
+      const map=new Map<string,any>(data.translations.map((r:any)=>[r.id,r]));pushHistory(project);setProject(p=>({...p,dubAudioUrl:undefined,dubDuration:undefined,subtitles:p.subtitles.map(s=>({...s,textVi:map.get(s.id).viFull,ttsAudioUrl:undefined,ttsDuration:undefined,status:'translated'}))}));setActiveSidebarTab('characters');
+    }catch(e){alert(String(e));}
+  };
+
+  // Undo / Redo history
+  const [historyPast, setHistoryPast] = useState<ProjectData[]>([]);
+  const [historyFuture, setHistoryFuture] = useState<ProjectData[]>([]);
+
+  // Push current state to undo history
+  const pushHistory = useCallback((currentProj: ProjectData) => {
+    setHistoryPast((past) => [...past.slice(-20), currentProj]);
+    setHistoryFuture([]);
+  }, []);
+
+  const handleUndo = () => {
+    if (historyPast.length === 0) return;
+    const previous = historyPast[historyPast.length - 1];
+    setHistoryFuture((f) => [project, ...f]);
+    setHistoryPast((p) => p.slice(0, p.length - 1));
+    setProject(previous);
+  };
+
+  const handleRedo = () => {
+    if (historyFuture.length === 0) return;
+    const next = historyFuture[0];
+    setHistoryPast((p) => [...p, project]);
+    setHistoryFuture((f) => f.slice(1));
+    setProject(next);
+  };
+
+  // Hardware / VRAM monitor simulation (NVIDIA GTX 1050 Ti 4GB, 16GB RAM)
+  const [hardwareStatus, setHardwareStatus] = useState<HardwareVramStatus>({
+    gpuName: 'NVIDIA GeForce GTX 1050 Ti (4GB VRAM)',
+    vramTotalMb: 4096,
+    vramUsedMb: 1150,
+    ramTotalMb: 16384,
+    ramUsedMb: 5200,
+    activeModel: null,
+    cpuFallback: false,
+    isProcessing: false,
+    progressPercent: 0,
+    currentTaskName: '',
+  });
+
+  // UI state
+  const [activeSidebarTab, setActiveSidebarTab] = useState<'project' | 'asr' | 'translation' | 'characters' | 'export'>('project');
+  const [isPackagingModalOpen, setIsPackagingModalOpen] = useState(false);
+  const [isModelAnalysisOpen, setIsModelAnalysisOpen] = useState(false);
+  const [isModelLoaderOpen, setIsModelLoaderOpen] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+
+  // Animation frame / timer for video playback
+  useEffect(() => {
+    let interval: number;
+    if (isPlaying && !project.videoUrl && !project.dubAudioUrl) {
+      interval = window.setInterval(() => {
+        setCurrentTime((prev) => {
+          if (prev >= project.duration) {
+            setIsPlaying(false);
+            return 0;
+          }
+          return Math.min(project.duration, prev + 0.1);
+        });
+      }, 100);
+    }
+    return () => clearInterval(interval);
+  }, [isPlaying, project.duration, project.videoUrl, project.dubAudioUrl]);
+
+  // Spacebar keyboard listener for Play/Pause
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in input or textarea
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement
+      ) {
+        return;
+      }
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        setIsPlaying((p) => !p);
+      } else if (e.ctrlKey && e.key === 'z') {
+        e.preventDefault();
+        handleUndo();
+      } else if (e.ctrlKey && e.key === 'y') {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleUndo, handleRedo]);
+
+  // 1. Upload custom video file
+  const handleUploadVideo = (file: File) => {
+    pushHistory(project);
+    const videoUrl = URL.createObjectURL(file);
+    const videoEl = document.createElement('video');
+    videoEl.src = videoUrl;
+    videoEl.onerror = () => { URL.revokeObjectURL(videoUrl); alert('Trình phát không đọc được video này. Hãy đổi sang MP4 H.264/AAC.'); };
+    videoEl.onloadedmetadata = () => {
+      const dur = videoEl.duration || 30.0;
+      setProject((p) => ({
+        ...p,
+        videoUrl,
+        subtitles: [],
+        selectedSubtitleId: null,
+        dubAudioUrl:undefined,
+        dubDuration:undefined,
+        videoFileName: file.name,
+        duration: dur,
+        title: file.name.replace(/\.[^/.]+$/, ''),
+      }));
+      setActiveSidebarTab('asr');
+    };
+  };
+
+  // 2. Run Chinese ASR (SenseVoice Small / Paraformer-ZH)
+  const handleRunAsr = async (model: 'SenseVoice-Small' | 'Paraformer-ZH' | 'OCR-ZH',cropTop=0.55) => {
+    pushHistory(project);
+    setHardwareStatus((h) => ({
+      ...h,
+      isProcessing: true,
+      activeModel: model==='OCR-ZH'?'RapidOCR Chinese':'Whisper-small CPU INT8',
+      vramUsedMb: 2350,
+      currentTaskName: `Đang chạy nhận diện tiếng Trung (${model})...`,
+    }));
+
+    try {
+      const recognized = await runOfflineASR(
+        project.videoUrl || '',
+        {
+          model,
+          cropTop,
+          useVad: true,
+          usePunc: true,
+          confidenceThreshold: 0.9,
+        },
+        (percent, stepText) => {
+          setHardwareStatus((h) => ({
+            ...h,
+            progressPercent: percent,
+            currentTaskName: stepText,
+          }));
+        }
+      );
+
+      setProject((p) => ({
+        ...p,
+        subtitles: recognized,
+      }));
+
+      // Automatically switch to translation tab
+      setActiveSidebarTab('translation');
+    } catch (err) {
+      alert(String(err));
+    } finally {
+      // Memory cleanup for GTX 1050 Ti: unload ASR model
+      setHardwareStatus((h) => ({
+        ...h,
+        isProcessing: false,
+        activeModel: null,
+        vramUsedMb: 1200,
+        progressPercent: 0,
+        currentTaskName: '',
+      }));
+    }
+  };
+
+  // 3. Run Qwen3-4B-Instruct-2507 Translation
+  const handleRunTranslation = async (mode: TranslationProvider) => {
+    pushHistory(project);
+    setHardwareStatus((h) => ({
+      ...h,
+      isProcessing: true,
+      activeModel: 'Qwen3-4B (GGUF Q4_K_M)',
+      vramUsedMb: 2850,
+      currentTaskName: 'Đang dịch hội thoại phim sang tiếng Việt...',
+    }));
+
+    try {
+      const translated = await runQwenTranslation(
+        project.subtitles,
+        project.characters,
+        mode,
+        (percent, log) => {
+          setHardwareStatus((h) => ({
+            ...h,
+            progressPercent: percent,
+            currentTaskName: log,
+          }));
+        }
+      );
+
+      setProject((p) => ({
+        ...p,
+        subtitles: translated,
+        translationMode: mode,
+        dubAudioUrl:undefined,
+        dubDuration:undefined,
+      }));
+
+      // Switch to characters/TTS tab
+      setActiveSidebarTab('characters');
+    } catch (err) {
+      alert(String(err));
+    } finally {
+      // Unload Qwen model from VRAM to make room for TTS
+      setHardwareStatus((h) => ({
+        ...h,
+        isProcessing: false,
+        activeModel: null,
+        vramUsedMb: 1200,
+        progressPercent: 0,
+        currentTaskName: '',
+      }));
+    }
+  };
+
+  // 4. Batch VieNeu-TTS v3 Turbo synthesis
+  const handleRunBatchTts = async () => {
+    setIsPlaying(false);stopAudioPreview();
+    pushHistory(project);
+    setHardwareStatus((h) => ({
+      ...h,
+      isProcessing: true,
+      activeModel: 'VieNeu-TTS v3 Turbo (ONNX 48kHz)',
+      vramUsedMb: 2200,
+      currentTaskName: 'Đang khởi động VieNeu-TTS offline...',
+    }));
+
+    try {
+      const subtitles=project.subtitles.map(sub=>({...sub,voiceId:sub.voiceId||project.characters.find(c=>c.id===sub.characterId)?.voiceId||'Hải Đăng'}));
+      const result=await runJob('/api/dub',{subtitles,videoDuration:project.duration},(percent,message)=>setHardwareStatus(h=>({...h,progressPercent:percent,currentTaskName:message})));
+      setProject(p=>({...p,subtitles:result.subtitles.map((s:Subtitle)=>({...s,status:(s.ttsShift||0)>.15?'warning_overflow':'synced'})),dubAudioUrl:result.audioUrl,dubDuration:result.duration,originalAudioMuted:true}));
+    } catch (err) {
+      alert(String(err));
+    } finally {
+      setHardwareStatus((h) => ({
+        ...h,
+        isProcessing: false,
+        activeModel: null,
+        vramUsedMb: 1250,
+        progressPercent: 0,
+        currentTaskName: '',
+      }));
+    }
+  };
+
+  // Subtitle updates (Rule compliance: Chinese edit marks needs_retranslation; Vietnamese edit marks needs_tts)
+  const handleUpdateSubtitle = (id:string,updates:Partial<Subtitle>) => {
+    pushHistory(project);
+    if(updates.characterId){const person=project.characters.find(c=>c.id===updates.characterId);updates={...updates,voiceId:person?.voiceId};}
+    const affectsAudio=['textZh','textVi','speed','pitch','volume','voiceId','characterId'].some(key=>key in updates);
+    if(affectsAudio){stopAudioPreview();setIsPlaying(false);}
+    setProject(p=>({...p,...(affectsAudio?{dubAudioUrl:undefined,dubDuration:undefined}:{}),subtitles:p.subtitles.map(s=>s.id===id?{...s,...(affectsAudio?{ttsAudioUrl:undefined,ttsDuration:undefined}:{}),...updates}:s)}));
+  };
+
+  // Retranslate a single sentence
+  const handleRetranslateSentence = async (id: string) => {
+    const sub = project.subtitles.find((s) => s.id === id);
+    if (!sub) return;
+
+    setHardwareStatus((h) => ({
+      ...h,
+      isProcessing: true,
+      activeModel: 'Qwen3-4B',
+      currentTaskName: `Đang dịch lại câu ${sub.id}...`,
+    }));
+
+    try {
+    const result = await retranslateSingleSentence(sub, project.translationMode);
+
+    handleUpdateSubtitle(id, {
+      textVi: result.textVi,
+      suggestedViShort: result.suggestedViShort,
+      status: 'needs_tts',
+      notes: result.notes,
+    });
+
+    } catch(e) {alert(String(e));} finally {
+    setHardwareStatus((h) => ({
+      ...h,
+      isProcessing: false,
+      activeModel: null,
+      currentTaskName: '',
+    }));
+      }
+  };
+
+  // Regenerate VieNeu-TTS for a single sentence
+  const handleRegenerateTtsSentence = async (id: string) => {
+    const sub = project.subtitles.find((s) => s.id === id);
+    if (!sub) return;
+
+    const char = project.characters.find((c) => c.id === sub.characterId);
+    const voiceId = sub.voiceId || char?.voiceId || 'Hải Đăng';
+
+    setHardwareStatus((h) => ({
+      ...h,
+      isProcessing: true,
+      activeModel: 'VieNeu-TTS v3 Turbo',
+      currentTaskName: `Tạo lại âm thanh câu ${sub.id}...`,
+    }));
+
+    try {
+    if (!sub.textVi) throw new Error('Hãy dịch sang tiếng Việt trước.');
+    const synthResult = await synthesizeVieNeuTTS(
+      sub.textVi,
+      voiceId,
+      sub.speed,
+      sub.pitch,
+      sub.volume
+    );
+
+    const updated=project.subtitles.map(s=>s.id===id?{...s,ttsAudioUrl:synthResult.audioUrl,ttsDuration:synthResult.duration}:s);
+    const ready=updated.filter(s=>s.ttsAudioUrl&&s.textVi);
+    const mixed=await apiJson('/api/mix',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subtitles:ready,videoDuration:project.duration})});
+    const map=new Map<string,Subtitle>(mixed.subtitles.map((s:Subtitle)=>[s.id,s]));
+    setProject(p=>({...p,subtitles:updated.map(s=>map.get(s.id)||s),dubAudioUrl:mixed.audioUrl,dubDuration:mixed.duration,originalAudioMuted:true}));
+    } catch(e) {alert(String(e));} finally {
+    setHardwareStatus((h) => ({
+      ...h,
+      isProcessing: false,
+      activeModel: null,
+      currentTaskName: '',
+    }));
+      }
+  };
+
+  // Check single sentence with Paraformer-ZH
+  const handleCheckWithParaformer = async (id: string) => {
+    const sub = project.subtitles.find((s) => s.id === id);
+    if (!sub) return;
+
+    alert('Bản này dùng Whisper-small. Chưa cài Paraformer.');
+  };
+
+  // Split subtitle at time
+  const handleSplitSubtitle = (id: string, splitTime: number) => {
+    const sub = project.subtitles.find((s) => s.id === id);
+    if (!sub || splitTime <= sub.startTime || splitTime >= sub.endTime) return;
+
+    pushHistory(project);
+    const newSub1: Subtitle = {
+      ...sub,
+      endTime: splitTime,
+      status: 'needs_retranslation',
+    };
+    const newSub2: Subtitle = {
+      ...sub,
+      id: `sub-${Date.now().toString().slice(-4)}`,
+      startTime: splitTime,
+      textZh: '...',
+      textVi: '...',
+      status: 'needs_retranslation',
+      ttsAudioUrl: undefined,
+    };
+
+    setProject((p) => ({
+      ...p,
+      subtitles: p.subtitles.flatMap((s) => (s.id === id ? [newSub1, newSub2] : [s])),
+    }));
+  };
+
+  // Delete subtitle
+  const handleDeleteSubtitle = (id: string) => {
+    pushHistory(project);
+    setProject((p) => ({
+      ...p,
+      subtitles: p.subtitles.filter((s) => s.id !== id),
+      selectedSubtitleId: null,
+    }));
+  };
+
+  // Update Character properties
+  const handleAddCharacter=()=>{
+    pushHistory(project);const count=project.characters.length;
+    setProject(p=>({...p,characters:[...p.characters,{id:'speaker-'+Date.now(),name:'Nhân vật '+(count+1),gender:'female',role:'',relationship:'',pronounSelf:'',pronounCall:'',color:['#3B82F6','#EC4899','#F59E0B','#8B5CF6'][count%4],voiceId:'Mai Anh',speed:1,pitch:0}]}));
+  };
+  const handleUpdateCharacter = (id:string,updates:Partial<Character>) => {
+    pushHistory(project);
+    const audioChanged=['voiceId','speed','pitch'].some(k=>k in updates);
+    if(audioChanged){stopAudioPreview();setIsPlaying(false);}
+    setProject(p=>({...p,characters:p.characters.map(c=>c.id===id?{...c,...updates}:c),...(audioChanged?{dubAudioUrl:undefined,dubDuration:undefined,subtitles:p.subtitles.map(s=>s.characterId===id?{...s,...updates,ttsAudioUrl:undefined,ttsDuration:undefined,status:'needs_tts'}:s)}:{})}));
+  };
+
+  // Export functions
+  const handleExportSrt = (type: 'zh' | 'vi' | 'bilingual') => {
+    const srtContent = generateSrt(project.subtitles, type);
+    const filename = `${project.title.replace(/\s+/g, '_')}_${type}.srt`;
+    triggerDownload(srtContent, filename, 'text/plain');
+  };
+
+  const handleExportDubSrt=()=>{
+    const cues=project.subtitles.filter(s=>s.ttsAudioUrl&&s.dubStartTime!==undefined).map(s=>({...s,startTime:s.dubStartTime!,endTime:s.dubEndTime!}));
+    triggerDownload(generateSrt(cues,'vi'),project.title+'_theo_giong.srt','text/plain');
+  };
+  const handleExportWav = async () => {
+    if(!project.dubAudioUrl){alert('Hãy tạo giọng đọc và ghép timeline trước khi xuất.');return;}
+    const response=await fetch(project.dubAudioUrl);if(!response.ok){alert('Âm thanh không còn trong bộ nhớ. Hãy tạo lại.');return;}
+    triggerDownload(await response.blob(),project.title+'_VieNeu.wav','audio/wav');
+  };
+
+  const handleExportProjectJson = () => {
+    const jsonStr = JSON.stringify(project, null, 2);
+    triggerDownload(jsonStr, `${project.title}_project.json`, 'application/json');
+  };
+
+  return (
+    <div className="flex flex-col h-screen min-w-[1100px] w-full bg-[#101014] text-zinc-100 overflow-hidden font-sans select-none">
+      {/* 1. Header Toolbar */}
+      <Header
+        hardwareStatus={hardwareStatus}
+        projectTitle={project.title}
+        onOpenPackaging={() => setIsPackagingModalOpen(true)}
+        onOpenModelAnalysis={() => setIsModelAnalysisOpen(true)}
+        onOpenModelLoader={() => setIsModelLoaderOpen(true)}
+        onCancel={jobId?handleCancel:undefined}
+        onOpenExport={() => setActiveSidebarTab('export')}
+        onSaveProject={handleExportProjectJson}
+        canUndo={historyPast.length > 0}
+        canRedo={historyFuture.length > 0}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+      />
+
+      {/* 2. Middle Workspace: Left Sidebar + Center Video + Right Subtitle Editor */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Sidebar Steps / Controls */}
+        <SidebarTabs
+          activeTab={activeSidebarTab}
+          setActiveTab={setActiveSidebarTab}
+          project={project}
+          hardwareStatus={hardwareStatus}
+          onUploadVideo={handleUploadVideo}
+          onImportSrt={handleImportSrt}
+          onImportTranslation={handleImportTranslation}
+          voices={voices}
+          onRunAsr={handleRunAsr}
+          onRunTranslation={handleRunTranslation}
+          onRunBatchTts={handleRunBatchTts}
+          onExportSrt={handleExportSrt}
+          onExportWav={handleExportWav}
+          onExportDubSrt={handleExportDubSrt}
+          onExportProjectJson={handleExportProjectJson}
+          onUpdateCharacter={handleUpdateCharacter}
+          onAddCharacter={handleAddCharacter}
+        />
+
+        {/* Center: Video Player Preview */}
+        <VideoPlayer
+          videoUrl={project.videoUrl}
+          dubAudioUrl={project.dubAudioUrl}
+          dubDuration={project.dubDuration}
+          subtitles={project.subtitles}
+          characters={project.characters}
+          currentTime={currentTime}
+          duration={Math.max(project.duration,project.dubDuration||0)}
+          isPlaying={isPlaying}
+          originalAudioVolume={project.originalAudioVolume}
+          originalAudioMuted={project.originalAudioMuted}
+          bgmDucking={project.bgmDucking}
+          onTimeUpdate={(t) => setCurrentTime(t)}
+          onTogglePlay={() => setIsPlaying((p) => !p)}
+          onChangeOriginalVolume={(vol) => setProject((p) => ({ ...p, originalAudioVolume: vol }))}
+          onToggleOriginalMute={() => setProject((p) => ({ ...p, originalAudioMuted: !p.originalAudioMuted }))}
+          onToggleDucking={() => setProject((p) => ({ ...p, bgmDucking: !p.bgmDucking }))}
+        />
+
+        {/* Right: Subtitle & Dubbing Editor */}
+        <SubtitleEditor
+          isProcessing={hardwareStatus.isProcessing}
+          subtitles={project.subtitles}
+          characters={project.characters}
+          selectedSubtitleId={project.selectedSubtitleId}
+          onSelectSubtitle={(id) => setProject((p) => ({ ...p, selectedSubtitleId: id }))}
+          onUpdateSubtitle={handleUpdateSubtitle}
+          onRetranslateSentence={handleRetranslateSentence}
+          onRegenerateTtsSentence={handleRegenerateTtsSentence}
+          onCheckWithParaformer={handleCheckWithParaformer}
+        />
+      </div>
+
+      {/* 3. Bottom: CapCut-Style Multi-Track Timeline */}
+      <Timeline
+        subtitles={project.subtitles}
+        characters={project.characters}
+        currentTime={currentTime}
+        duration={project.duration}
+        selectedSubtitleId={project.selectedSubtitleId}
+        onSelectSubtitle={(id) => setProject((p) => ({ ...p, selectedSubtitleId: id }))}
+        onSeek={(t) => setCurrentTime(t)}
+        onSplitSubtitle={handleSplitSubtitle}
+        onDeleteSubtitle={handleDeleteSubtitle}
+      />
+
+      {/* 4. Offline Packaging & Manifest Modal */}
+      <OfflinePackagingModal
+        isOpen={isPackagingModalOpen}
+        onClose={() => setIsPackagingModalOpen(false)}
+      />
+
+      {/* 5. Model Architecture & Tensor Breakdown Modal */}
+      <ModelArchitectureModal
+        isOpen={isModelAnalysisOpen}
+        onClose={() => setIsModelAnalysisOpen(false)}
+      />
+
+      {/* 6. Desktop Model Downloader & Loader Modal */}
+      <DesktopModelLoaderModal
+        isOpen={isModelLoaderOpen}
+        onClose={() => setIsModelLoaderOpen(false)}
+        onModelsLoaded={() => {
+          setHardwareStatus((h) => ({
+            ...h,
+            activeModel: 'SenseVoice + Qwen3-4B + VieNeu-TTS (Đã nạp đầy đủ)',
+          }));
+        }}
+      />
+    </div>
+  );
+}

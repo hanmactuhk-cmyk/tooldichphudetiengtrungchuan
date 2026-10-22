@@ -1,0 +1,6 @@
+{
+  "name": "HN Voice Studio",
+  "description": "Offline AI Video Dubbing Software for Windows",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

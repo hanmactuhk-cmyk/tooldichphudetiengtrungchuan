@@ -1,0 +1,11 @@
+1
+00:00:00,000 --> 00:00:01,000
+Em à, anh xin lỗi, hôm nay anh về muộn.
+
+2
+00:00:00,600 --> 00:00:01,300
+Không sao đâu, anh đã ăn cơm chưa?
+
+3
+00:00:01,100 --> 00:00:02,000
+Anh chưa ăn, chúng mình cùng ăn nhé.

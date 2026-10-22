@@ -1,0 +1,52 @@
+const { app, BrowserWindow, dialog, session } = require('electron');
+const path = require('node:path');
+const { spawn } = require('node:child_process');
+const fs = require('node:fs');
+const net = require('node:net');
+const crypto = require('node:crypto');
+let worker, mainWindow, splash, quitting = false, logFd;
+app.setName('HN Voice Studio');
+if (!app.requestSingleInstanceLock()) app.quit();
+else {
+ app.on('second-instance',()=>{const win=mainWindow||splash;if(win){if(win.isMinimized())win.restore();win.show();win.focus();}});
+ app.whenReady().then(start).catch(fail);
+}
+function fail(error){
+ if(quitting)return;
+ dialog.showErrorBox('Không mở được HN Voice Studio',`${error.message}\n\nNhật ký: ${app.getPath('userData')}\\worker.log`);app.quit();
+}
+async function freePort(){
+ return new Promise((resolve,reject)=>{const server=net.createServer();server.once('error',reject);server.listen(0,'127.0.0.1',()=>{const port=server.address().port;server.close(()=>resolve(port));});});
+}
+async function start(){
+ const root=app.isPackaged?process.resourcesPath:path.join(__dirname,'resources');
+ const executable=path.join(root,'runtime','hn-worker','hn-worker.exe');
+ if(!fs.existsSync(executable))throw new Error('Thiếu bộ xử lý. Hãy giải nén đủ bộ phát hành hoặc chạy scripts/build-worker.ps1 khi xây từ mã nguồn.');
+ const data=app.getPath('userData');fs.mkdirSync(data,{recursive:true});let settings={};
+ const settingsPath=path.join(data,'desktop-settings.json');
+ if(fs.existsSync(settingsPath))settings=JSON.parse(fs.readFileSync(settingsPath,'utf8'));
+ splash=new BrowserWindow({width:490,height:230,resizable:false,center:true,autoHideMenuBar:true,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true}});
+ await splash.loadURL('data:text/html;charset=utf-8,'+encodeURIComponent('<html lang="vi"><body style="background:#101827;color:#eef2ff;font:16px Segoe UI;padding:28px"><h2>HN Voice Studio</h2><p>Đang khởi động ứng dụng…</p><p style="color:#9ca3af">Đọc video · Dịch Trung–Việt · VieNeu-TTS</p></body></html>'));
+ const port=await freePort(),instance=crypto.randomUUID(),origin=`http://127.0.0.1:${port}`;
+ const logPath=path.join(data,'worker.log');
+ if(fs.existsSync(logPath)&&fs.statSync(logPath).size>5*1024*1024)fs.renameSync(logPath,logPath+'.old');
+ logFd=fs.openSync(logPath,'a');
+ worker=spawn(executable,[],{cwd:path.dirname(executable),windowsHide:true,stdio:['ignore',logFd,logFd],env:{...process.env,HN_MODELS_DIR:path.join(root,'models'),HN_CACHE_DIR:path.join(data,'cache'),HN_PORT:String(port),HN_INSTANCE_ID:instance,HN_BROWSER_HOME:process.env.HN_BROWSER_HOME||settings.browserHome||path.join(data,'chrome-profiles')}});
+ worker.once('error',fail);worker.once('exit',code=>{if(!quitting)fail(new Error(`Bộ xử lý đã dừng (mã ${code}). Hãy kiểm tra đủ tệp và nhật ký.`));});
+ let ready=false;
+ for(let i=0;i<180&&!quitting;i++){
+  try{const response=await fetch(origin+'/api/health',{signal:AbortSignal.timeout(1000)});const health=await response.json();if(response.ok&&health.instanceId===instance){ready=true;break;}}catch{}
+  await new Promise(r=>setTimeout(r,500));
+ }
+ if(quitting)return;if(!ready)throw new Error('Bộ xử lý không sẵn sàng sau 90 giây.');
+ session.defaultSession.setPermissionRequestHandler((_wc,_permission,callback)=>callback(false));
+ mainWindow=new BrowserWindow({title:'HN Voice Studio',width:1440,height:930,minWidth:1100,minHeight:700,show:false,backgroundColor:'#101827',autoHideMenuBar:true,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true,preload:path.join(__dirname,'preload.cjs')}});
+ mainWindow.webContents.setWindowOpenHandler(()=>({action:'deny'}));
+ mainWindow.webContents.on('will-navigate',(event,url)=>{if(new URL(url).origin!==origin)event.preventDefault();});
+ mainWindow.webContents.on('will-attach-webview',event=>event.preventDefault());
+ session.defaultSession.on('will-download',(_event,item)=>{item.setSaveDialogOptions({title:'Lưu file xuất từ HN Voice Studio',defaultPath:path.join(app.getPath('downloads'),path.basename(item.getFilename()))});});
+ mainWindow.once('ready-to-show',()=>{mainWindow.show();if(splash){splash.destroy();splash=null;}});
+ await mainWindow.loadURL(origin);mainWindow.on('closed',()=>{mainWindow=null;app.quit();});
+}
+app.on('before-quit',()=>{quitting=true;if(worker&&!worker.killed)worker.kill();if(logFd!==undefined){fs.closeSync(logFd);logFd=undefined;}});
+app.on('window-all-closed',()=>app.quit());

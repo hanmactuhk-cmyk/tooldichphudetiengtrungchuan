@@ -1,0 +1,75 @@
+{
+  "name": "tooldichphudetiengtrungchuan",
+  "private": true,
+  "version": "5.0.0",
+  "type": "module",
+  "main": "electron-main.cjs",
+  "scripts": {
+    "dev": "tsx server.ts",
+    "build": "vite build",
+    "start": "tsx server.ts",
+    "preview": "vite preview",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "lint": "tsc --noEmit",
+    "electron:start": "electron .",
+    "electron:build": "vite build && electron-builder --win --x64 --dir",
+    "desktop": "electron .",
+    "test:desktop": "node scripts/test-desktop.cjs"
+  },
+  "devDependencies": {
+    "@google/genai": "^2.4.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.14.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.21",
+    "axios": "^1.7.9",
+    "dotenv": "^17.2.3",
+    "electron": "^45.0.0",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.25.0",
+    "express": "^4.21.2",
+    "lucide-react": "^0.546.0",
+    "motion": "^12.23.24",
+    "playwright": "1.62.1",
+    "react": "^19.0.1",
+    "react-dom": "^19.0.1",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.21.0",
+    "typescript": "^7.0.2",
+    "vite": "^5.4.14"
+  },
+  "build": {
+    "appId": "com.hanmactuhk.hnvoicestudio",
+    "productName": "HN Voice Studio",
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": [
+        "dir"
+      ],
+      "signAndEditExecutable": false
+    },
+    "files": [
+      "dist/**/*",
+      "electron-main.cjs",
+      "preload.cjs",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/runtime",
+        "to": "runtime"
+      }
+    ],
+    "asar": true,
+    "npmRebuild": false,
+    "artifactName": "HNVoice-Studio-${version}-${arch}.${ext}"
+  },
+  "packageManager": "pnpm@11.25.0",
+  "description": "Ứng dụng Windows đọc phụ đề Trung, dịch Việt và tạo giọng VieNeu",
+  "author": "hanmactuhk-cmyk"
+}

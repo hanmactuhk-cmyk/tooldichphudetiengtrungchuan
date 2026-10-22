@@ -22,7 +22,7 @@ from translation import OfflineTranslator
 from browser_translation import BrowserTranslator
 from subtitle_contract import validate_cues,from_srt,parse_srt
 from jobs import JOBS
-app = FastAPI(title='HN Voice Studio', version='5.1.0')
+app = FastAPI(title='HN Voice Studio', version='5.2.0')
 DUBBING=DubbingService(MODELS,CACHE,lambda *args:ffmpeg(*args))
 TRANSLATOR=OfflineTranslator(MODELS)
 BROWSER_HOME=Path(os.environ.get('HN_BROWSER_HOME',APP_DIR/'data/chrome-profiles'))
@@ -51,7 +51,7 @@ def ffmpeg(*args):
 @app.get('/health')
 @app.get('/api/health')
 def health():
-    return {'status':'ok','device':'cpu','models':{n:(MODELS/n).is_dir() for n in ['whisper-small','qwen3','vieneu','ocr-zh']},'modelDirectory':str(MODELS),'version':'5.1.0','instanceId':os.environ.get('HN_INSTANCE_ID'),'activeModel':POOL.name,'modelLoads':POOL.loads}
+    return {'status':'ok','device':'cpu','models':{n:(MODELS/n).is_dir() for n in ['whisper-small','qwen3','vieneu','ocr-zh']},'modelDirectory':str(MODELS),'version':'5.2.0','instanceId':os.environ.get('HN_INSTANCE_ID'),'activeModel':POOL.name,'modelLoads':POOL.loads}
 @app.post('/api/transcribe')
 def transcribe(file: UploadFile=File(...)):
     from faster_whisper import WhisperModel
@@ -127,6 +127,22 @@ def ocr_video(file:UploadFile=File(...),crop_top:float=Form(default=0.55,ge=0,lt
     finally:
         if cap is not None:cap.release()
         source.unlink(missing_ok=True)
+
+@app.post('/api/video/export')
+def export_video(file:UploadFile=File(...),options:str=Form(...)):
+    import json
+    from video_export import render_video
+    source=CACHE/(uuid.uuid4().hex+'.mp4')
+    try:
+        config=json.loads(options)
+        if not isinstance(config,dict):raise ValueError('Tùy chọn xuất không hợp lệ.')
+        with source.open('wb') as handle:
+            while chunk:=file.file.read(8*1024*1024):
+                handle.write(chunk)
+                if handle.tell()>2*1024**3:raise ValueError('Video vượt 2 GB.')
+        return JOBS.submit('export-video',{'upload':source.name,'options':config},lambda progress,cancelled:render_video(source,config,CACHE,DUBBING,progress,cancelled),cleanup=lambda:source.unlink(missing_ok=True))
+    except Exception as exc:
+        source.unlink(missing_ok=True);raise HTTPException(422,str(exc))
 
 @app.post('/api/gemini/video-subtitles')
 def gemini_video_subtitles(file:UploadFile=File(...),duration:float=Form(...)):
@@ -239,10 +255,10 @@ def cancel_job(identifier:str):
 
 @app.get('/cache/{filename}')
 def audio(filename:str):
-    if Path(filename).name!=filename or not filename.endswith('.wav'): raise HTTPException(404)
+    if Path(filename).name!=filename or not filename.endswith(('.wav','.mp4')): raise HTTPException(404)
     path=CACHE/filename
     if not path.is_file(): raise HTTPException(404)
-    return FileResponse(path,media_type='audio/wav')
+    return FileResponse(path,media_type='video/mp4' if filename.endswith('.mp4') else 'audio/wav')
 if (ROOT/'dist').is_dir(): app.mount('/',StaticFiles(directory=ROOT/'dist',html=True),name='frontend')
 if __name__=='__main__':
     import uvicorn

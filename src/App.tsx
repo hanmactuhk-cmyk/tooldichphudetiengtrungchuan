@@ -57,6 +57,13 @@ export default function App() {
   };
 
   const handleSplitCue=(id:string)=>{try{const cue=project.subtitles.find(s=>s.id===id);if(!cue)return;const parts=splitCue(cue);stopAudioPreview();setIsPlaying(false);pushHistory(project);setProject(p=>({...p,subtitles:p.subtitles.flatMap(s=>s.id===id?parts:[s]),dubAudioUrl:undefined,dubDuration:undefined,selectedSubtitleId:parts[0].id}));}catch(e){alert(String(e));}};
+  const handleExportMp4=async(captions:boolean)=>{
+    if(!project.videoUrl)return;stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,progressPercent:0,currentTaskName:'Chuẩn bị xuất MP4...'}));
+    try{const form=new FormData();form.append('file',await (await fetch(project.videoUrl)).blob(),project.videoFileName||'video.mp4');form.append('options',JSON.stringify({ass:captions&&project.subtitles.length?generateAss(project):'',blur:project.blurRegion,aspect:project.captionLayout?.aspect||'auto',dubAudioUrl:project.dubAudioUrl,originalMuted:project.originalAudioMuted,originalVolume:project.originalAudioVolume}));
+      const body=await apiJson('/api/video/export',{method:'POST',body:form});window.dispatchEvent(new CustomEvent('hn-job',{detail:body.jobId}));
+      for(;;){const job=await apiJson('/api/jobs/'+body.jobId);setHardwareStatus(h=>({...h,progressPercent:job.percent,currentTaskName:job.message}));if(job.state==='done'){const a=document.createElement('a');a.href=job.result.url;a.download=project.title+'_HNVoice.mp4';a.click();break;}if(['error','cancelled'].includes(job.state))throw new Error(job.message);await new Promise(r=>setTimeout(r,750));}
+    }catch(e){alert(String(e));}finally{window.dispatchEvent(new CustomEvent('hn-job',{detail:null}));setHardwareStatus(h=>({...h,isProcessing:false,progressPercent:0,currentTaskName:''}));}
+  };
   const handleGeminiVideo=async()=>{
     if(!project.videoUrl)return;
     stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,progressPercent:1,currentTaskName:'Gemini: chuẩn bị tải video...'}));
@@ -512,6 +519,7 @@ export default function App() {
           onImportTranslation={handleImportTranslation}
           voices={voices}
           onRunAsr={handleRunAsr}
+          onExportMp4={handleExportMp4}
           onGeminiVideo={handleGeminiVideo}
           onExportAss={()=>triggerDownload(generateAss(project),project.title+'.ass','text/plain')}
           onRunTranslation={handleRunTranslation}
@@ -526,6 +534,7 @@ export default function App() {
 
         {/* Center: Video Player Preview */}
         <VideoPlayer
+          blur={project.blurRegion||{enabled:false,x:.1,y:.78,width:.8,height:.15,strength:16}} onBlurChange={b=>setProject(p=>({...p,blurRegion:b}))}
           expanded={previewExpanded} onToggleExpanded={()=>setPreviewExpanded(v=>!v)}
           layout={project.captionLayout||DEFAULT_CAPTION_LAYOUT}
           onLayoutChange={layout=>setProject(p=>({...p,captionLayout:layout,subtitles:layout.position!==(p.captionLayout||DEFAULT_CAPTION_LAYOUT).position?p.subtitles.map(s=>({...s,position:undefined})):p.subtitles}))}

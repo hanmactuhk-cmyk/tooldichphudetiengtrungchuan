@@ -47,6 +47,11 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
   await page.getByRole('button',{name:'5. Xuất file',exact:true}).click();
   let completed=0;for(const label of ['Giọng VieNeu toàn bộ (.wav)','Phụ đề theo giọng đã căn (.srt)']){await page.getByRole('button',{name:label,exact:true}).click();for(let n=0;n<60;n++){const downloads=await app.evaluate(()=>globalThis.__hnTestDownloads);if(downloads.length>completed){assert.equal(downloads[completed].state,'completed',JSON.stringify(downloads));completed++;break;}await new Promise(r=>setTimeout(r,250));}assert(completed>0);}assert.equal(completed,2);
   await page.waitForTimeout(1000);report.exports=fs.readdirSync(downloadDir).filter(n=>/\.(wav|srt)$/.test(n));assert(report.exports.some(n=>n.endsWith('.srt')));for(const name of report.exports)fs.copyFileSync(path.join(downloadDir,name),path.join(out,name));
+  if(process.env.HN_TEST_MP4){
+   await page.getByLabel('Làm mờ phụ đề gốc',{exact:true}).check();
+   const before=await app.evaluate(()=>globalThis.__hnTestDownloads.length);await page.getByRole('button',{name:'Xuất video MP4',exact:true}).click();
+   let exported;for(let n=0;n<240;n++){const downloads=await app.evaluate(()=>globalThis.__hnTestDownloads);if(downloads.length>before){exported=downloads[before];break;}await page.waitForTimeout(500);}assert(exported&&exported.state==='completed');assert(exported.name.endsWith('.mp4'));assert(fs.statSync(exported.path).size>1000);fs.copyFileSync(exported.path,path.join(out,'native-export.mp4'));report.mp4Export=true;
+  }
   await page.getByRole('button',{name:'3. Dịch',exact:true}).click();assert.equal(await page.getByLabel('Chọn cách dịch',{exact:true}).locator('option').count(),3);
   await page.screenshot({path:path.join(out,'electron-app.png')});report.pageErrors=errors;assert.equal(errors.length,0);
   if(process.env.HN_TEST_GEMINI_VIDEO){
@@ -56,10 +61,13 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     await page.getByRole('button',{name:'Tải video lên Gemini → lấy SRT',exact:true}).click();
     await page.getByRole('heading',{name:'Dịch Trung–Việt',exact:true}).waitFor({timeout:660000});
     report.geminiCues=await page.locator('textarea:not([placeholder])').count();assert(report.geminiCues>0);
+    report.geminiVideoImported=true;
+    if(!process.env.HN_TEST_GEMINI_READ_ONLY){
     await page.getByLabel('Chọn cách dịch',{exact:true}).selectOption('gemini');await page.getByRole('button',{name:'Dịch sang tiếng Việt',exact:true}).click();
     await page.getByRole('heading',{name:'VieNeu-TTS v3 Turbo',exact:true}).waitFor({timeout:360000});
     const vi=await page.locator('textarea[placeholder]').evaluateAll(els=>els.map(e=>e.value));assert(vi.length&&vi.every(t=>t.trim().length&&!t.includes('```')&&!t.includes('<ElicitationsGroup>')));report.geminiVideoToTranslation=true;
-    fs.writeFileSync(path.join(out,'gemini-video-translated.json'),JSON.stringify(vi,null,2));await page.screenshot({path:path.join(out,'gemini-video-native.png')});
+    fs.writeFileSync(path.join(out,'gemini-video-translated.json'),JSON.stringify(vi,null,2));}
+    await page.screenshot({path:path.join(out,'gemini-video-native.png')});
   }
   console.log('NATIVE ELECTRON UI PASSED');
  }finally{await app.close();}

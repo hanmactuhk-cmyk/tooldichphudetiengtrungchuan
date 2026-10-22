@@ -1,3 +1,4 @@
+export interface BlurRegion { enabled:boolean; x:number; y:number; width:number; height:number; strength:number; }
 export interface CaptionPosition { x:number; y:number; }
 export interface CaptionLayout { aspect:'auto'|'16:9'|'9:16'; position:CaptionPosition; width:number; fontSize:number; }
 export type TranslationProvider = 'offline' | 'gemini' | 'chatgpt';
@@ -82,6 +83,7 @@ export interface ProjectData {
   videoWidth?:number;
   videoHeight?:number;
   captionLayout?:CaptionLayout;
+  blurRegion?:BlurRegion;
   duration: number;
   originalAudioVolume: number; // 0 to 1
   originalAudioMuted: boolean;

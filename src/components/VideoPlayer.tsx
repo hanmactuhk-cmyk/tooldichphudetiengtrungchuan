@@ -11,10 +11,11 @@ import {
   Layers,
   Sparkles,
 } from 'lucide-react';
-import { Subtitle, Character, CaptionLayout, CaptionPosition } from '../types';
+import { Subtitle, Character, CaptionLayout, CaptionPosition, BlurRegion } from '../types';
 
 interface VideoPlayerProps {
   videoUrl: string | null;
+  blur:BlurRegion;onBlurChange:(b:BlurRegion)=>void;
   expanded:boolean;onToggleExpanded:()=>void;
   layout:CaptionLayout;
   onLayoutChange:(v:CaptionLayout)=>void;
@@ -37,7 +38,7 @@ interface VideoPlayerProps {
 }
 
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({
-  videoUrl,layout,onLayoutChange,onCuePositionChange,expanded,onToggleExpanded,
+  videoUrl,blur,onBlurChange,layout,onLayoutChange,onCuePositionChange,expanded,onToggleExpanded,
   dubAudioUrl,
   dubDuration,
   subtitles,
@@ -57,6 +58,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const containerRef=useRef<HTMLDivElement|null>(null),captionRef=useRef<HTMLDivElement|null>(null);
   const [viewport,setViewport]=useState({width:600,height:400}),[nativeRatio,setNativeRatio]=useState(16/9);
   const [scope,setScope]=useState<'all'|'cue'>('all'),[captionSize,setCaptionSize]=useState({width:0,height:0});
+  const blurDrag=useRef<{x:number;y:number;region:BlurRegion;resize:boolean}|null>(null);
+  const blurMove=(e:React.PointerEvent<HTMLDivElement>)=>{const d=blurDrag.current;if(!d)return;const dx=(e.clientX-d.x)/pw,dy=(e.clientY-d.y)/ph;onBlurChange(d.resize?{...d.region,width:Math.max(.03,Math.min(1-d.region.x,d.region.width+dx)),height:Math.max(.02,Math.min(1-d.region.y,d.region.height+dy))}:{...d.region,x:Math.max(0,Math.min(1-d.region.width,d.region.x+dx)),y:Math.max(0,Math.min(1-d.region.height,d.region.y+dy))});};
   const drag=useRef<{pointer:number;dx:number;dy:number}|null>(null);
   const ratio=layout.aspect==='auto'?nativeRatio:layout.aspect==='16:9'?16/9:9/16;
   const fw=Math.min(viewport.width,viewport.height*ratio),fh=fw/ratio,pw=Math.min(fw,fh*nativeRatio),ph=pw/nativeRatio;
@@ -123,6 +126,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       <label>Cỡ chữ <input aria-label="Cỡ chữ phụ đề" type="range" min="2" max="7" step=".25" value={layout.fontSize} onChange={e=>onLayoutChange({...layout,fontSize:Number(e.target.value)})} className="w-16 align-middle"/></label>
       <label>Độ rộng <input aria-label="Độ rộng phụ đề" type="range" min="40" max="96" value={layout.width} onChange={e=>onLayoutChange({...layout,width:Number(e.target.value)})} className="w-16 align-middle"/></label>
     </div>
+    <div className="shrink-0 flex flex-wrap gap-3 items-center px-2 py-1 text-xs bg-zinc-900"><label><input aria-label="Làm mờ phụ đề gốc" type="checkbox" checked={blur.enabled} onChange={e=>onBlurChange({...blur,enabled:e.target.checked})}/> Làm mờ phụ đề gốc</label>{blur.enabled&&<><span>Kéo vùng mờ; kéo góc dưới phải để đổi kích thước</span><label>Độ mờ <input aria-label="Độ mờ" type="range" min="2" max="30" value={blur.strength} onChange={e=>onBlurChange({...blur,strength:Number(e.target.value)})}/></label></>}</div>
     <div ref={containerRef} className="relative flex-1 min-h-0 min-w-0 bg-zinc-950 flex items-center justify-center overflow-hidden">
       <div data-testid="video-frame" className="relative bg-black shrink-0 overflow-hidden" style={{width:fw,height:fh}}>
         <div data-testid="video-picture" className="absolute overflow-hidden" style={{width:pw,height:ph,left:(fw-pw)/2,top:(fh-ph)/2}}>
@@ -131,7 +135,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             onTimeUpdate={e=>{if(currentTime<=e.currentTarget.duration+.05)onTimeUpdate(e.currentTarget.currentTime);}}
             onEnded={()=>{if(isPlaying&&(!dubAudioUrl||(dubDuration||0)<=(videoRef.current?.duration||0)+.05))onTogglePlay();}}/>:
             <div className="absolute inset-0 flex items-center justify-center text-xs text-zinc-500">Chọn video hoặc nhập SRT</div>}
-          {subtitleMode!=='off'&&activeSub&&<div ref={captionRef} data-testid="subtitle-overlay" role="group" aria-label="Kéo vị trí phụ đề" className="absolute z-10 cursor-move touch-none bg-black/75 text-center rounded px-2 py-1 border border-white/20"
+          {videoUrl&&blur.enabled&&<div data-testid="blur-region" aria-label="Kéo vùng làm mờ" className="absolute z-[5] border border-cyan-300/70 cursor-move touch-none" style={{left:blur.x*100+'%',top:blur.y*100+'%',width:blur.width*100+'%',height:blur.height*100+'%',backdropFilter:`blur(${blur.strength*pw/Math.max(1,videoRef.current?.videoWidth||pw)}px)`}} onPointerDown={e=>{if(e.button!==0)return;blurDrag.current={x:e.clientX,y:e.clientY,region:{...blur},resize:(e.target as HTMLElement).dataset.resize==='yes'};e.currentTarget.setPointerCapture(e.pointerId);e.preventDefault();}} onPointerMove={blurMove} onPointerUp={()=>{blurDrag.current=null;}} onPointerCancel={()=>{blurDrag.current=null;}}><span data-resize="yes" aria-label="Đổi kích thước vùng mờ" className="absolute right-0 bottom-0 w-5 h-5 bg-cyan-400 cursor-se-resize"/></div>}
+          {subtitleMode!=='off' &&activeSub&&<div ref={captionRef} data-testid="subtitle-overlay" role="group" aria-label="Kéo vị trí phụ đề" className="absolute z-10 cursor-move touch-none bg-black/75 text-center rounded px-2 py-1 border border-white/20"
             style={{left:cx*100+'%',top:cy*100+'%',transform:'translate(-50%,-50%)',maxWidth:layout.width+'%',width:'max-content',maxHeight:'98%',overflow:'hidden'}}
             onPointerDown={e=>{if(e.button!==0)return;const b=e.currentTarget.parentElement!.getBoundingClientRect();drag.current={pointer:e.pointerId,dx:e.clientX-b.left-cx*b.width,dy:e.clientY-b.top-cy*b.height};e.currentTarget.setPointerCapture(e.pointerId);e.preventDefault();}}
             onPointerMove={move} onPointerUp={e=>{drag.current=null;if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);}} onPointerCancel={()=>{drag.current=null;}}>

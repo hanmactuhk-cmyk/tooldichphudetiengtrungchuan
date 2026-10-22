@@ -44,7 +44,7 @@ def main():
   record={'name':file.name,'size':file.stat().st_size,'sha256':digest}
   print('Uploading '+file.name,flush=True)
   subprocess.run([args.gh,'release','upload',args.tag,str(file),'--repo',args.upload_repo],check=True)
-  release=json.loads(subprocess.check_output([args.gh,'api','repos/'+args.upload_repo+'/releases/tags/'+args.tag],text=True,encoding='utf-8'))
+  release=json.loads(subprocess.check_output([args.gh,'release','view',args.tag,'--repo',args.upload_repo,'--json','assets'],text=True,encoding='utf-8'))
   asset=next(a for a in release['assets'] if a['name']==file.name)
   assert asset['size']==record['size']
   assert asset.get('digest')=='sha256:'+digest, 'GitHub asset SHA256 mismatch or missing digest'

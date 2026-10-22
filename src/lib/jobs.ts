@@ -1,5 +1,12 @@
 export async function apiJson(url:string,init?:RequestInit):Promise<any>{
- const response=await fetch(url,init);let data:any;
+ let response:Response;
+ try { response=await fetch(url,init); }
+ catch {
+  let alive=false;
+  try { alive=(await fetch('/api/health',{signal:AbortSignal.timeout(3000)})).ok; } catch {}
+  throw new Error(alive?'Không gửi được tệp tới bộ xử lý. Hãy kiểm tra tệp video còn tồn tại và dung lượng ổ chứa tệp tạm, rồi chọn lại video.':'Mất kết nối bộ xử lý. Hãy lưu dự án rồi mở lại ứng dụng.');
+ }
+ let data:any;
  try{data=await response.json();}catch{throw new Error('Bộ xử lý không trả dữ liệu hợp lệ.');}
  if(!response.ok)throw new Error(typeof data.detail==='string'?data.detail:JSON.stringify(data.detail||'Xử lý thất bại'));
  return data;

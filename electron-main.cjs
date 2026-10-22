@@ -28,10 +28,13 @@ async function start(){
  splash=new BrowserWindow({width:490,height:230,resizable:false,center:true,autoHideMenuBar:true,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true}});
  await splash.loadURL('data:text/html;charset=utf-8,'+encodeURIComponent('<html lang="vi"><body style="background:#101827;color:#eef2ff;font:16px Segoe UI;padding:28px"><h2>HN Voice Studio</h2><p>Đang khởi động ứng dụng…</p><p style="color:#9ca3af">Đọc video · Dịch Trung–Việt · VieNeu-TTS</p></body></html>'));
  const port=await freePort(),instance=crypto.randomUUID(),origin=`http://127.0.0.1:${port}`;
+ const cacheHome=process.env.HN_CACHE_DIR||settings.cacheHome||path.join(data,'cache');
+ fs.mkdirSync(cacheHome,{recursive:true});
+ const tempHome=path.join(cacheHome,'temp');fs.mkdirSync(tempHome,{recursive:true});
  const logPath=path.join(data,'worker.log');
  if(fs.existsSync(logPath)&&fs.statSync(logPath).size>5*1024*1024)fs.renameSync(logPath,logPath+'.old');
  logFd=fs.openSync(logPath,'a');
- worker=spawn(executable,[],{cwd:path.dirname(executable),windowsHide:true,stdio:['ignore',logFd,logFd],env:{...process.env,HN_MODELS_DIR:path.join(root,'models'),HN_CACHE_DIR:path.join(data,'cache'),HN_PORT:String(port),HN_INSTANCE_ID:instance,HN_BROWSER_HOME:process.env.HN_BROWSER_HOME||settings.browserHome||path.join(data,'chrome-profiles')}});
+ worker=spawn(executable,[],{cwd:path.dirname(executable),windowsHide:true,stdio:['ignore',logFd,logFd],env:{...process.env,HN_MODELS_DIR:path.join(root,'models'),HN_CACHE_DIR:cacheHome,TEMP:tempHome,TMP:tempHome,TMPDIR:tempHome,HN_PORT:String(port),HN_INSTANCE_ID:instance,HN_BROWSER_HOME:process.env.HN_BROWSER_HOME||settings.browserHome||path.join(data,'chrome-profiles')}});
  worker.once('error',fail);worker.once('exit',code=>{if(!quitting)fail(new Error(`Bộ xử lý đã dừng (mã ${code}). Hãy kiểm tra đủ tệp và nhật ký.`));});
  let ready=false;
  for(let i=0;i<180&&!quitting;i++){

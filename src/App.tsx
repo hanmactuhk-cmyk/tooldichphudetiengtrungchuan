@@ -1,3 +1,4 @@
+import {rememberVideo,readVideo} from './lib/video-source';
 import {editTimeline,projectClips,timelineEnd,TimelineEdit,validateTimeline} from './lib/timeline-engine';
 import {DEFAULT_CAPTION_LAYOUT,splitCue,generateAss} from './lib/caption-layout';
 import {apiJson,runJob} from './lib/jobs';
@@ -61,7 +62,7 @@ export default function App() {
   const handleExportMp4=async(captions:boolean)=>{
     if(!project.videoUrl)return;stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,progressPercent:0,currentTaskName:'Chuẩn bị xuất MP4...'}));
     try{let exportProject=project;if(project.manualTimeline&&!project.dubAudioUrl){const mixed=await runJob('/api/timeline/mix',{clips:projectClips(project),duration:timelineEnd(project)},(v,t)=>setHardwareStatus(h=>({...h,progressPercent:v,currentTaskName:t})));exportProject={...project,dubAudioUrl:mixed.audioUrl,dubDuration:mixed.duration};setProject(exportProject);}
-      const form=new FormData();form.append('file',await (await fetch(exportProject.videoUrl!)).blob(),exportProject.videoFileName||'video.mp4');form.append('options',JSON.stringify({timelineDuration:timelineEnd(exportProject),ass:captions&&exportProject.subtitles.length?generateAss(exportProject):'',blur:exportProject.blurRegion,aspect:exportProject.captionLayout?.aspect||'auto',dubAudioUrl:exportProject.dubAudioUrl,originalMuted:exportProject.originalAudioMuted,originalVolume:exportProject.originalAudioVolume}));
+      const form=new FormData();form.append('file',await readVideo(exportProject.videoUrl!),exportProject.videoFileName||'video.mp4');form.append('options',JSON.stringify({timelineDuration:timelineEnd(exportProject),ass:captions&&exportProject.subtitles.length?generateAss(exportProject):'',blur:exportProject.blurRegion,aspect:exportProject.captionLayout?.aspect||'auto',dubAudioUrl:exportProject.dubAudioUrl,originalMuted:exportProject.originalAudioMuted,originalVolume:exportProject.originalAudioVolume}));
       const body=await apiJson('/api/video/export',{method:'POST',body:form});window.dispatchEvent(new CustomEvent('hn-job',{detail:body.jobId}));
       for(;;){const job=await apiJson('/api/jobs/'+body.jobId);setHardwareStatus(h=>({...h,progressPercent:job.percent,currentTaskName:job.message}));if(job.state==='done'){const a=document.createElement('a');a.href=job.result.url;a.download=project.title+'_HNVoice.mp4';a.click();break;}if(['error','cancelled'].includes(job.state))throw new Error(job.message);await new Promise(r=>setTimeout(r,750));}
     }catch(e){alert(String(e));}finally{window.dispatchEvent(new CustomEvent('hn-job',{detail:null}));setHardwareStatus(h=>({...h,isProcessing:false,progressPercent:0,currentTaskName:''}));}
@@ -69,8 +70,8 @@ export default function App() {
   const handleGeminiVideo=async()=>{
     if(!project.videoUrl)return;
     stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,progressPercent:1,currentTaskName:'Gemini: chuẩn bị tải video...'}));
-    try{const blob=await (await fetch(project.videoUrl)).blob();const form=new FormData();form.append('file',blob,project.videoFileName||'video.mp4');form.append('duration',String(project.duration));
-      const response=await fetch('/api/gemini/video-subtitles',{method:'POST',body:form});const body=await response.json();if(!response.ok)throw new Error(body.detail||'Không tải được video.');
+    try{const blob=await readVideo(project.videoUrl);const form=new FormData();form.append('file',blob,project.videoFileName||'video.mp4');form.append('duration',String(project.duration));
+      const body=await apiJson('/api/gemini/video-subtitles',{method:'POST',body:form});
       window.dispatchEvent(new CustomEvent('hn-job',{detail:body.jobId}));
       let result:any;
       for(;;){const job=await apiJson('/api/jobs/'+body.jobId);setHardwareStatus(h=>({...h,progressPercent:job.percent,currentTaskName:job.message}));if(job.state==='done'){result=job.result;break;}if(job.state==='error'||job.state==='cancelled')throw new Error(job.error||job.message);await new Promise(r=>setTimeout(r,750));}
@@ -86,7 +87,7 @@ export default function App() {
   const handleTimelineEdit=(edit:TimelineEdit)=>{try{applyTimeline(editTimeline(project,edit));}catch(e){alert(String(e));}};
   const handleTimelineAudio=async(file?:File)=>{
     if(hardwareStatus.isProcessing)return;stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,progressPercent:0,currentTaskName:file?'Đọc tệp âm thanh...':'Tách tiếng gốc từ video...'}));
-    try{const form=new FormData();if(file)form.append('file',file);else{if(!project.videoUrl)throw Error('Chưa chọn video.');form.append('file',await (await fetch(project.videoUrl)).blob(),project.videoFileName);}
+    try{const form=new FormData();if(file)form.append('file',file);else{if(!project.videoUrl)throw Error('Chưa chọn video.');form.append('file',await readVideo(project.videoUrl),project.videoFileName);}
       const result=await apiJson('/api/timeline/import-audio',{method:'POST',body:form});const clips=projectClips(project);const at=file?Math.max(currentTime,...clips.filter(c=>c.track==='audio').map(c=>c.startTime+c.trimEnd-c.trimStart),0):0;
       const next={...project,manualTimeline:true,originalAudioMuted:file?project.originalAudioMuted:true,audioClips:[...clips,{id:crypto.randomUUID(),origin:file?'file' as const:'video' as const,track:'audio' as const,name:file?.name||'Tiếng gốc · '+project.videoFileName,audioUrl:result.audioUrl,startTime:at,trimStart:0,trimEnd:result.duration,sourceDuration:result.duration,volume:1}]};validateTimeline(next);
       const mixed=await runJob('/api/timeline/mix',{clips:next.audioClips,duration:timelineEnd(next)},(v,t)=>setHardwareStatus(h=>({...h,progressPercent:v,currentTaskName:t})));pushHistory(project);setProject({...next,dubAudioUrl:mixed.audioUrl,dubDuration:mixed.duration});setCurrentTime(t=>Math.min(t,mixed.duration));
@@ -193,12 +194,13 @@ export default function App() {
   // 1. Upload custom video file
   const handleUploadVideo = (file: File) => {
     pushHistory(project);
-    const videoUrl = URL.createObjectURL(file);
+    const videoUrl = rememberVideo(file);
     const videoEl = document.createElement('video');
     videoEl.src = videoUrl;
-    videoEl.onerror = () => { URL.revokeObjectURL(videoUrl); alert('Trình phát không đọc được video này. Hãy đổi sang MP4 H.264/AAC.'); };
+    videoEl.onerror = () => { alert('Trình phát không đọc được video này. Hãy đổi sang MP4 H.264/AAC.'); };
     videoEl.onloadedmetadata = () => {
       const dur = videoEl.duration || 30.0;
+      videoEl.onerror = null; // A detached metadata probe must never invalidate the selected video.
       setProject((p) => ({
         ...p,
         videoUrl,

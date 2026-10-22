@@ -10,7 +10,7 @@ def render_video(source,options,cache,dubbing,progress,cancelled):
  if dub:
   import soundfile
   duration=max(duration,soundfile.info(str(dub)).duration)
- fingerprint=hashlib.sha256(('export-v550:'+json.dumps(options,sort_keys=True)).encode());
+ fingerprint=hashlib.sha256(('export-v560:'+json.dumps(options,sort_keys=True)).encode());
  with Path(source).open('rb') as handle:
   for chunk in iter(lambda:handle.read(8*1024*1024),b''):
    if cancelled():raise RuntimeError('Đã hủy xuất MP4.')
@@ -18,14 +18,27 @@ def render_video(source,options,cache,dubbing,progress,cancelled):
  if dub:
   stat=dub.stat();fingerprint.update(f'{dub.name}:{stat.st_size}:{stat.st_mtime_ns}'.encode())
  output=cache/('export-'+fingerprint.hexdigest()+'.mp4')
- filters=[];label='0:v';blur=options.get('blur') or {}
+ rounded_mask=None;filters=[];label='0:v';blur=options.get('blur') or {}
  if blur.get('enabled'):
   vals=[float(blur.get(k,v)) for k,v in [('x',.1),('y',.78),('width',.8),('height',.15),('strength',16)]]
   if not all(math.isfinite(v) for v in vals):raise ValueError('Vùng mờ không hợp lệ.')
   x=max(0,min(w-2,int(vals[0]*w)));y=max(0,min(h-2,int(vals[1]*h)));bw=max(2,min(w-x,int(vals[2]*w)));bh=max(2,min(h-y,int(vals[3]*h)));radius=max(1,min(30,int(vals[4]),bw//4,bh//4))
-  filters.extend([f'[0:v]split[base][region]',f'[region]crop={bw}:{bh}:{x}:{y},boxblur=luma_radius={radius}:luma_power=2:chroma_radius=0[blurred]',f'[base][blurred]overlay={x}:{y}[masked]']);label='masked'
+  filters.extend([f'[0:v]split[base][region]',f'[region]crop={bw}:{bh}:{x}:{y}:exact=1,boxblur=luma_radius={radius}:luma_power=2:chroma_radius=0[blurred]'])
+  rounding=float(blur.get('radius',.22))
+  if not math.isfinite(rounding):raise ValueError('Bo góc vùng mờ không hợp lệ.')
+  if rounding>0:
+   rounded_mask=(bw,bh,max(0,min(.5,rounding)));filters.extend(['movie=rounded-mask.png,format=gray[mask]','[blurred]format=rgba[rgba]','[rgba][mask]alphamerge[soft]']);label='soft'
+  else:label='blurred'
+  filters.append(f'[base][{label}]overlay={x}:{y}[masked]');label='masked'
  with tempfile.TemporaryDirectory(prefix='export-',dir=cache) as folder:
-  folder=Path(folder);ass=str(options.get('ass') or '')
+  folder=Path(folder)
+  if rounded_mask:
+   import numpy as np
+   bw,bh,rounding=rounded_mask;scale=2;mw,mh=bw*scale,bh*scale;r=max(1,round(min(mw,mh)*rounding));mask=np.zeros((mh,mw),dtype=np.uint8)
+   cv2.rectangle(mask,(r,0),(mw-r-1,mh-1),255,-1);cv2.rectangle(mask,(0,r),(mw-1,mh-r-1),255,-1)
+   for cx,cy in [(r,r),(mw-r-1,r),(r,mh-r-1),(mw-r-1,mh-r-1)]:cv2.circle(mask,(cx,cy),r,255,-1,lineType=cv2.LINE_AA)
+   cv2.imwrite(str(folder/'rounded-mask.png'),cv2.resize(mask,(bw,bh),interpolation=cv2.INTER_AREA))
+  ass=str(options.get('ass') or '')
   if ass:
    if len(ass)>4*1024*1024:raise ValueError('Phụ đề xuất quá lớn.')
    (folder/'captions.ass').write_text(ass,encoding='utf-8')

@@ -1,6 +1,7 @@
+import {CaptionPopup,CaptionChange} from './components/CaptionPopup';
 import {DEFAULT_DECORATION} from './lib/styled-caption';
 import {rememberVideo,readVideo} from './lib/video-source';
-import {deleteTimelineSelection,editTimeline,projectClips,timelineEnd,TimelineEdit,validateTimeline} from './lib/timeline-engine';
+import {deleteTimelineSelection,editTimeline,timelineSubtitles,projectClips,timelineEnd,TimelineEdit,validateTimeline} from './lib/timeline-engine';
 import {DEFAULT_CAPTION_LAYOUT,splitCue,generateAss} from './lib/caption-layout';
 import {apiJson,runJob} from './lib/jobs';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -472,7 +473,17 @@ export default function App() {
   };
 
   const handleExportProjectJson=async()=>{const desktop=(window as any).hnDesktop;if(!desktop){alert('Lưu dự án dùng trong ứng dụng Windows.');return;}stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,currentTaskName:'Đang lưu dự án và media…',progressPercent:1}));try{let videoPath='';if(project.videoUrl){const file=await readVideo(project.videoUrl);if(file instanceof File)videoPath=desktop.filePath(file);}const saved=await desktop.saveProject({project,videoPath});if(saved)alert('Đã lưu dự án: '+saved);}catch(e){alert(String(e));}finally{setHardwareStatus(h=>({...h,isProcessing:false,currentTaskName:'',progressPercent:0}));}};
-  const handleOpenProject=async()=>{const desktop=(window as any).hnDesktop;if(!desktop){alert('Mở dự án dùng trong ứng dụng Windows.');return;}stopAudioPreview();setIsPlaying(false);try{const result=await desktop.openProject();if(result){validateTimeline(result.project);pushHistory(project);setProject({...result.project,captionLayout:{...DEFAULT_CAPTION_LAYOUT,...result.project.captionLayout}});setCurrentTime(0);setActiveSidebarTab('export');}}catch(e){alert(String(e));}};
+  const handleOpenProject=async()=>{const desktop=(window as any).hnDesktop;if(!desktop){alert('Mở dự án dùng trong ứng dụng Windows.');return;}stopAudioPreview();setIsPlaying(false);try{const result=await desktop.openProject();if(result){validateTimeline(result.project);pushHistory(project);setProject({...result.project,captionLayout:{...DEFAULT_CAPTION_LAYOUT,...result.project.captionLayout}});setCurrentTime(0);loadVieNeuVoices().then(data=>setVoices(data.voices));setActiveSidebarTab('export');}}catch(e){alert(String(e));}};
+  const [popupIds,setPopupIds]=useState<string[]>([]);
+  const applyCaptionChanges=(changes:CaptionChange[])=>{const map=new Map(changes.map(c=>[c.id,c]));pushHistory(project);setProject(p=>({...p,subtitles:p.subtitles.map(s=>map.has(s.id)?{...s,...map.get(s.id),status:'translated'}:s)}));};
+  const generatePopupSpeech=async(changes:CaptionChange[])=>{
+    if(hardwareStatus.isProcessing)return;stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,progressPercent:0,currentTaskName:'Chuẩn bị tạo giọng cho phụ đề đã chọn…'}));
+    try{const map=new Map(changes.map(c=>[c.id,c]));const subtitles=timelineSubtitles(project).map(s=>map.has(s.id)?{...s,...map.get(s.id)}:s);const selected=subtitles.filter(s=>map.has(s.id));const cues=selected.map(s=>({...s,startTime:s.viStartTime??s.startTime,endTime:s.viEndTime??s.endTime}));
+      const result=await runJob('/api/timeline/speech',{cues},(progressPercent,currentTaskName)=>setHardwareStatus(h=>({...h,progressPercent,currentTaskName})));
+      const clips=[...projectClips(project).filter(c=>c.track!=='voice'||!c.subtitleId||!map.has(c.subtitleId)),...result.clips];const updates=new Map<string,any>(result.subtitles.map((s:any)=>[s.id,s]));const next:ProjectData={...project,manualTimeline:true,audioClips:clips,subtitles:subtitles.map(s=>updates.has(s.id)?{...s,...updates.get(s.id),status:'synced'}:s),originalAudioMuted:true};validateTimeline(next);
+      const mixed=await runJob('/api/timeline/mix',{clips,duration:timelineEnd(next)},(progressPercent,currentTaskName)=>setHardwareStatus(h=>({...h,progressPercent,currentTaskName})));pushHistory(project);setProject({...next,dubAudioUrl:mixed.audioUrl,dubDuration:mixed.duration});
+    }catch(e){alert(String(e));}finally{setHardwareStatus(h=>({...h,isProcessing:false,progressPercent:0,currentTaskName:''}));}
+  };
   const editorPanel=React.useMemo(()=>(
         <div className={previewExpanded?'hidden':'contents'}><SubtitleEditor
           isProcessing={hardwareStatus.isProcessing}
@@ -482,6 +493,7 @@ export default function App() {
           onSelectSubtitle={(id) => setProject((p) => ({ ...p, selectedSubtitleId: id }))}
           onUpdateSubtitle={handleUpdateSubtitle}
           onRetranslateSentence={handleRetranslateSentence}
+          onOpenCaptionPopup={id=>{stopAudioPreview();setIsPlaying(false);setPopupIds([id]);}}
           onSplitCue={handleSplitCue}
           onRegenerateTtsSentence={handleRegenerateTtsSentence}
           onCheckWithParaformer={handleCheckWithParaformer}
@@ -516,6 +528,8 @@ export default function App() {
           onUploadVideo={handleUploadVideo}
           onImportSrt={handleImportSrt}
           onImportTranslation={handleImportTranslation}
+          onCloneProcessing={(isProcessing,progressPercent,currentTaskName)=>setHardwareStatus(h=>({...h,isProcessing,progressPercent,currentTaskName}))}
+          onVoicesChanged={()=>loadVieNeuVoices().then(data=>setVoices(data.voices))}
           voices={voices}
           onRunAsr={handleRunAsr}
           onOpenProject={handleOpenProject}
@@ -565,12 +579,14 @@ export default function App() {
       </div>
 
       {lastExport&&<div className="px-3 py-2 text-xs bg-emerald-950 text-emerald-100 flex gap-3 items-center"><span>Đã lưu MP4: {lastExport}</span><button className="underline" onClick={()=>(window as any).hnDesktop?.revealExport()}>Mở thư mục chứa video</button></div>}
+      {popupIds.length>0&&project.subtitles.some(s=>popupIds.includes(s.id))&&<CaptionPopup key={popupIds.join(',')} cues={timelineSubtitles(project).filter(s=>popupIds.includes(s.id)).map(s=>({...s,voiceId:s.voiceId||project.characters.find(c=>c.id===s.characterId)?.voiceId}))} layout={project.captionLayout||DEFAULT_CAPTION_LAYOUT} voices={voices} busy={hardwareStatus.isProcessing} onClose={()=>{stopAudioPreview();setPopupIds([]);}} onApply={applyCaptionChanges} onGenerate={generatePopupSpeech}/>}
       {/* 3. Bottom: CapCut-Style Multi-Track Timeline */}
       <div className={previewExpanded?'hidden':'contents'}><Timeline
         project={project} currentTime={currentTime} busy={hardwareStatus.isProcessing}
         canUndo={historyPast.length>0} canRedo={historyFuture.length>0} onUndo={handleUndo} onRedo={handleRedo}
         onSeek={setCurrentTime} onPause={()=>{stopAudioPreview();setIsPlaying(false);}}
         onSelectSubtitle={id=>setProject(p=>({...p,selectedSubtitleId:id}))}
+        onCaptionPopup={ids=>{stopAudioPreview();setIsPlaying(false);setPopupIds(ids);}}
         onDeleteMany={(items,linked)=>{try{applyTimeline(deleteTimelineSelection(project,items,linked));}catch(e){alert(String(e));}}} onRemix={()=>applyTimeline({...project,manualTimeline:true})} onEdit={handleTimelineEdit} onImportAudio={file=>handleTimelineAudio(file)} onExtractOriginal={mode=>handleTimelineAudio(undefined,mode)}
       /></div>
 

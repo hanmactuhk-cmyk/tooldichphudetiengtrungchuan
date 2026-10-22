@@ -1,11 +1,16 @@
-# HNstudio 5.5.0 — Bộ cài Windows
+# HNstudio 5.6.0 — Bộ cài Windows
 
 Đọc lời nói hoặc chữ phụ đề tiếng Trung từ video MP4, dịch sang tiếng Việt và tạo giọng VieNeu-TTS. Giao diện mở trong cửa sổ ứng dụng Windows; không phải mở trình duyệt để dùng các chức năng offline. Gemini và ChatGPT vẫn dùng Chrome riêng để đăng nhập và dịch theo lựa chọn của người dùng.
 
 ## Cài đặt Windows
 
-**Đã cài bản đầy đủ 5.4:** đóng ứng dụng sau khi xuất WAV/SRT cần giữ, tải `HNVoice-Studio-5.5.0-Update-Setup.exe` ở [bản cập nhật 5.5.0](https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan/releases/tag/v5.5.0) rồi cài vào đúng thư mục hiện tại. Bản cập nhật giữ model đã cài; không phải tải lại model. 5.5.0 có logo HNstudio, hướng dẫn và giới thiệu Hoài Nguyễn Studio. Giao diện không hiện tên model hoặc các màn hình kỹ thuật.
+**Đã cài bản đầy đủ 5.4:** đóng ứng dụng sau khi xuất WAV/SRT cần giữ, tải `HNVoice-Studio-5.6.0-Update-Setup.exe` ở [bản cập nhật 5.6.0](https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan/releases/tag/v5.6.0) rồi cài vào đúng thư mục hiện tại. Bản cập nhật giữ model đã cài; không phải tải lại model. 5.6.0 có logo HNstudio, hướng dẫn và giới thiệu Hoài Nguyễn Studio. Giao diện không hiện tên model hoặc các màn hình kỹ thuật.
 
+- **Popup một câu / nhóm:** nhấp đúp hoặc chuột phải vào hàng phụ đề Việt; cũng có nút Chỉnh popup trong bảng bên phải. Chọn tất cả phụ đề Việt hoặc Ctrl+A khi timeline có tiêu điểm, rồi chuột phải để chỉnh nhóm. Popup kéo được, không che mờ hoặc khóa ứng dụng phía sau.
+- Popup sửa chữ, chọn giọng, cỡ chữ, đậm/thường, nghiêng/thường, phông, màu chữ/nền, độ đục và bo góc cho các câu đã chọn. Bôi đen ký tự trong ô văn bản, chọn màu rồi bấm Tô màu. Kiểu chữ áp dụng cả nhóm; nội dung và màu riêng sửa theo câu đang chọn.
+- **Tạo giọng → timeline:** tạo tiếng thật cho nhóm, thay đoạn giọng cũ của các câu đó; đặt đúng mốc bắt đầu của phụ đề Việt. Nếu lời dài hơn ô thời gian, tăng tốc để vừa; không dịch chuyển phụ đề hoặc chồng tiếng. Câu quá dài hoặc khoảng âm thanh khác đang trùng sẽ báo để chỉnh lại, không áp dụng nửa chừng.
+- **Clone giọng có tên:** mở Clone giọng ở tab Giọng đọc, tải mẫu 3–30 giây (khuyến nghị 6–20 giây, rõ một người, ít nhạc). Giọng được lưu riêng trong hồ sơ ứng dụng và xuất hiện trong các ô chọn giọng. Dùng mẫu bạn có quyền sử dụng; độ giống phụ thuộc chất lượng mẫu. Giọng clone đang dùng được kèm khi lưu dự án.
+- **Chữ và hình:** nền phụ đề và vùng mờ bo tròn với mức tùy chỉnh. Xuống dòng theo khoảng trắng; từ liền quá dài được thu cỡ để không cắt giữa từ. Chọn đậm/nghiêng, tô màu từng ký tự cho phụ đề, chữ thêm và tiêu đề trên/dưới. Có 20 lựa chọn phông đã kiểm tra đủ ký tự Việt trên máy thử; máy khác thiếu phông có thể chọn Arial/Tahoma. Cỡ chữ MP4 được căn theo thước đo phông của bản xem trước. Dải tiêu đề không che phụ đề tự căn.
 - Timeline: hàng phụ đề gốc, phụ đề Việt, giọng và âm thanh độc lập. Chọn/xóa/cắt/kéo một ngôn ngữ không đổi ngôn ngữ khác hoặc âm thanh. Ctrl/Shift bấm để chọn nhiều, kéo vùng trống để khoanh chọn, Delete xóa, Ctrl+Z hoàn tác.
 - Tách tiếng gốc: chọn Toàn bộ / Chỉ tiếng nói / Chỉ âm thanh nền. Hai stem có cùng thời lượng, xử lý trên máy; tiếng gốc trong video được tắt khi đưa stem vào timeline để tránh trùng. Có thể còn sót giọng/nhạc tùy bản thu, và tách âm cần thời gian xử lý.
 - Kiểu phụ đề: phông chữ, màu chữ/nền và độ đục từ 0% trong suốt đến 100% đục. Xem trước và MP4 dùng cùng bố cục dòng/chữ/nền. Có thể thêm chữ kéo thả, bật dải nền trên/dưới với tiêu đề và màu tùy chọn.

@@ -5,3 +5,5 @@ These fixtures are functional checks, not benchmarks on real film footage.
 
 Run after starting worker:
 python scripts/smoke_test.py --url http://127.0.0.1:8001 --fixtures tests/fixtures --out test-results
+
+- clone-reference.wav: 6-second synthetic Vietnamese voice generated during the local TTS repair checks, looped only to exercise reference enrollment. It is not a recording of the user. Used by clone/popup UI checks.

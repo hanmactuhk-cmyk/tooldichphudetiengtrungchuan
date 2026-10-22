@@ -39,7 +39,7 @@ async function start(){
  const logPath=path.join(data,'worker.log');
  if(fs.existsSync(logPath)&&fs.statSync(logPath).size>5*1024*1024)fs.renameSync(logPath,logPath+'.old');
  logFd=fs.openSync(logPath,'a');
- worker=spawn(executable,[],{cwd:path.dirname(executable),windowsHide:true,stdio:['ignore',logFd,logFd],env:{...process.env,HN_MODELS_DIR:path.join(root,'models'),HN_CACHE_DIR:cacheHome,TEMP:tempHome,TMP:tempHome,TMPDIR:tempHome,HN_PORT:String(port),HN_INSTANCE_ID:instance,HN_BROWSER_HOME:process.env.HN_BROWSER_HOME||settings.browserHome||path.join(data,'chrome-profiles')}});
+ worker=spawn(executable,[],{cwd:path.dirname(executable),windowsHide:true,stdio:['ignore',logFd,logFd],env:{...process.env,HN_MODELS_DIR:path.join(root,'models'),HN_CACHE_DIR:cacheHome,HN_VOICES_DIR:path.join(data,'voices'),TEMP:tempHome,TMP:tempHome,TMPDIR:tempHome,HN_PORT:String(port),HN_INSTANCE_ID:instance,HN_BROWSER_HOME:process.env.HN_BROWSER_HOME||settings.browserHome||path.join(data,'chrome-profiles')}});
  worker.once('error',fail);worker.once('exit',code=>{if(!quitting)fail(new Error(`Bộ xử lý đã dừng (mã ${code}). Hãy kiểm tra đủ tệp và nhật ký.`));});
  let ready=false;
  for(let i=0;i<180&&!quitting;i++){
@@ -65,7 +65,7 @@ async function start(){
   const source=path.join(cacheHome,path.basename(url)),destination=chosenExport;chosenExport=null;
   await fs.promises.copyFile(source,destination);lastExport=destination;settings.exportHome=path.dirname(destination);fs.writeFileSync(settingsPath,JSON.stringify(settings,null,2));return destination;
  });
- require('./desktop-project.cjs')({ipcMain,dialog,mainWindow,trusted,cacheHome,origin});
+ require('./desktop-project.cjs')({ipcMain,dialog,mainWindow,trusted,cacheHome,origin,voiceHome:path.join(data,'voices')});
  ipcMain.handle('hn-reveal-export',event=>{if(trusted(event)&&lastExport)shell.showItemInFolder(lastExport);});
  session.defaultSession.on('will-download',(_event,item)=>{item.setSaveDialogOptions({title:'Lưu file xuất từ HN Voice Studio',defaultPath:path.join(app.getPath('downloads'),path.basename(item.getFilename()))});});
  mainWindow.once('ready-to-show',()=>{mainWindow.show();if(splash){splash.destroy();splash=null;}});

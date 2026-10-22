@@ -22,7 +22,7 @@ from translation import OfflineTranslator
 from browser_translation import BrowserTranslator
 from subtitle_contract import validate_cues,from_srt,parse_srt
 from jobs import JOBS
-app = FastAPI(title='HN Voice Studio', version='5.5.0')
+app = FastAPI(title='HN Voice Studio', version='5.6.0')
 DUBBING=DubbingService(MODELS,CACHE,lambda *args:ffmpeg(*args))
 TRANSLATOR=OfflineTranslator(MODELS)
 BROWSER_HOME=Path(os.environ.get('HN_BROWSER_HOME',APP_DIR/'data/chrome-profiles'))
@@ -51,7 +51,7 @@ def ffmpeg(*args):
 @app.get('/health')
 @app.get('/api/health')
 def health():
-    return {'status':'ok','device':'cpu','models':{n:(MODELS/n).is_dir() for n in ['whisper-small','qwen3','vieneu','ocr-zh']},'modelDirectory':str(MODELS),'version':'5.5.0','instanceId':os.environ.get('HN_INSTANCE_ID'),'activeModel':POOL.name,'modelLoads':POOL.loads}
+    return {'status':'ok','device':'cpu','models':{n:(MODELS/n).is_dir() for n in ['whisper-small','qwen3','vieneu','ocr-zh']},'modelDirectory':str(MODELS),'version':'5.6.0','instanceId':os.environ.get('HN_INSTANCE_ID'),'activeModel':POOL.name,'modelLoads':POOL.loads}
 @app.post('/api/transcribe')
 def transcribe(file: UploadFile=File(...)):
     from faster_whisper import WhisperModel
@@ -262,6 +262,41 @@ class TtsRequest(BaseModel):
     volume:float=Field(default=1,ge=0,le=2)
 @app.get('/api/voices')
 def voices():return DUBBING.voices()
+@app.post('/api/voices/clone')
+def clone_voice(file:UploadFile=File(...),name:str=Form(...)):
+    source=CACHE/(uuid.uuid4().hex+'.voice-source')
+    try:
+        with source.open('wb') as handle:
+            while chunk:=file.file.read(1024*1024):
+                handle.write(chunk)
+                if handle.tell()>50*1024**2:raise ValueError('Mẫu giọng tối đa 50 MB.')
+        return JOBS.submit('clone-voice',{'source':source.name,'name':name},lambda progress,cancelled:DUBBING.clone(source,name,progress,cancelled),cleanup=lambda:source.unlink(missing_ok=True))
+    except Exception as exc:
+        source.unlink(missing_ok=True);raise HTTPException(422,str(exc))
+
+class TimelineSpeechRequest(BaseModel):
+    cues:list[dict]
+@app.post('/api/timeline/speech')
+def timeline_speech(req:TimelineSpeechRequest):
+    try:
+        validate_cues(req.cues,'textVi')
+        if len(req.cues)>2000:raise ValueError('Tối đa 2000 câu mỗi lần.')
+    except ValueError as exc:raise HTTPException(422,str(exc))
+    def render(progress,cancelled):
+        clips=[];subtitles=[]
+        for index,cue in enumerate(req.cues):
+            if cancelled():raise RuntimeError('Đã dừng tạo giọng.')
+            progress(int(index/len(req.cues)*95),'Đang tạo giọng '+str(index+1)+'/'+str(len(req.cues)))
+            clip=DUBBING.synthesize(cue['textVi'],cue.get('voiceId'),cue.get('speed',1),cue.get('pitch',0),cue.get('volume',1))
+            slot=float(cue['endTime'])-float(cue['startTime']);rate=max(1.,clip['duration']/slot)
+            if rate>12:raise ValueError('Câu quá dài so với thời gian phụ đề. Hãy rút gọn chữ hoặc kéo dài đoạn.')
+            fitted=DUBBING.fit(clip,rate)
+            if cancelled():raise RuntimeError('Đã dừng tạo giọng.')
+            duration=min(slot,fitted['duration']);clips.append({'id':uuid.uuid4().hex,'subtitleId':cue['id'],'track':'voice','name':cue['textVi'],'audioUrl':fitted['audioUrl'],'startTime':float(cue['startTime']),'trimStart':0,'trimEnd':duration,'sourceDuration':fitted['duration'],'volume':1})
+            subtitles.append({'id':cue['id'],'ttsAudioUrl':fitted['audioUrl'],'ttsDuration':duration,'ttsFitSpeed':rate})
+        return {'clips':clips,'subtitles':subtitles}
+    return JOBS.submit('timeline-speech',req.model_dump(),render)
+
 @app.post('/api/tts')
 def tts(req:TtsRequest):
     try:return DUBBING.synthesize(req.text,req.voice_id,req.speed,req.pitch,req.volume)

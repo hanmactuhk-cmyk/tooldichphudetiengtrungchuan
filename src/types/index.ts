@@ -1,7 +1,7 @@
 export interface TimelineAudioClip { id:string; subtitleId?:string; origin?:'video'|'file'; track:'voice'|'audio'; name:string; audioUrl:string; startTime:number; trimStart:number; trimEnd:number; sourceDuration:number; volume:number; muted?:boolean; }
-export interface BlurRegion { enabled:boolean; x:number; y:number; width:number; height:number; strength:number; }
+export interface BlurRegion { enabled:boolean; x:number; y:number; width:number; height:number; strength:number; radius?:number; }
 export interface CaptionPosition { x:number; y:number; }
-export interface CaptionLayout { aspect:'auto'|'16:9'|'9:16'; position:CaptionPosition; width:number; fontSize:number; fontFamily?:string; textColor?:string; backgroundColor?:string; backgroundOpacity?:number; language?:'vi'|'zh'|'bilingual'|'off'; }
+export interface CaptionLayout { aspect:'auto'|'16:9'|'9:16'; position:CaptionPosition; width:number; fontSize:number; bold?:boolean; italic?:boolean; cornerRadius?:number; characterColors?:Record<number,string>; fontFamily?:string; textColor?:string; backgroundColor?:string; backgroundOpacity?:number; language?:'vi'|'zh'|'bilingual'|'off'; }
 export type TranslationProvider = 'offline' | 'gemini' | 'chatgpt';
 export type SubtitleStatus =
   | 'raw'
@@ -24,6 +24,7 @@ export interface Subtitle {
   pitch: number;       // -10 to +10, default 0
   volume: number;      // 0.0 - 2.0, default 1.0
   status: SubtitleStatus;
+  captionStyle?:Partial<CaptionLayout>;
   position?:CaptionPosition;
   hiddenZh?:boolean;hiddenVi?:boolean;zhStartTime?:number;zhEndTime?:number;viStartTime?:number;viEndTime?:number;
   ttsAudioUrl?: string; // Object URL or WAV data
@@ -77,7 +78,7 @@ export interface HardwareVramStatus {
   currentTaskName: string;
 }
 
-export interface VideoDecoration {overlayColor?:string;enabled:boolean;topText:string;bottomText:string;topHeight:number;bottomHeight:number;backgroundColor:string;textColor:string;fontFamily:string;fontSize:number;overlays:{id:string;text:string;x:number;y:number}[];}
+export interface VideoDecoration {bold?:boolean;italic?:boolean;topColors?:Record<number,string>;bottomColors?:Record<number,string>;overlayColor?:string;enabled:boolean;topText:string;bottomText:string;topHeight:number;bottomHeight:number;backgroundColor:string;textColor:string;fontFamily:string;fontSize:number;overlays:{id:string;text:string;x:number;y:number;characterColors?:Record<number,string>}[];}
 export interface ProjectData {
   decoration?:VideoDecoration;
   id: string;

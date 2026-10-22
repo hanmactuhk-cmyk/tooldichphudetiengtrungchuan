@@ -1,3 +1,4 @@
+import {captionBox,FONTS,roundedRectPath} from '../src/lib/styled-caption';
 import assert from 'node:assert/strict';
 import {splitCue,splitText,generateAss,DEFAULT_CAPTION_LAYOUT} from '../src/lib/caption-layout';
 import type {ProjectData,Subtitle} from '../src/types';
@@ -11,3 +12,5 @@ const ass=generateAss(project);assert(ass.includes('PlayResX: 360'));assert(ass.
 
 const styled=generateAss({...project,captionLayout:{...DEFAULT_CAPTION_LAYOUT,textColor:'#ff0000',backgroundColor:'#00ff00',backgroundOpacity:1,fontFamily:'Georgia'}});assert(styled.includes('\\fnGeorgia'));assert(styled.includes('\\p1'));assert(styled.includes('&H000000ff&'));assert(styled.includes('&H0000ff00&'));
 const transparent=generateAss({...project,captionLayout:{...DEFAULT_CAPTION_LAYOUT,backgroundOpacity:0}});assert(!transparent.includes('\\p1'));
+
+assert.equal(FONTS.length,20);const originalWords='Xin chào những người bạn Việt Nam thân mến';const wrapped=captionBox(originalWords,320,{...DEFAULT_CAPTION_LAYOUT,width:55,fontSize:6});assert.deepEqual(wrapped.lines.join(' ').split(/\s+/),originalWords.split(/\s+/));const longWord='chữkhôngcókhoảngtrắngrấtdài';assert.equal(captionBox(longWord,100,{...DEFAULT_CAPTION_LAYOUT,width:50,fontSize:10}).lines.length,1);assert(roundedRectPath(100,40,.3).includes(' b '));const decorated=generateAss({...project,subtitles:project.subtitles.map(c=>({...c,captionStyle:{bold:false,italic:true,cornerRadius:.4,characterColors:{0:'#00ffff'}}}))});assert(decorated.includes('\\b0\\i1'));assert(decorated.includes('&H00ffff00&'));

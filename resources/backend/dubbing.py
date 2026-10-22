@@ -12,7 +12,7 @@ from model_pool import POOL
 from subtitle_contract import validate_cues
 
 SAMPLE_RATE = 48000
-MODEL_VERSION = 'VieNeu-v3Turbo-bd0f88eb8de7-fp32-v1'
+MODEL_VERSION = 'VieNeu-v3Turbo-bd0f88eb8de7-fp32-v2'
 
 def _number(value, low, high, label):
     value = float(value)
@@ -44,13 +44,44 @@ def schedule(cues, durations, max_speed=1.35, gap=.025):
 
 class DubbingService:
     def __init__(self, models, cache, ffmpeg):
-        self.models=Path(models);self.cache=Path(cache);self.ffmpeg=ffmpeg;self.synth_lock=threading.RLock()
+        self.models=Path(models);self.cache=Path(cache);self.ffmpeg=ffmpeg;self.synth_lock=threading.RLock();self.voice_home=Path(os.environ.get('HN_VOICES_DIR',self.cache.parent/'voices'));self.voice_home.mkdir(parents=True,exist_ok=True)
         self.voices_data=json.loads((Path(__file__).parent/'vieneu/assets/voices_v3_turbo.json').read_text(encoding='utf-8'))
+
+    def custom_voices(self):
+        result=[]
+        for path in self.voice_home.glob('clone-*.json'):
+            try:
+                record=json.loads(path.read_text(encoding='utf-8'))
+                if path.stem==record['id'] and (self.voice_home/(path.stem+'.npz')).is_file():result.append(record)
+            except (ValueError,KeyError,OSError):continue
+        return result
 
     def voices(self):
         return {'defaultVoice':self.voices_data['default_voice'],'voices':[
             {'id':name,'name':name,'gender':v.get('gender',''),'description':v.get('description',''),'region':v.get('region','')}
-            for name,v in self.voices_data['presets'].items()]}
+            for name,v in self.voices_data['presets'].items()]+self.custom_voices()}
+
+    def clone(self,source,name,progress,cancelled):
+        import uuid,tempfile
+        name=str(name).strip()
+        if not name or len(name)>80:raise ValueError('Tên giọng cần từ 1 đến 80 ký tự.')
+        if any(v['name'].casefold()==name.casefold() for v in self.voices()['voices']):raise ValueError('Tên giọng đã có. Hãy đặt tên khác.')
+        with self.synth_lock,tempfile.TemporaryDirectory(dir=self.cache,prefix='clone-') as folder:
+            reference=Path(folder)/'reference.wav';self.ffmpeg('-i',source,'-t',31,'-ar',48000,'-ac',1,reference)
+            info=sf.info(reference)
+            if not 3<=info.duration<=30:raise ValueError('Mẫu giọng cần dài từ 3 đến 30 giây; nên dùng 6–20 giây một người nói, ít nhạc nền.')
+            audio,_=sf.read(reference,dtype='float32')
+            if float(np.sqrt(np.mean(audio**2)))<.002:raise ValueError('Mẫu giọng quá nhỏ hoặc không có tiếng.')
+            if cancelled():raise RuntimeError('Đã dừng clone giọng.')
+            progress(20,'Đang phân tích mẫu giọng…')
+            with POOL.use('vieneu',self._load) as model:embedding,codes=model.encode_reference(reference,denoise=True)
+            if cancelled():raise RuntimeError('Đã dừng clone giọng.')
+            embedding=np.asarray(embedding,dtype=np.float32);codes=np.asarray(codes,dtype=np.int64)
+            if embedding.size!=192 or not np.isfinite(embedding).all() or codes.ndim!=2 or not codes.size:raise ValueError('Không tạo được dấu giọng từ mẫu này. Hãy thử mẫu rõ hơn.')
+            identifier='clone-'+uuid.uuid4().hex;record={'id':identifier,'name':name,'description':'Giọng clone riêng','region':'','gender':'','isClone':True,'referenceDuration':info.duration}
+            np.savez_compressed(self.voice_home/(identifier+'.npz'),speaker_emb=embedding,codes=codes)
+            temporary=self.voice_home/(identifier+'.tmp');temporary.write_text(json.dumps(record,ensure_ascii=False),encoding='utf-8');os.replace(temporary,self.voice_home/(identifier+'.json'))
+            progress(100,'Đã lưu giọng '+name);return record
 
     def _load(self):
         from vieneu import Vieneu
@@ -66,7 +97,10 @@ class DubbingService:
         text=str(text).strip()
         if not text or len(text)>5000:raise ValueError('Mỗi đoạn đọc cần từ 1 đến 5.000 ký tự.')
         voice=voice or self.voices_data['default_voice']
-        if voice not in self.voices_data['presets']:raise ValueError('Giọng VieNeu không hợp lệ.')
+        voice_argument=voice
+        if voice not in self.voices_data['presets']:
+            if voice not in {v['id'] for v in self.custom_voices()}:raise ValueError('Giọng đọc không hợp lệ.')
+            with np.load(self.voice_home/(voice+'.npz'),allow_pickle=False) as data:voice_argument={'speaker_emb':data['speaker_emb'],'codes':data['codes']}
         speed=_number(speed,.5,2,'Tốc độ');pitch=_number(pitch,-10,10,'Cao độ');volume=_number(volume,0,2,'Âm lượng')
         raw_key=hashlib.sha256(json.dumps([MODEL_VERSION,text,voice],ensure_ascii=False).encode()).hexdigest()
         raw=self.cache/(raw_key+'.raw.wav')
@@ -78,7 +112,7 @@ class DubbingService:
                 with POOL.use('vieneu',self._load) as model:
                     # Recheck after acquiring the single model lock.
                     if not raw.is_file():
-                        audio=model.infer(text,voice=voice,temperature=.65,max_chars=256,apply_watermark=False)
+                        audio=model.infer(text,voice=voice_argument,temperature=.65,max_chars=256,apply_watermark=False)
                         audio=np.asarray(audio,dtype=np.float32).reshape(-1)
                         if not len(audio) or not np.isfinite(audio).all():raise RuntimeError('VieNeu trả âm thanh rỗng hoặc lỗi.')
                         peak=float(np.max(np.abs(audio)))
@@ -88,19 +122,19 @@ class DubbingService:
                         os.replace(temporary,raw)
             ratio=2**(pitch/12)
             temporary=output.with_suffix('.partial.wav')
-            self.ffmpeg('-i',raw,'-af',f'asetrate={SAMPLE_RATE*ratio},aresample=48000,'+tempo_filters(speed/ratio)+f',volume={volume},alimiter=limit=0.97:level=false','-ar',SAMPLE_RATE,'-ac',1,'-c:a','pcm_s16le',temporary)
+            self.ffmpeg('-i',raw,'-af',f'asetrate={SAMPLE_RATE*ratio},aresample=48000,'+tempo_filters(speed/ratio)+f',volume={volume},alimiter=limit=0.97:level=false:latency=true','-ar',SAMPLE_RATE,'-ac',1,'-c:a','pcm_s16le',temporary)
             os.replace(temporary,output)
         info=sf.info(str(output))
         return {'audioUrl':'/cache/'+output.name,'duration':info.duration,'cacheHit':hit,'modelUsed':MODEL_VERSION,'voiceId':voice}
 
     def fit(self, clip, rate):
-        if abs(rate-1)<.001:return clip
+        if abs(rate-1)<.000001:return clip
         source=self.resolve(clip['audioUrl'])
         key=hashlib.sha256(f'{source.name}:{rate:.8f}'.encode()).hexdigest()
         output=self.cache/(key+'.wav')
         if not output.is_file():
             temporary=output.with_suffix('.partial.wav')
-            self.ffmpeg('-i',source,'-af',f'atempo={rate:.8f}', '-c:a','pcm_s16le',temporary)
+            self.ffmpeg('-i',source,'-af',tempo_filters(rate), '-c:a','pcm_s16le',temporary)
             os.replace(temporary,output)
         return {**clip,'audioUrl':'/cache/'+output.name,'duration':sf.info(str(output)).duration}
 

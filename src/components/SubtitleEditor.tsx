@@ -28,6 +28,7 @@ interface SubtitleEditorProps {
   onSelectSubtitle: (id: string | null) => void;
   onUpdateSubtitle: (id: string, updates: Partial<Subtitle>) => void;
   onRetranslateSentence: (id: string) => void;
+  onOpenCaptionPopup:(id:string)=>void;
   onSplitCue:(id:string)=>void;
   onRegenerateTtsSentence: (id: string) => void;
   onCheckWithParaformer: (id: string) => void;
@@ -40,6 +41,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
   onSelectSubtitle,
   onUpdateSubtitle,
   onRetranslateSentence,
+  onOpenCaptionPopup,
   onSplitCue,
   onRegenerateTtsSentence,
   onCheckWithParaformer,
@@ -272,7 +274,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
               <div className="flex items-center justify-between pt-1 text-xs">
                 <div className="flex items-center space-x-1.5">
                   {/* Re-translate button */}
-                  <button aria-label={'Tách đôi câu '+sub.id} disabled={isProcessing} className="text-[10px] bg-zinc-800 rounded px-2 py-1" onClick={e=>{e.stopPropagation();onSplitCue(sub.id);}}>Tách đôi câu</button>
+                  <button aria-label={'Mở popup phụ đề '+sub.id} disabled={isProcessing} className="text-[10px] bg-cyan-900 rounded px-2 py-1" onClick={e=>{e.stopPropagation();onOpenCaptionPopup(sub.id);}}>Chỉnh popup</button><button aria-label={'Tách đôi câu '+sub.id} disabled={isProcessing} className="text-[10px] bg-zinc-800 rounded px-2 py-1" onClick={e=>{e.stopPropagation();onSplitCue(sub.id);}}>Tách đôi câu</button>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();

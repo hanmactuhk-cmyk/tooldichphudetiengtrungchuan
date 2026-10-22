@@ -28,6 +28,7 @@ interface SubtitleEditorProps {
   onSelectSubtitle: (id: string | null) => void;
   onUpdateSubtitle: (id: string, updates: Partial<Subtitle>) => void;
   onRetranslateSentence: (id: string) => void;
+  onSplitCue:(id:string)=>void;
   onRegenerateTtsSentence: (id: string) => void;
   onCheckWithParaformer: (id: string) => void;
 }
@@ -39,6 +40,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
   onSelectSubtitle,
   onUpdateSubtitle,
   onRetranslateSentence,
+  onSplitCue,
   onRegenerateTtsSentence,
   onCheckWithParaformer,
   isProcessing,
@@ -201,7 +203,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
               {/* Chinese original field (Editable) */}
               <div className="mb-2">
                 <div className="flex items-center justify-between text-[10px] text-zinc-400 mb-1">
-                  <span className="font-semibold text-amber-400">Tiếng Trung (Whisper-small):</span>
+                  <span className="font-semibold text-amber-400">Tiếng Trung ({sub.modelUsedZh||'SRT'}):</span>
 
                 </div>
                 <textarea
@@ -270,6 +272,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
               <div className="flex items-center justify-between pt-1 text-xs">
                 <div className="flex items-center space-x-1.5">
                   {/* Re-translate button */}
+                  <button aria-label={'Tách đôi câu '+sub.id} disabled={isProcessing} className="text-[10px] bg-zinc-800 rounded px-2 py-1" onClick={e=>{e.stopPropagation();onSplitCue(sub.id);}}>Tách đôi câu</button>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();

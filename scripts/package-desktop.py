@@ -2,7 +2,7 @@
 import argparse,hashlib,json,zipfile,io,subprocess
 from pathlib import Path
 class Volumes(io.RawIOBase):
- def __init__(self,folder,limit,on_part=None):self.folder=folder;self.limit=limit;self.offset=0;self.part=None;self.parts=[];self.used=0;self.on_part=on_part
+ def __init__(self,folder,limit,on_part=None,archive='HNVoice-Electron-5.1.0-Windows.zip'):self.archive=archive;self.folder=folder;self.limit=limit;self.offset=0;self.part=None;self.parts=[];self.used=0;self.on_part=on_part
  def writable(self):return True
  def seekable(self):return False
  def tell(self):return self.offset
@@ -13,7 +13,7 @@ class Volumes(io.RawIOBase):
     if self.part:
      self.part.close()
      if self.on_part:self.on_part(self.parts[-1])
-    p=self.folder/f'HNVoice-Electron-5.0.0-Windows.zip.{len(self.parts)+1:03d}';self.part=p.open('wb');self.parts.append(p);self.used=0
+    p=self.folder/f'{self.archive}.{len(self.parts)+1:03d}';self.part=p.open('wb');self.parts.append(p);self.used=0
    count=min(len(view),self.limit-self.used);self.part.write(view[:count]);self.used+=count;self.offset+=count;view=view[count:]
   return length
  def finish(self):
@@ -51,8 +51,9 @@ class Tail(io.RawIOBase):
   with self.file.open('rb') as f:f.seek(self.pos-self.prefix);data=f.read(size)
   self.pos+=len(data);return data
 def main():
- p=argparse.ArgumentParser();p.add_argument('app',type=Path);p.add_argument('out',type=Path);p.add_argument('--upload-repo');p.add_argument('--tag',default='v5.0.0');p.add_argument('--gh',default='gh');args=p.parse_args();args.out.mkdir(parents=True,exist_ok=True)
- manifest={'version':'5.0.0','archive':'HNVoice-Electron-5.0.0-Windows.zip','parts':[]}
+ p=argparse.ArgumentParser();p.add_argument('app',type=Path);p.add_argument('out',type=Path);p.add_argument('--upload-repo');p.add_argument('--tag');p.add_argument('--version',default=json.loads((Path(__file__).resolve().parents[1]/'package.json').read_text(encoding='utf-8'))['version']);p.add_argument('--gh',default='gh');args=p.parse_args();args.out.mkdir(parents=True,exist_ok=True)
+ args.tag=args.tag or 'v'+args.version
+ manifest={'version':args.version,'archive':f'HNVoice-Electron-{args.version}-Windows.zip','parts':[]}
  def upload(file,remove=True):
   with file.open('rb') as handle:digest=hashlib.file_digest(handle,'sha256').hexdigest()
   record={'name':file.name,'size':file.stat().st_size,'sha256':digest}
@@ -66,7 +67,7 @@ def main():
   (args.out/'release-parts.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
   if remove:file.unlink()
   print('Verified '+file.name+' on GitHub.',flush=True)
- sink=Volumes(args.out,1000*1024**2 if args.upload_repo else 1400*1024**2,upload if args.upload_repo else None)
+ sink=Volumes(args.out,1000*1024**2 if args.upload_repo else 1400*1024**2,upload if args.upload_repo else None,manifest['archive'])
  with zipfile.ZipFile(sink,'w',zipfile.ZIP_DEFLATED,compresslevel=1,allowZip64=True) as z:
   for file in sorted(args.app.rglob('*')):
    if file.is_file():
@@ -88,7 +89,7 @@ def main():
   assert z.testzip() is None
   assert 'HNVoice-Electron/HN Voice Studio.exe' in z.namelist()
   assert 'HNVoice-Electron/resources/models/manifest.json' in z.namelist()
- manifest={'version':'5.0.0','archive':'HNVoice-Electron-5.0.0-Windows.zip','crcVerified':True,'parts':[]}
+ manifest.update(crcVerified=True,parts=[])
  for f in sink.parts:
   with f.open('rb') as handle:digest=hashlib.file_digest(handle,'sha256').hexdigest()
   manifest['parts'].append({'name':f.name,'size':f.stat().st_size,'sha256':digest})

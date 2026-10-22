@@ -11,10 +11,14 @@ import {
   Layers,
   Sparkles,
 } from 'lucide-react';
-import { Subtitle, Character } from '../types';
+import { Subtitle, Character, CaptionLayout, CaptionPosition } from '../types';
 
 interface VideoPlayerProps {
   videoUrl: string | null;
+  expanded:boolean;onToggleExpanded:()=>void;
+  layout:CaptionLayout;
+  onLayoutChange:(v:CaptionLayout)=>void;
+  onCuePositionChange:(id:string,p:CaptionPosition)=>void;
   dubAudioUrl?:string;
   dubDuration?:number;
   subtitles: Subtitle[];
@@ -33,7 +37,7 @@ interface VideoPlayerProps {
 }
 
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({
-  videoUrl,
+  videoUrl,layout,onLayoutChange,onCuePositionChange,expanded,onToggleExpanded,
   dubAudioUrl,
   dubDuration,
   subtitles,
@@ -50,7 +54,16 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onToggleOriginalMute,
   onToggleDucking,
 }) => {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef=useRef<HTMLDivElement|null>(null),captionRef=useRef<HTMLDivElement|null>(null);
+  const [viewport,setViewport]=useState({width:600,height:400}),[nativeRatio,setNativeRatio]=useState(16/9);
+  const [scope,setScope]=useState<'all'|'cue'>('all'),[captionSize,setCaptionSize]=useState({width:0,height:0});
+  const drag=useRef<{pointer:number;dx:number;dy:number}|null>(null);
+  const ratio=layout.aspect==='auto'?nativeRatio:layout.aspect==='16:9'?16/9:9/16;
+  const fw=Math.min(viewport.width,viewport.height*ratio),fh=fw/ratio,pw=Math.min(fw,fh*nativeRatio),ph=pw/nativeRatio;
+  useEffect(()=>{const el=containerRef.current;if(!el)return;const obs=new ResizeObserver(([entry])=>setViewport({width:Math.max(1,entry.contentRect.width-16),height:Math.max(1,entry.contentRect.height-16)}));obs.observe(el);return()=>obs.disconnect();},[]);
+  useEffect(()=>{setNativeRatio(16/9);},[videoUrl]);
+  useEffect(()=>{const el=captionRef.current;if(!el)return;const obs=new ResizeObserver(()=>setCaptionSize({width:el.offsetWidth,height:el.offsetHeight}));obs.observe(el);return()=>obs.disconnect();},[subtitles,currentTime,layout]);
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [subtitleMode, setSubtitleMode] = useState<'bilingual' | 'vi' | 'zh' | 'off'>('bilingual');
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
@@ -92,225 +105,45 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   useEffect(()=>{const pauseForPreview=()=>{dubRef.current?.pause();videoRef.current?.pause();if(isPlaying)onTogglePlay();};window.addEventListener('hnvoice-preview',pauseForPreview);return()=>window.removeEventListener('hnvoice-preview',pauseForPreview);},[isPlaying,onTogglePlay]);
   useEffect(()=>{const audio=dubRef.current;if(!audio)return;audio.onended=()=>{if(isPlaying)onTogglePlay();};},[isPlaying,dubAudioUrl,onTogglePlay]);
 
-  // Animation frame loop for simulated cinematic scene or video rendering
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    let animId: number;
-
-    const render = () => {
-      const width = canvas.width;
-      const height = canvas.height;
-
-      // Draw background: Cinematic Chinese drama scene simulation
-      const gradient = ctx.createLinearGradient(0, 0, 0, height);
-      gradient.addColorStop(0, '#10141e');
-      gradient.addColorStop(0.5, '#1e2436');
-      gradient.addColorStop(1, '#0c0e14');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, width, height);
-
-      // Living room / Office ambient lighting
-      ctx.save();
-      ctx.fillStyle = 'rgba(255, 180, 100, 0.08)';
-      ctx.beginPath();
-      ctx.arc(width * 0.75, height * 0.35, 180, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-
-      // Film grain / Cinematic letterbox bars
-      ctx.fillStyle = '#090a0f';
-      ctx.fillRect(0, 0, width, 40);
-      ctx.fillRect(0, height - 40, width, 40);
-
-      // Draw Drama Scene Characters
-      const t = currentTime;
-      const isSpeaking = !!activeChar;
-
-      // Character avatar representation in canvas
-      characters.forEach((char, idx) => {
-        const xPos = width * 0.2 + idx * (width * 0.2);
-        const isCurrentSpeaker = activeChar?.id === char.id;
-        const yBase = height * 0.62;
-
-        // Podium / silhouette
-        ctx.save();
-        ctx.shadowColor = isCurrentSpeaker ? char.color : 'transparent';
-        ctx.shadowBlur = isCurrentSpeaker ? 25 : 0;
-
-        ctx.fillStyle = isCurrentSpeaker ? char.color : '#27272a';
-        ctx.beginPath();
-        ctx.arc(xPos, yBase, isCurrentSpeaker ? 34 : 26, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Icon initial
-        ctx.fillStyle = '#ffffff';
-        ctx.font = `${isCurrentSpeaker ? 'bold 20px' : '15px'} sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(char.name.charAt(0), xPos, yBase);
-
-        // Name tag
-        ctx.fillStyle = isCurrentSpeaker ? '#ffffff' : '#a1a1aa';
-        ctx.font = '12px sans-serif';
-        ctx.fillText(char.name.split(' ')[0], xPos, yBase + 46);
-
-        // Speaking sound wave indicator
-        if (isCurrentSpeaker && isPlaying) {
-          const waveHeight = Math.sin(t * 12) * 8 + 12;
-          ctx.strokeStyle = char.color;
-          ctx.lineWidth = 2.5;
-          ctx.beginPath();
-          ctx.moveTo(xPos - 15, yBase - 45);
-          ctx.lineTo(xPos, yBase - 45 - waveHeight);
-          ctx.lineTo(xPos + 15, yBase - 45);
-          ctx.stroke();
-        }
-
-        ctx.restore();
-      });
-
-      // Overlay Scene Timecode & Tag
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
-      ctx.font = '11px monospace';
-      ctx.textAlign = 'left';
-      ctx.fillText(`HN VOICE STUDIO • SENSEVOICE ASR • VIENEU-TTS v3 TURBO`, 20, 26);
-
-      animId = requestAnimationFrame(render);
-    };
-
-    render();
-
-    return () => {
-      cancelAnimationFrame(animId);
-    };
-  }, [currentTime, characters, activeChar, isPlaying]);
-
-  // Format seconds to mm:ss.ms
-  const formatTime = (sec: number) => {
-    const mins = Math.floor(sec / 60);
-    const s = Math.floor(sec % 60);
-    const ms = Math.floor((sec % 1) * 10);
-    return `${mins.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}.${ms}`;
-  };
-
-  return (
-    <div className="flex-1 flex flex-col bg-[#0e0e11] border-b border-[#27272a] overflow-hidden select-none">
-      {/* Video Viewport */}
-      <div className="relative flex-1 bg-black flex items-center justify-center overflow-hidden">
-        {videoUrl ? (
-          <video
-            ref={videoRef}
-            src={videoUrl}
-            className="w-full h-full object-contain"
-            muted={originalAudioMuted}
+  const position=(scope==='cue'&&activeSub?.position)||activeSub?.position||layout.position;
+  const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
+  const cx=clamp(position.x,Math.min(.5,(captionSize.width/2+3)/pw),Math.max(.5,1-(captionSize.width/2+3)/pw));
+  const cy=clamp(position.y,Math.min(.5,(captionSize.height/2+3)/ph),Math.max(.5,1-(captionSize.height/2+3)/ph));
+  const commit=(next:CaptionPosition)=>{next={x:clamp(next.x,Math.min(.5,(captionSize.width/2+3)/pw),Math.max(.5,1-(captionSize.width/2+3)/pw)),y:clamp(next.y,Math.min(.5,(captionSize.height/2+3)/ph),Math.max(.5,1-(captionSize.height/2+3)/ph))};if(scope==='cue'&&activeSub)onCuePositionChange(activeSub.id,next);else onLayoutChange({...layout,position:next});};
+  const move=(e:React.PointerEvent)=>{if(!drag.current||e.pointerId!==drag.current.pointer)return;const b=e.currentTarget.parentElement!.getBoundingClientRect();commit({x:clamp((e.clientX-b.left-drag.current.dx)/b.width,0,1),y:clamp((e.clientY-b.top-drag.current.dy)/b.height,0,1)});};
+  useEffect(()=>{const el=captionRef.current;if(!el)return;for(const line of el.querySelectorAll<HTMLElement>('[data-caption-text]')){let size=Math.min(48,Math.max(10,pw*layout.fontSize/100));line.style.fontSize=size+'px';while(size>7&&line.scrollHeight>size*2*1.28+2){size-=.5;line.style.fontSize=size+'px';}}},[activeSub,subtitleMode,pw,layout.width,layout.fontSize]);
+  const formatTime=(sec:number)=>`${Math.floor(sec/60).toString().padStart(2,'0')}:${Math.floor(sec%60).toString().padStart(2,'0')}.${Math.floor(sec%1*10)}`;
+  return (<div className="flex-1 min-w-0 min-h-0 flex flex-col bg-zinc-950 overflow-hidden select-none">
+    <div className="shrink-0 flex flex-wrap gap-2 items-center p-2 text-xs bg-zinc-900 border-b border-zinc-800">
+<button className="bg-rose-700 rounded p-1" onClick={onToggleExpanded}>{expanded?'Hiện bảng biên tập':'Phóng to khung hình'}</button>
+      <label>Khung hình <select aria-label="Tỷ lệ khung hình" value={layout.aspect} onChange={e=>onLayoutChange({...layout,aspect:e.target.value as CaptionLayout['aspect']})} className="bg-zinc-800 rounded p-1"><option value="auto">Theo video</option><option value="16:9">16:9</option><option value="9:16">9:16</option></select></label>
+      <select aria-label="Hiển thị phụ đề" value={subtitleMode} onChange={e=>setSubtitleMode(e.target.value as typeof subtitleMode)} className="bg-zinc-800 rounded p-1"><option value="bilingual">Song ngữ</option><option value="vi">Tiếng Việt</option><option value="zh">Tiếng Trung</option><option value="off">Tắt phụ đề</option></select>
+      <select aria-label="Phạm vi kéo phụ đề" value={scope} onChange={e=>setScope(e.target.value as 'all'|'cue')} className="bg-zinc-800 rounded p-1"><option value="all">Vị trí toàn bộ</option><option value="cue">Vị trí câu đang hiện</option></select>
+      <button className="bg-zinc-800 p-1 rounded" onClick={()=>commit({x:.5,y:.86})}>Đưa phụ đề xuống dưới</button>
+      <label>Cỡ chữ <input aria-label="Cỡ chữ phụ đề" type="range" min="2" max="7" step=".25" value={layout.fontSize} onChange={e=>onLayoutChange({...layout,fontSize:Number(e.target.value)})} className="w-16 align-middle"/></label>
+      <label>Độ rộng <input aria-label="Độ rộng phụ đề" type="range" min="40" max="96" value={layout.width} onChange={e=>onLayoutChange({...layout,width:Number(e.target.value)})} className="w-16 align-middle"/></label>
+    </div>
+    <div ref={containerRef} className="relative flex-1 min-h-0 min-w-0 bg-zinc-950 flex items-center justify-center overflow-hidden">
+      <div data-testid="video-frame" className="relative bg-black shrink-0 overflow-hidden" style={{width:fw,height:fh}}>
+        <div data-testid="video-picture" className="absolute overflow-hidden" style={{width:pw,height:ph,left:(fw-pw)/2,top:(fh-ph)/2}}>
+          {videoUrl?<video ref={videoRef} src={videoUrl} className="absolute inset-0 w-full h-full" muted={originalAudioMuted}
+            onLoadedMetadata={e=>{const v=e.currentTarget;if(v.videoWidth&&v.videoHeight)setNativeRatio(v.videoWidth/v.videoHeight);}}
             onTimeUpdate={e=>{if(currentTime<=e.currentTarget.duration+.05)onTimeUpdate(e.currentTarget.currentTime);}}
-            onEnded={()=>{if(isPlaying&&(!dubAudioUrl||(dubDuration||0)<=(videoRef.current?.duration||0)+.05))onTogglePlay();}}
-          />
-        ) : (
-          <canvas
-            ref={canvasRef}
-            width={854}
-            height={480}
-            className="w-full h-full max-h-[520px] object-contain shadow-2xl"
-          />
-        )}
-
-        {/* Burned-in Subtitle Overlay on Video */}
-        {subtitleMode !== 'off' && activeSub && (
-          <div className="absolute bottom-12 inset-x-4 flex flex-col items-center pointer-events-none z-10 transition-all duration-150">
-            {activeChar && (
-              <span
-                className="text-[11px] font-bold px-2 py-0.5 rounded-full mb-1 text-white shadow"
-                style={{ backgroundColor: activeChar.color }}
-              >
-                {activeChar.name}
-              </span>
-            )}
-
-            <div className="bg-black/75 backdrop-blur-sm px-4 py-2 rounded-lg text-center max-w-[85%] border border-white/10 shadow-2xl">
-              {/* Vietnamese Subtitle */}
-              {(subtitleMode === 'bilingual' || subtitleMode === 'vi') && (
-                <p className="text-white font-medium text-base md:text-lg tracking-wide leading-snug drop-shadow-md">
-                  {activeSub.textVi || activeSub.textZh}
-                </p>
-              )}
-
-              {/* Chinese Original Subtitle */}
-              {(subtitleMode === 'bilingual' || subtitleMode === 'zh') && (
-                <p className="text-amber-300 text-xs md:text-sm font-normal tracking-wider opacity-90 mt-0.5">
-                  {activeSub.textZh}
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Active speaker pill (Top Left) */}
-        {activeChar && (
-          <div className="absolute top-4 left-4 flex items-center space-x-2 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 text-xs">
-            <span
-              className="w-2.5 h-2.5 rounded-full animate-ping"
-              style={{ backgroundColor: activeChar.color }}
-            />
-            <span className="text-zinc-300 font-medium">{activeChar.name}:</span>
-            <span className="text-zinc-400 truncate max-w-[180px]">
-              {activeSub?.voiceId ? 'VieNeu-TTS Đã gán' : 'Chưa gán giọng'}
-            </span>
-          </div>
-        )}
-
-        {/* Subtitle Display Mode Selector (Top Right) */}
-        <div className="absolute top-4 right-4 flex items-center space-x-1 bg-black/60 backdrop-blur-md p-1 rounded-lg border border-white/10 text-xs">
-          <Subtitles className="w-3.5 h-3.5 text-zinc-400 ml-1.5 mr-0.5" />
-          <button
-            onClick={() => setSubtitleMode('bilingual')}
-            className={`px-2 py-0.5 rounded ${
-              subtitleMode === 'bilingual'
-                ? 'bg-rose-600 text-white font-semibold'
-                : 'text-zinc-400 hover:text-white'
-            }`}
-          >
-            Song ngữ
-          </button>
-          <button
-            onClick={() => setSubtitleMode('vi')}
-            className={`px-2 py-0.5 rounded ${
-              subtitleMode === 'vi'
-                ? 'bg-rose-600 text-white font-semibold'
-                : 'text-zinc-400 hover:text-white'
-            }`}
-          >
-            Tiếng Việt
-          </button>
-          <button
-            onClick={() => setSubtitleMode('zh')}
-            className={`px-2 py-0.5 rounded ${
-              subtitleMode === 'zh'
-                ? 'bg-rose-600 text-white font-semibold'
-                : 'text-zinc-400 hover:text-white'
-            }`}
-          >
-            Tiếng Trung
-          </button>
-          <button
-            onClick={() => setSubtitleMode('off')}
-            className={`px-2 py-0.5 rounded ${
-              subtitleMode === 'off'
-                ? 'bg-zinc-700 text-white font-semibold'
-                : 'text-zinc-400 hover:text-white'
-            }`}
-          >
-            Tắt
-          </button>
+            onEnded={()=>{if(isPlaying&&(!dubAudioUrl||(dubDuration||0)<=(videoRef.current?.duration||0)+.05))onTogglePlay();}}/>:
+            <div className="absolute inset-0 flex items-center justify-center text-xs text-zinc-500">Chọn video hoặc nhập SRT</div>}
+          {subtitleMode!=='off'&&activeSub&&<div ref={captionRef} data-testid="subtitle-overlay" role="group" aria-label="Kéo vị trí phụ đề" className="absolute z-10 cursor-move touch-none bg-black/75 text-center rounded px-2 py-1 border border-white/20"
+            style={{left:cx*100+'%',top:cy*100+'%',transform:'translate(-50%,-50%)',maxWidth:layout.width+'%',width:'max-content',maxHeight:'98%',overflow:'hidden'}}
+            onPointerDown={e=>{if(e.button!==0)return;const b=e.currentTarget.parentElement!.getBoundingClientRect();drag.current={pointer:e.pointerId,dx:e.clientX-b.left-cx*b.width,dy:e.clientY-b.top-cy*b.height};e.currentTarget.setPointerCapture(e.pointerId);e.preventDefault();}}
+            onPointerMove={move} onPointerUp={e=>{drag.current=null;if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);}} onPointerCancel={()=>{drag.current=null;}}>
+            {(subtitleMode==='bilingual'||subtitleMode==='vi')&&<p data-caption-text className="text-white font-medium leading-[1.28] whitespace-pre-wrap [overflow-wrap:anywhere] [text-wrap:balance]">{activeSub.textVi||activeSub.textZh}</p>}
+            {(subtitleMode==='zh'||subtitleMode==='bilingual'&&activeSub.textVi)&&<p data-caption-text className="text-amber-300 leading-[1.28] whitespace-pre-wrap [overflow-wrap:anywhere] [text-wrap:balance]">{activeSub.textZh}</p>}
+          </div>}
         </div>
       </div>
-
+    </div>
+    <p className="shrink-0 text-[10px] text-zinc-500 px-2">Kéo phụ đề ngay trong hình. Câu dài tự xuống dòng; dùng “Tách đôi câu” để chia mốc. Xuất ASS để giữ vị trí; SRT chỉ chứa chữ và thời gian.</p>
       {/* Video Playback Control Bar */}
-      <div className="h-12 bg-[#141418] border-t border-[#27272a] flex items-center justify-between px-4 text-xs">
+      <div className="min-h-12 shrink-0 bg-[#141418] border-t border-[#27272a] flex flex-wrap gap-2 items-center justify-between px-2 py-1 text-xs">
         {/* Play/Pause & Time */}
         <div className="flex items-center space-x-3">
           <button
@@ -391,4 +224,3 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     </div>
   );
 };
-

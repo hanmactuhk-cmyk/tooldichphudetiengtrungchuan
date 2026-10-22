@@ -10,7 +10,7 @@ class Jobs:
         self.executor=ThreadPoolExecutor(max_workers=1,thread_name_prefix='hnvoice')
         self.lock=threading.RLock();self.items={}
 
-    def submit(self,kind,payload,run):
+    def submit(self,kind,payload,run,cleanup=None):
         signature=hashlib.sha256(json.dumps([kind,payload],sort_keys=True,ensure_ascii=False).encode()).hexdigest()
         with self.lock:
             for item in self.items.values():
@@ -33,6 +33,12 @@ class Jobs:
                 import logging
                 logging.exception('Background task failed')
                 with self.lock:item.update(state='cancelled' if item['cancel'].is_set() else 'error',message=str(exc),error=str(exc))
+            finally:
+                if cleanup:
+                    try:cleanup()
+                    except Exception:
+                        import logging
+                        logging.exception('Job cleanup failed')
         self.executor.submit(execute)
         return {'jobId':identifier,'reused':False}
 

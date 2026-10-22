@@ -1,3 +1,4 @@
+import {DEFAULT_CAPTION_LAYOUT,splitCue,generateAss} from './lib/caption-layout';
 import {apiJson,runJob} from './lib/jobs';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
@@ -27,6 +28,7 @@ export default function App() {
     title: 'Dự án mới — chọn video để bắt đầu',
     videoUrl: null,
     videoFileName: '',
+    captionLayout:{...DEFAULT_CAPTION_LAYOUT,position:{...DEFAULT_CAPTION_LAYOUT.position}},
     duration: 0,
     originalAudioVolume: 0.8,
     originalAudioMuted: false,
@@ -52,6 +54,19 @@ export default function App() {
     try{const data=await apiJson('/api/translation/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({srt,subtitles:project.subtitles})});
       const map=new Map<string,any>(data.translations.map((r:any)=>[r.id,r]));pushHistory(project);setProject(p=>({...p,dubAudioUrl:undefined,dubDuration:undefined,subtitles:p.subtitles.map(s=>({...s,textVi:map.get(s.id).viFull,ttsAudioUrl:undefined,ttsDuration:undefined,status:'translated'}))}));setActiveSidebarTab('characters');
     }catch(e){alert(String(e));}
+  };
+
+  const handleSplitCue=(id:string)=>{try{const cue=project.subtitles.find(s=>s.id===id);if(!cue)return;const parts=splitCue(cue);stopAudioPreview();setIsPlaying(false);pushHistory(project);setProject(p=>({...p,subtitles:p.subtitles.flatMap(s=>s.id===id?parts:[s]),dubAudioUrl:undefined,dubDuration:undefined,selectedSubtitleId:parts[0].id}));}catch(e){alert(String(e));}};
+  const handleGeminiVideo=async()=>{
+    if(!project.videoUrl)return;
+    stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,progressPercent:1,currentTaskName:'Gemini: chuẩn bị tải video...'}));
+    try{const blob=await (await fetch(project.videoUrl)).blob();const form=new FormData();form.append('file',blob,project.videoFileName||'video.mp4');form.append('duration',String(project.duration));
+      const response=await fetch('/api/gemini/video-subtitles',{method:'POST',body:form});const body=await response.json();if(!response.ok)throw new Error(body.detail||'Không tải được video.');
+      window.dispatchEvent(new CustomEvent('hn-job',{detail:body.jobId}));
+      let result:any;
+      for(;;){const job=await apiJson('/api/jobs/'+body.jobId);setHardwareStatus(h=>({...h,progressPercent:job.percent,currentTaskName:job.message}));if(job.state==='done'){result=job.result;break;}if(job.state==='error'||job.state==='cancelled')throw new Error(job.error||job.message);await new Promise(r=>setTimeout(r,750));}
+      pushHistory(project);setProject(p=>({...p,subtitles:result.subtitles,dubAudioUrl:undefined,dubDuration:undefined}));triggerDownload(result.srt,project.title+'_Gemini_Trung.srt','text/plain');setActiveSidebarTab('translation');
+    }catch(e){alert(String(e));}finally{window.dispatchEvent(new CustomEvent('hn-job',{detail:null}));setHardwareStatus(h=>({...h,isProcessing:false,progressPercent:0,currentTaskName:''}));}
   };
 
   // Undo / Redo history
@@ -96,6 +111,8 @@ export default function App() {
 
   // UI state
   const [activeSidebarTab, setActiveSidebarTab] = useState<'project' | 'asr' | 'translation' | 'characters' | 'export'>('project');
+  const [previewExpanded,setPreviewExpanded]=useState(false);
+  useEffect(()=>{const exit=(e:KeyboardEvent)=>{if(e.key==='Escape')setPreviewExpanded(false);};window.addEventListener('keydown',exit);return()=>window.removeEventListener('keydown',exit);},[]);
   const [isPackagingModalOpen, setIsPackagingModalOpen] = useState(false);
   const [isModelAnalysisOpen, setIsModelAnalysisOpen] = useState(false);
   const [isModelLoaderOpen, setIsModelLoaderOpen] = useState(false);
@@ -165,6 +182,7 @@ export default function App() {
         dubDuration:undefined,
         videoFileName: file.name,
         duration: dur,
+        videoWidth:videoEl.videoWidth,videoHeight:videoEl.videoHeight,
         title: file.name.replace(/\.[^/.]+$/, ''),
       }));
       setActiveSidebarTab('asr');
@@ -484,7 +502,7 @@ export default function App() {
       {/* 2. Middle Workspace: Left Sidebar + Center Video + Right Subtitle Editor */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Sidebar Steps / Controls */}
-        <SidebarTabs
+        <div className={previewExpanded?'hidden':'contents'}><SidebarTabs
           activeTab={activeSidebarTab}
           setActiveTab={setActiveSidebarTab}
           project={project}
@@ -494,6 +512,8 @@ export default function App() {
           onImportTranslation={handleImportTranslation}
           voices={voices}
           onRunAsr={handleRunAsr}
+          onGeminiVideo={handleGeminiVideo}
+          onExportAss={()=>triggerDownload(generateAss(project),project.title+'.ass','text/plain')}
           onRunTranslation={handleRunTranslation}
           onRunBatchTts={handleRunBatchTts}
           onExportSrt={handleExportSrt}
@@ -502,10 +522,14 @@ export default function App() {
           onExportProjectJson={handleExportProjectJson}
           onUpdateCharacter={handleUpdateCharacter}
           onAddCharacter={handleAddCharacter}
-        />
+        /></div>
 
         {/* Center: Video Player Preview */}
         <VideoPlayer
+          expanded={previewExpanded} onToggleExpanded={()=>setPreviewExpanded(v=>!v)}
+          layout={project.captionLayout||DEFAULT_CAPTION_LAYOUT}
+          onLayoutChange={layout=>setProject(p=>({...p,captionLayout:layout,subtitles:layout.position!==(p.captionLayout||DEFAULT_CAPTION_LAYOUT).position?p.subtitles.map(s=>({...s,position:undefined})):p.subtitles}))}
+          onCuePositionChange={(id,position)=>setProject(p=>({...p,subtitles:p.subtitles.map(s=>s.id===id?{...s,position}:s)}))}
           videoUrl={project.videoUrl}
           dubAudioUrl={project.dubAudioUrl}
           dubDuration={project.dubDuration}
@@ -525,7 +549,7 @@ export default function App() {
         />
 
         {/* Right: Subtitle & Dubbing Editor */}
-        <SubtitleEditor
+        <div className={previewExpanded?'hidden':'contents'}><SubtitleEditor
           isProcessing={hardwareStatus.isProcessing}
           subtitles={project.subtitles}
           characters={project.characters}
@@ -533,13 +557,14 @@ export default function App() {
           onSelectSubtitle={(id) => setProject((p) => ({ ...p, selectedSubtitleId: id }))}
           onUpdateSubtitle={handleUpdateSubtitle}
           onRetranslateSentence={handleRetranslateSentence}
+          onSplitCue={handleSplitCue}
           onRegenerateTtsSentence={handleRegenerateTtsSentence}
           onCheckWithParaformer={handleCheckWithParaformer}
-        />
+        /></div>
       </div>
 
       {/* 3. Bottom: CapCut-Style Multi-Track Timeline */}
-      <Timeline
+      <div className={previewExpanded?'hidden':'contents'}><Timeline
         subtitles={project.subtitles}
         characters={project.characters}
         currentTime={currentTime}
@@ -549,7 +574,7 @@ export default function App() {
         onSeek={(t) => setCurrentTime(t)}
         onSplitSubtitle={handleSplitSubtitle}
         onDeleteSubtitle={handleDeleteSubtitle}
-      />
+      /></div>
 
       {/* 4. Offline Packaging & Manifest Modal */}
       <OfflinePackagingModal

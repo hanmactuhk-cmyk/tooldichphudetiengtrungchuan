@@ -22,7 +22,7 @@ from translation import OfflineTranslator
 from browser_translation import BrowserTranslator
 from subtitle_contract import validate_cues,from_srt,parse_srt
 from jobs import JOBS
-app = FastAPI(title='HN Voice Studio', version='5.0.0')
+app = FastAPI(title='HN Voice Studio', version='5.1.0')
 DUBBING=DubbingService(MODELS,CACHE,lambda *args:ffmpeg(*args))
 TRANSLATOR=OfflineTranslator(MODELS)
 BROWSER_HOME=Path(os.environ.get('HN_BROWSER_HOME',APP_DIR/'data/chrome-profiles'))
@@ -51,7 +51,7 @@ def ffmpeg(*args):
 @app.get('/health')
 @app.get('/api/health')
 def health():
-    return {'status':'ok','device':'cpu','models':{n:(MODELS/n).is_dir() for n in ['whisper-small','qwen3','vieneu','ocr-zh']},'modelDirectory':str(MODELS),'version':'5.0.0','instanceId':os.environ.get('HN_INSTANCE_ID'),'activeModel':POOL.name,'modelLoads':POOL.loads}
+    return {'status':'ok','device':'cpu','models':{n:(MODELS/n).is_dir() for n in ['whisper-small','qwen3','vieneu','ocr-zh']},'modelDirectory':str(MODELS),'version':'5.1.0','instanceId':os.environ.get('HN_INSTANCE_ID'),'activeModel':POOL.name,'modelLoads':POOL.loads}
 @app.post('/api/transcribe')
 def transcribe(file: UploadFile=File(...)):
     from faster_whisper import WhisperModel
@@ -127,6 +127,32 @@ def ocr_video(file:UploadFile=File(...),crop_top:float=Form(default=0.55,ge=0,lt
     finally:
         if cap is not None:cap.release()
         source.unlink(missing_ok=True)
+
+@app.post('/api/gemini/video-subtitles')
+def gemini_video_subtitles(file:UploadFile=File(...),duration:float=Form(...)):
+    import hashlib,math
+    from video_subtitles import extract_with_gemini
+    if not math.isfinite(duration) or duration<=0:raise HTTPException(422,'Không đọc được độ dài video.')
+    suffix=Path(file.filename or 'video.mp4').suffix.lower()
+    if suffix not in ('.mp4','.mov','.mkv','.webm','.avi','.m4v'):raise HTTPException(422,'Hãy chọn tệp video MP4/MOV/MKV/WebM/AVI.')
+    source=CACHE/(uuid.uuid4().hex+suffix);digest=hashlib.sha256()
+    try:
+        with source.open('wb') as handle:
+            while chunk:=file.file.read(1024*1024):
+                digest.update(chunk);handle.write(chunk)
+                if handle.tell()>2*1024**3:raise HTTPException(413,'Video vượt 2 GB. Hãy cắt video thành các phần nhỏ hơn.')
+        import cv2
+        cap=cv2.VideoCapture(str(source))
+        try:
+            fps=cap.get(cv2.CAP_PROP_FPS);frames=cap.get(cv2.CAP_PROP_FRAME_COUNT)
+            if not cap.isOpened() or fps<=0 or frames<=0:raise HTTPException(422,'Không đọc được video. Hãy đổi sang MP4 H.264/AAC.')
+            duration=frames/fps
+        finally:cap.release()
+        job=JOBS.submit('gemini-video',{'sha256':digest.hexdigest(),'duration':duration},lambda progress,cancelled:extract_with_gemini(BROWSERS,source,duration,ffmpeg,progress,cancelled),cleanup=lambda:source.unlink(missing_ok=True))
+        if job.get('reused'):source.unlink(missing_ok=True)
+        return job
+    except Exception:
+        source.unlink(missing_ok=True);raise
 
 from typing import Literal
 class TranslateRequest(BaseModel):

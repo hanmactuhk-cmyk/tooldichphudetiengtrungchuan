@@ -1,19 +1,20 @@
-# HN Voice Studio 5 — Windows Electron
+# HN Voice Studio 5.1 — Windows Electron
 
 Đọc lời nói hoặc chữ phụ đề tiếng Trung từ video MP4, dịch sang tiếng Việt và tạo giọng VieNeu-TTS. Giao diện mở trong cửa sổ ứng dụng Windows; không phải mở trình duyệt để dùng các chức năng offline. Gemini và ChatGPT vẫn dùng Chrome riêng để đăng nhập và dịch theo lựa chọn của người dùng.
 
 ## Tải bản chạy đầy đủ
 
-Vào [Releases](https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan/releases/latest). Tải **tất cả** các phần `HNVoice-Electron-5.0.0-Windows.zip.001`, `.002`… cùng `release-parts.json`, `GIAI-NEN.ps1`, `GIAI-NEN.bat` vào cùng một thư mục. Chạy `GIAI-NEN.bat`: chương trình kiểm tra SHA256, giải nén trực tiếp các phần, không cần ghép thêm một ZIP lớn. Mở `HNVoice-Electron/HN Voice Studio.exe`. Có thể chạy `TAO-LOI-TAT.bat` bên trong để tạo lối tắt Desktop; giữ nguyên cả thư mục ứng dụng.
+Vào [Releases](https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan/releases/latest). Tải **tất cả** các phần `HNVoice-Electron-5.1.0-Windows.zip.001`, `.002`… cùng `release-parts.json`, `GIAI-NEN.ps1`, `GIAI-NEN.bat` vào cùng một thư mục. Chạy `GIAI-NEN.bat`: chương trình kiểm tra SHA256, giải nén trực tiếp các phần, không cần ghép thêm một ZIP lớn. Mở `HNVoice-Electron/HN Voice Studio.exe`. Có thể chạy `TAO-LOI-TAT.bat` bên trong để tạo lối tắt Desktop; giữ nguyên cả thư mục ứng dụng.
 
 Bộ tải đầy đủ có Electron, Python đã đóng gói, FFmpeg, Whisper-small, RapidOCR Trung, Qwen3-4B Q4 và VieNeu v3 Turbo ONNX FP32 + codec + giọng mẫu. Người dùng bản chạy không cần cài Node, Python hay nhập API key. Cần Windows 10/11 x64, CPU x64 hỗ trợ AVX2, khuyến nghị RAM 16 GB; máy RAM 8 GB có thể phải dùng bộ nhớ ảo và chậm hơn. Gói sau giải nén khoảng 4,4 GB; cần đủ dung lượng cho cả phần tải và thư mục giải nén. Bản EXE chưa ký chứng thư thương mại.
 
 ## Sử dụng
 
-1. Chọn video. Ở Nhận diện, chọn lời nói (Whisper) hoặc chữ in trên hình (OCR; điều chỉnh vùng phụ đề). Có thể nhập SRT Trung/Việt trực tiếp.
+1. Chọn video. Ở Nhận diện, chọn lời nói (Whisper), chữ in trên hình (OCR; điều chỉnh vùng phụ đề), hoặc Gemini video qua Chrome đã đăng nhập. Với Gemini, bấm “Mở Gemini / đăng nhập”, sau đó “Tải video lên Gemini → lấy SRT”. Video được gửi tới tài khoản Gemini của bạn; app yêu cầu phụ đề tiếng Trung kèm thời gian, tải SRT và đưa kết quả vào bước dịch. Có thể nhập SRT Trung/Việt trực tiếp. Video dài được chia đoạn; tốc độ và khả năng nhận diện phụ thuộc Gemini và hạn mức tài khoản.
 2. Chọn dịch Offline, Gemini hoặc ChatGPT. Với dịch qua web, bấm Mở Chrome và tự đăng nhập. Công cụ gửi SRT với yêu cầu giữ mốc, sát nghĩa, ngắn gọn và đúng nhân xưng. Có thể sao chép yêu cầu và dán SRT trả về để nhập thủ công.
 3. Duyệt bản dịch, gán nhân vật/quan hệ/xưng hô/giọng cho từng câu. Tạo giọng và căn timeline.
-4. Nghe kiểm tra rồi xuất SRT gốc, SRT theo giọng đã căn hoặc WAV toàn bộ.
+4. Chọn khung tự động theo video, 16:9 hoặc 9:16. Kéo phụ đề trong phần hình ảnh; chọn áp dụng toàn bộ hoặc riêng câu hiện tại. Chỉnh cỡ chữ/chiều rộng, bấm “Tách đôi câu” khi câu quá dài; thời gian được chia liên tiếp và cần tạo lại giọng. Dùng nút phóng to khung hình khi chỉnh video dọc; Escape để trở lại.
+5. Nghe kiểm tra rồi xuất SRT gốc, SRT theo giọng đã căn, ASS giữ vị trí hoặc WAV toàn bộ. **SRT không lưu vị trí/cỡ chữ**; dùng ASS để mang bố cục sang trình hỗ trợ ASS. Tỉ lệ khung trong app là bố cục xem trước, chưa xuất MP4 đổi tỉ lệ hoặc đốt phụ đề.
 
 Giọng được tăng tốc tối đa 1,35 lần để vừa mốc, sau đó dời câu sau nếu vẫn quá dài. Không cắt mất câu và không cho hai đoạn giọng chồng nhau; có thể kết thúc muộn hơn video. Tiếng video gốc tự tắt sau khi tạo giọng; bật lại thủ công có thể nghe hai nguồn cùng lúc. Nghe thử một câu sẽ dừng nguồn đang phát. Chưa xuất MP4 lồng tiếng trực tiếp, chưa tự nhận diện người nói; cần gán nhân vật thủ công. Hiện chưa tự khôi phục dự án/video sau khi thoát: hãy xuất WAV/SRT trước khi đóng.
 
@@ -40,7 +41,7 @@ python scripts/prepare_models.py --verify
 python scripts/package-desktop.py release/win-unpacked release/download
 ```
 
-`package-desktop.py` chia ZIP thành phần nhỏ hơn giới hạn asset GitHub. Nếu thiếu chỗ trống, dùng `--upload-repo OWNER/REPO --tag v5.0.0 --gh gh` để tải từng phần lên draft release bằng GitHub CLI đã đăng nhập rồi bỏ bản trung gian sau khi kiểm tra upload. Sau đó chép `scripts/GIAI-NEN.*` cạnh manifest. Không cần token trong mã nguồn.
+`package-desktop.py` chia ZIP thành phần nhỏ hơn giới hạn asset GitHub. Nếu thiếu chỗ trống, dùng `--upload-repo OWNER/REPO --tag v5.1.0 --gh gh` để tải từng phần lên draft release bằng GitHub CLI đã đăng nhập rồi bỏ bản trung gian sau khi kiểm tra upload. Sau đó chép `scripts/GIAI-NEN.*` cạnh manifest. Không cần token trong mã nguồn.
 
 ## Kiểm thử ứng dụng thật
 
@@ -61,3 +62,5 @@ node scripts/test-desktop.cjs
 ## Nguồn và giấy phép
 
 Phát triển từ [tooldichphudetiengviet](https://github.com/hanmactuhk-cmyk/tooldichphudetiengviet). SDK VieNeu được lấy từ mã nguồn người dùng cung cấp, giữ giấy phép Apache-2.0 tại `resources/backend/VIENEU-LICENSE`; bản vá chỉ bổ sung đường dẫn codec offline. Xem `THIRD_PARTY.md`, `models.lock.json` và các giấy phép kèm thư viện/model. Không có tài khoản, cookie, API key, bộ nhớ đệm cá nhân hoặc video cá nhân trong mã nguồn/phát hành.
+
+Kiểm tra bố cục: `node scripts/test-layout.cjs` với `HN_TEST_URL` trỏ tới worker đang chạy. Kiểm tra chia câu/ASS: `pnpm exec tsx scripts/test-caption-layout.ts`. Kiểm tra SRT Gemini/hủy tác vụ: `python scripts/test_video_subtitles.py`. Đặt `HN_TEST_GEMINI_VIDEO=1` khi chạy bài thử Electron để kiểm tra tải video mẫu lên Gemini và dịch kết quả (cần hồ sơ Chrome đã đăng nhập).

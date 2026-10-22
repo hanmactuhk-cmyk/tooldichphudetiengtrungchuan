@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 from urllib.parse import urlparse
 from http.client import HTTPConnection
-from subtitle_contract import INSTRUCTION,to_srt,from_srt,validate_cues
+from subtitle_contract import INSTRUCTION,to_srt,from_srt,validate_cues,parse_srt
 
 SERVICES={
     'gemini':{'url':'https://gemini.google.com/app','host':'gemini.google.com','port':9223,
@@ -36,7 +36,7 @@ def cdp_get(port,path):
 
 class BrowserTranslator:
     def __init__(self,profiles):
-        self.profiles=Path(profiles);self.locks={k:threading.Lock() for k in SERVICES}
+        self.profiles=Path(profiles).resolve();self.locks={k:threading.Lock() for k in SERVICES}
 
     def config(self,provider):
         if provider not in SERVICES:raise ValueError('Chỉ hỗ trợ Gemini hoặc ChatGPT.')

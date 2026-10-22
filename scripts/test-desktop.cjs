@@ -48,6 +48,18 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
   await page.waitForTimeout(1000);report.exports=fs.readdirSync(downloadDir).filter(n=>/\.(wav|srt)$/.test(n));assert(report.exports.some(n=>n.endsWith('.srt')));for(const name of report.exports)fs.copyFileSync(path.join(downloadDir,name),path.join(out,name));
   await page.getByRole('button',{name:'3. Dịch',exact:true}).click();assert.equal(await page.getByLabel('Chọn cách dịch',{exact:true}).locator('option').count(),3);
   await page.screenshot({path:path.join(out,'electron-app.png')});report.pageErrors=errors;assert.equal(errors.length,0);
+  if(process.env.HN_TEST_GEMINI_VIDEO){
+    await page.getByRole('button',{name:'1. Video / SRT',exact:true}).click();await page.getByLabel('Chọn video',{exact:true}).setInputFiles(path.join(root,'tests/fixtures/video-tieng-trung.mp4'));await page.getByRole('heading',{name:'Nhận diện tiếng Trung',exact:true}).waitFor();
+    await page.getByRole('button',{name:'Mở Gemini / đăng nhập',exact:true}).click();
+    await page.waitForFunction(async()=>{const r=await fetch('/api/browser/status');return r.ok&&(await r.json()).gemini.connected;},{},{timeout:30000});
+    await page.getByRole('button',{name:'Tải video lên Gemini → lấy SRT',exact:true}).click();
+    await page.getByRole('heading',{name:'Dịch Trung–Việt',exact:true}).waitFor({timeout:660000});
+    report.geminiCues=await page.locator('textarea:not([placeholder])').count();assert(report.geminiCues>0);
+    await page.getByLabel('Chọn cách dịch',{exact:true}).selectOption('gemini');await page.getByRole('button',{name:'Dịch sang tiếng Việt',exact:true}).click();
+    await page.getByRole('heading',{name:'VieNeu-TTS v3 Turbo',exact:true}).waitFor({timeout:360000});
+    const vi=await page.locator('textarea[placeholder]').evaluateAll(els=>els.map(e=>e.value));assert(vi.length&&vi.every(t=>t.trim().length&&!t.includes('```')&&!t.includes('<ElicitationsGroup>')));report.geminiVideoToTranslation=true;
+    fs.writeFileSync(path.join(out,'gemini-video-translated.json'),JSON.stringify(vi,null,2));await page.screenshot({path:path.join(out,'gemini-video-native.png')});
+  }
   console.log('NATIVE ELECTRON UI PASSED');
  }finally{await app.close();}
  await new Promise(r=>setTimeout(r,1000));let stopped=false;try{await fetch(origin+'/api/health',{signal:AbortSignal.timeout(1000)});}catch{stopped=true;}assert(stopped,'Worker still running after desktop exit');report.workerStoppedOnExit=stopped;

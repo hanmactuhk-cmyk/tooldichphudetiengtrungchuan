@@ -1,3 +1,5 @@
+export interface CaptionPosition { x:number; y:number; }
+export interface CaptionLayout { aspect:'auto'|'16:9'|'9:16'; position:CaptionPosition; width:number; fontSize:number; }
 export type TranslationProvider = 'offline' | 'gemini' | 'chatgpt';
 export type SubtitleStatus =
   | 'raw'
@@ -20,13 +22,14 @@ export interface Subtitle {
   pitch: number;       // -10 to +10, default 0
   volume: number;      // 0.0 - 2.0, default 1.0
   status: SubtitleStatus;
+  position?:CaptionPosition;
   ttsAudioUrl?: string; // Object URL or WAV data
   dubStartTime?:number;
   dubEndTime?:number;
   ttsFitSpeed?:number;
   ttsShift?:number;
   ttsDuration?: number; // Measured duration in seconds
-  modelUsedZh?: 'RapidOCR Chinese' | 'Whisper-small' | 'SenseVoice-Small' | 'Paraformer-ZH';
+  modelUsedZh?: 'Gemini video CDP' | 'RapidOCR Chinese' | 'Whisper-small' | 'SenseVoice-Small' | 'Paraformer-ZH';
   modelUsedTrans?: string;
   confidence?: number;
   notes?: string;
@@ -76,6 +79,9 @@ export interface ProjectData {
   title: string;
   videoUrl: string | null;
   videoFileName: string;
+  videoWidth?:number;
+  videoHeight?:number;
+  captionLayout?:CaptionLayout;
   duration: number;
   originalAudioVolume: number; // 0 to 1
   originalAudioMuted: boolean;

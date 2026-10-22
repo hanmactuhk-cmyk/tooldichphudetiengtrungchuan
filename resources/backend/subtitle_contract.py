@@ -37,6 +37,9 @@ def parse_srt(text):
     blocks = re.findall(r'```(?:srt|text)?\s*\n([\s\S]*?)```', text, re.I)
     if blocks:
         text = '\n\n'.join(blocks)
+    else:
+        # Some web code widgets expose a closing fence plus UI markup, without the opening fence.
+        text = re.split(r'\n\s*```', text, maxsplit=1)[0]
     result = []
     pattern = re.compile(r'(?:^|\n)(\d+)\s*\n(\d+:\d{2}:\d{2}[,.]\d{3})\s*-->\s*(\d+:\d{2}:\d{2}[,.]\d{3})[^\n]*\n([\s\S]*?)(?=\n\s*\n\d+\s*\n\d+:|\Z)')
     def seconds(t):

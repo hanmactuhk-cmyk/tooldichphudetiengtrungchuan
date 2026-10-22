@@ -1,27 +1,21 @@
-# Kiểm thử Windows — bản Electron 5.0.0
+# Kiểm thử Windows — Electron 5.1.0
 
-Ngày 22/10/2026. Kiểm thử EXE Windows đã đóng gói; không chỉ chạy bản phát triển.
+Ngày 22/10/2026, trên máy Windows của người dùng. Bản EXE đóng gói, CPU và model offline đã có.
 
 | Hạng mục | Kết quả |
 |---|---|
-| Electron thật | Version 5.0.0; một cửa sổ chính, mở lần hai tập trung cửa sổ hiện có |
-| Renderer | Node integration tắt, context isolation và sandbox bật |
-| Worker | Cổng riêng, đối chiếu ID phiên; dừng sau khi đóng ứng dụng |
-| ASR từ MP4 Trung | Qua trên video fixture tổng hợp |
-| OCR phụ đề trên hình | Đúng ba câu fixture; ba lần OCR, bỏ qua khung lặp |
-| Offline Qwen3 | Giữ đủ câu và ID, mẫu vợ chồng xưng anh/em; 50.66 giây cho ba câu trong lượt thử |
-| VieNeu thật | Hai giọng Hải Đăng/Mai Anh; không cắt câu và không chồng thời gian |
-| Cache giọng | Lượt ba câu 0.53 giây / cache 0.547 giây; không suy rộng thành tốc độ mọi video |
-| Lịch giọng | 500 trường hợp ngẫu nhiên không chồng nhau |
-| Nghe thử và phát video | Số nguồn âm thanh đang phát: [1, 1, 1] |
-| Giọng qua cuối video | Video 2.08 giây, đồng hồ giọng tiếp tục tới 00:02.5 |
-| Xuất qua nút Electron | WAV và SRT lưu thành công bằng sự kiện tải xuống của Electron |
-| Lỗi JavaScript ở UI | 0 |
-| Model trong thư mục Electron | 26 tệp khớp SHA256 manifest |
-| Đóng gói | 862 tệp khớp CRC/kích thước; từng phần tải lên đối chiếu SHA256 GitHub |
-| Giải nén Windows | Qua cả ZIP và ZIP64 chia ba phần thử nghiệm, nội dung sau giải nén khớp SHA256 |
-| Ba lựa chọn dịch | Có đủ Offline/Gemini/ChatGPT; cloud CDP đã kiểm thử trên backend dùng chung bản 4 và giữ nguyên trong bản 5 |
+| Nhận diện lời nói/ OCR | Bài hồi quy với video mẫu đạt |
+| Dịch offline Qwen3 | Bài kiểm tra chất lượng/ID/mốc đạt |
+| VieNeu-TTS | Hai giọng thật, cache, 500 lịch giọng không chồng câu đạt |
+| Phát trong Electron | Mỗi lần chỉ một track giọng, phát qua cuối video, xuất WAV/SRT đạt |
+| An toàn renderer và vòng đời | Sandbox, context isolation, một cửa sổ, worker dừng khi đóng đạt |
+| Khung hình | Tự động, 16:9, 9:16, video dọc thật, đổi kích thước cửa sổ đạt |
+| Phụ đề | Kéo trong phần hình ảnh; toàn bộ/riêng câu; tách câu; xuất ASS đạt |
+| Chia câu và ASS | 148 trường hợp chia câu, thời gian liên tiếp, bỏ giọng cũ, tọa độ và mốc ASS đạt |
+| Gemini trong Electron | Video tổng hợp → SRT Trung → dịch Việt thành công; không thay phụ đề khi phản hồi lỗi |
+| Bộ model | SHA256 của 26 artifact đều đúng |
+| Parser SRT web | Loại dấu đóng khối mã và phần giao diện đính kèm; bài hồi quy đạt |
 
-Bài thử dùng video/SRT tổng hợp. Không bảo đảm mọi nhận diện/tên riêng/bản dịch trên phim thực tế đều đúng. Cần duyệt kết quả. Chưa xuất MP4 lồng tiếng và chưa tự phân vai. Các thông tin đăng nhập Chrome, cache và đường dẫn cá nhân không phát hành.
+SRT không lưu tọa độ; chọn ASS để lưu vị trí. Khung xem trước chưa phải chức năng xuất MP4 đổi tỉ lệ. Gemini có thể từ chối hoặc trả sai định dạng/ý nghĩa tùy lượt và hạn mức; ứng dụng kiểm tra số câu/mốc nhưng vẫn cần duyệt nội dung. Chia đoạn video dài có kiểm tra mốc và khử câu trùng vùng giao; chất lượng nhận diện không được bảo đảm chỉ từ việc kiểm tra định dạng.
 
-![Giao diện Electron đã thử](electron-app.png)
+Ảnh kiểm tra: [khung ngang](layout-landscape.png), [khung dọc phóng to](layout-portrait.png), [Gemini trong Electron](gemini-video-native.png).

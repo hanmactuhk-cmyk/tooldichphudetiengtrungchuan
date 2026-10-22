@@ -17,6 +17,9 @@ Ngày 22/10/2026. Kiểm thử EXE Windows đã đóng gói; không chỉ chạy
 | Giọng qua cuối video | Video 2.08 giây, đồng hồ giọng tiếp tục tới 00:02.5 |
 | Xuất qua nút Electron | WAV và SRT lưu thành công bằng sự kiện tải xuống của Electron |
 | Lỗi JavaScript ở UI | 0 |
+| Model trong thư mục Electron | 26 tệp khớp SHA256 manifest |
+| Đóng gói | 862 tệp khớp CRC/kích thước; từng phần tải lên đối chiếu SHA256 GitHub |
+| Giải nén Windows | Qua cả ZIP và ZIP64 chia ba phần thử nghiệm, nội dung sau giải nén khớp SHA256 |
 | Ba lựa chọn dịch | Có đủ Offline/Gemini/ChatGPT; cloud CDP đã kiểm thử trên backend dùng chung bản 4 và giữ nguyên trong bản 5 |
 
 Bài thử dùng video/SRT tổng hợp. Không bảo đảm mọi nhận diện/tên riêng/bản dịch trên phim thực tế đều đúng. Cần duyệt kết quả. Chưa xuất MP4 lồng tiếng và chưa tự phân vai. Các thông tin đăng nhập Chrome, cache và đường dẫn cá nhân không phát hành.

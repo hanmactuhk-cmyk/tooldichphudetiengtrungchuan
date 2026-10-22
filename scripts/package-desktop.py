@@ -36,6 +36,20 @@ class Joined(io.RawIOBase):
     self.pos+=take;size-=take
    base+=length
   return b''.join(chunks)
+class Tail(io.RawIOBase):
+ """Expose global ZIP64 offsets while reading only the final local volume."""
+ def __init__(self,file,prefix):self.file=file;self.prefix=prefix;self.pos=0;self.length=prefix+file.stat().st_size
+ def readable(self):return True
+ def seekable(self):return True
+ def tell(self):return self.pos
+ def seek(self,offset,whence=0):
+  self.pos=offset if whence==0 else self.pos+offset if whence==1 else self.length+offset
+  if self.pos<0:raise ValueError('Negative seek')
+  return self.pos
+ def read(self,size=-1):
+  if self.pos<self.prefix:raise OSError('Requested an earlier ZIP volume')
+  with self.file.open('rb') as f:f.seek(self.pos-self.prefix);data=f.read(size)
+  self.pos+=len(data);return data
 def main():
  p=argparse.ArgumentParser();p.add_argument('app',type=Path);p.add_argument('out',type=Path);p.add_argument('--upload-repo');p.add_argument('--tag',default='v5.0.0');p.add_argument('--gh',default='gh');args=p.parse_args();args.out.mkdir(parents=True,exist_ok=True)
  manifest={'version':'5.0.0','archive':'HNVoice-Electron-5.0.0-Windows.zip','parts':[]}
@@ -62,7 +76,7 @@ def main():
  sink.finish()
  if args.upload_repo:
   # The last part contains the central directory; validate every entry against the writer metadata.
-  with zipfile.ZipFile(sink.parts[-1]) as check:
+  with zipfile.ZipFile(Tail(sink.parts[-1],sink.offset-sink.parts[-1].stat().st_size)) as check:
    assert [(i.filename,i.CRC,i.file_size) for i in check.infolist()]==[(i.filename,i.CRC,i.file_size) for i in z.infolist()]
   upload(sink.parts[-1],remove=True)
   manifest['centralDirectoryVerified']=True

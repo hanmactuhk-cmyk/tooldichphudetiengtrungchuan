@@ -17,12 +17,12 @@ SERVICES={
         'editors':['rich-textarea [contenteditable="true"]','[role="textbox"][contenteditable="true"]'],
         'answers':['model-response .model-response-text','model-response message-content','model-response'],
         'send':['button[aria-label="Send message"]','button[aria-label="Gửi tin nhắn"]','button.send-button'],
-        'stop':['button[aria-label="Stop response"]','button[aria-label="Dừng phản hồi"]','button.stop-button']},
+        'stop':['button[aria-label="Stop response"]','button[aria-label="Dừng phản hồi"]','button[aria-label="Dừng"]','button[aria-label="Stop"]','button.stop-button']},
     'chatgpt':{'url':'https://chatgpt.com/','host':'chatgpt.com','port':9224,
         'editors':['#prompt-textarea','[contenteditable="true"][data-lexical-editor="true"]','[role="textbox"][contenteditable="true"]'],
         'answers':['[data-message-author-role="assistant"] .markdown','[data-message-author-role="assistant"]','[class*="DilResponseRoot"][data-dil-message-id]'],
-        'send':['button[data-testid="send-button"]','button[aria-label="Send prompt"]','button[aria-label="Gửi lời nhắc"]'],
-        'stop':['button[data-testid="stop-button"]','button[aria-label="Stop streaming"]']}}
+        'send':['button[data-testid="send-button"]','button[aria-label="Send prompt"]','button[aria-label="Gửi lời nhắc"]','button[aria-label="Send message"]','button[aria-label="Gửi tin nhắn"]','button#composer-submit-button','button[aria-label="Gửi"]','button[aria-label="Send"]'],
+        'stop':['button[data-testid="stop-button"]','button[aria-label="Stop streaming"]','button[aria-label="Stop generating"]','button[aria-label="Dừng tạo"]','button[aria-label="Dừng phản hồi"]','button[aria-label="Dừng"]','button[aria-label="Stop"]']}}
 
 def cdp_get(port,path):
     # Direct loopback HTTP: no proxy lookup, TLS context, or browser credentials.
@@ -72,6 +72,30 @@ class BrowserTranslator:
                 if candidate.is_visible():return candidate
         return None
 
+    def wait_response(self,page,cfg,before,validate,cancelled,timeout=1800):
+        deadline=time.monotonic()+timeout;last='';stable_since=time.monotonic();validation_error=None
+        while time.monotonic()<deadline:
+            if cancelled():raise RuntimeError('Đã dừng chờ. Phản hồi có thể vẫn tiếp tục trên Chrome.')
+            answer=''
+            for selector in cfg['answers']:
+                loc=page.locator(selector)
+                if loc.count()>before[selector]:
+                    last_answer=loc.last
+                    code=last_answer.locator('pre code,[data-code-block-source] code')
+                    if not code.count():code=last_answer.locator('pre')
+                    answer='\n\n'.join(code.all_text_contents()) if code.count() else last_answer.inner_text()
+                    break
+            if answer!=last:last=answer;stable_since=time.monotonic()
+            if answer and self.visible(page,cfg['stop']) is None and time.monotonic()-stable_since>=5:
+                try:return validate(answer)
+                except ValueError as exc:
+                    validation_error=exc
+                    # Never import a partial SRT or automatically send another batch.
+                    if time.monotonic()-stable_since>=20:
+                        raise ValueError(str(exc)+' Phản hồi chưa đủ/hợp lệ nên chưa thay phụ đề trong tool. Toàn bộ phản hồi vẫn ở Chrome; tool không tự chia hay gửi lại từng phần.') from exc
+            time.sleep(1)
+        raise ValueError('Hết thời gian chờ phản hồi đầy đủ. '+(str(validation_error) if validation_error else '')+' Phản hồi vẫn ở Chrome; tool không tự chia hoặc gửi lại.')
+
     def translate(self,provider,cues,characters=None,progress=lambda *_:None,cancelled=lambda:False):
         validate_cues(cues);cfg=self.config(provider)
         if not self.locks[provider].acquire(blocking=False):raise ValueError('Đã có một phiên dịch trên hồ sơ này. Hãy chờ phiên đó hoàn tất.')
@@ -91,45 +115,27 @@ class BrowserTranslator:
                 if editor is None:raise ValueError('Chưa thấy khung chat. Hãy đăng nhập và xử lý thông báo trên Chrome, rồi thử lại.')
                 if urlparse(page.url).hostname != cfg['host']:raise ValueError('Chrome đang ở trang đăng nhập. Bạn cần tự đăng nhập trước.')
                 results=[]
-                # Bounded batches prevent truncation; previous context is included explicitly.
-                for start in range(0,len(cues),40):
-                    batch=cues[start:start+40]
+                # ChatGPT receives the complete SRT in one submission.
+                batches=[(0,cues)] if provider=='chatgpt' else [(start,cues[start:start+40]) for start in range(0,len(cues),40)]
+                for start,batch in batches:
                     if cancelled():raise RuntimeError('Đã dừng dịch.')
-                    progress(round(start/len(cues)*95),f'{provider}: gửi và chờ dịch câu {start+1}–{start+len(batch)}...')
-                    prompt=INSTRUCTION+'\nThông tin nhân vật (nếu có):\n'+json.dumps(characters or [],ensure_ascii=False)
+                    progress(round(start/len(cues)*95),f'{provider}: gửi toàn bộ {len(batch)} câu và chờ trả SRT đầy đủ...' if provider=='chatgpt' else f'{provider}: gửi và chờ dịch câu {start+1}–{start+len(batch)}...')
+                    prompt=INSTRUCTION+(' Dịch toàn bộ SRT bên dưới trong một lần trả lời; không chỉ dịch một phần rồi hỏi có tiếp tục không.' if provider=='chatgpt' else '')+'\nThông tin nhân vật (nếu có):\n'+json.dumps(characters or [],ensure_ascii=False)
                     if results:prompt+='\nBản dịch trước để giữ xưng hô:\n'+json.dumps(results[-8:],ensure_ascii=False)
                     prompt+='\n<SRT_CAN_DICH>\n'+to_srt(batch)+'\n</SRT_CAN_DICH>'
                     editor=self.visible(page,cfg['editors'])
                     if editor is None:raise ValueError('Khung chat đã thay đổi. Hãy mở lại trang dịch.')
                     editor.fill(prompt)
                     before={selector:page.locator(selector).count() for selector in cfg['answers']}
-                    send=self.visible(page,cfg['send'])
-                    if send is not None and send.is_enabled():send.click()
-                    else:editor.press('Enter')
-                    deadline=time.monotonic()+300;last='';stable_since=time.monotonic();valid=None
-                    while time.monotonic()<deadline:
-                        if cancelled():raise RuntimeError('Đã dừng chờ. Phản hồi trên trang web có thể vẫn đang tạo.')
-                        answer=''
-                        for selector in cfg['answers']:
-                            loc=page.locator(selector)
-                            if loc.count()>before[selector]:
-                                last_answer=loc.last
-                                code=last_answer.locator('pre code,[data-code-block-source] code')
-                                if code.count():answer='\n\n'.join(code.all_text_contents())
-                                else:
-                                    code=last_answer.locator('pre')
-                                    answer='\n\n'.join(code.all_text_contents()) if code.count() else last_answer.inner_text()
-                                break
-                        if answer!=last:last=answer;stable_since=time.monotonic()
-                        if answer and time.monotonic()-stable_since>=3 and self.visible(page,cfg['stop']) is None:
-                            try:valid=from_srt(answer,batch)
-                            except ValueError:
-                                # A completed but malformed reply is preserved in the browser.
-                                if time.monotonic()-stable_since>10:raise
-                            if valid is not None:break
-                        time.sleep(1)
-                    if valid is None:raise ValueError('Hết thời gian chờ hoặc bản dịch chưa đủ câu. Phản hồi vẫn được giữ trên Chrome; có thể dán SRT để nhập lại.')
+                    for _ in range(60):
+                        if cancelled():raise RuntimeError('Đã dừng dịch.')
+                        send=self.visible(page,cfg['send'])
+                        if send is not None and send.is_enabled():break
+                        time.sleep(.5)
+                    else:raise ValueError('Chưa gửi được toàn bộ phụ đề. Kiểm tra giới hạn nhập/hạn mức hoặc thông báo trong Chrome. Tool không tự chia SRT.')
+                    send.click()
+                    valid=self.wait_response(page,cfg,before,lambda answer:from_srt(answer,batch),cancelled,timeout=1800 if provider=='chatgpt' else 600)
                     results.extend(valid)
                 # Do not close the browser or translated conversation.
-                return {'translations':results,'modelUsed':provider+' qua Chrome CDP','conversationUrl':page.url}
+                return {'translations':results,'modelUsed':provider+' qua Chrome CDP','conversationUrl':page.url,'submissions':len(batches),'wholeSrt':provider=='chatgpt'}
         finally:self.locks[provider].release()

@@ -1,7 +1,8 @@
 param(
  [string]$AppDirectory,
  [string]$OutputDirectory,
- [string]$InnoCompiler
+ [string]$InnoCompiler,
+ [switch]$UpdateOnly
 )
 $ErrorActionPreference='Stop'
 $sourceRoot=Split-Path $PSScriptRoot -Parent
@@ -28,9 +29,11 @@ $env:HN_MODELS_DIR=Join-Path $AppDirectory 'resources/models'
 & (Join-Path $AppDirectory 'resources/runtime/hn-worker/hn-worker.exe') --verify-models
 if($LASTEXITCODE){throw 'Model checksum verification failed'}
 $version=(Get-Content -LiteralPath (Join-Path $sourceRoot 'package.json') -Raw | ConvertFrom-Json).version
-& $InnoCompiler "/DAppVersion=$version" "/DSourceDir=$AppDirectory" "/DOutputDir=$OutputDirectory" (Join-Path $sourceRoot 'installer/windows.iss')
+$buildOptions=@()
+if($UpdateOnly){$buildOptions+='/DUpdateOnly'}
+& $InnoCompiler @buildOptions "/DAppVersion=$version" "/DSourceDir=$AppDirectory" "/DOutputDir=$OutputDirectory" (Join-Path $sourceRoot 'installer/windows.iss')
 if($LASTEXITCODE){throw 'Windows installer build failed'}
-$records=Get-ChildItem -LiteralPath $OutputDirectory -File | Where-Object {$_.Name -like "HNVoice-Studio-$version-Setup*"} | ForEach-Object {
+$records=Get-ChildItem -LiteralPath $OutputDirectory -File | Where-Object {$_.Name -like "HNVoice-Studio-$version*Setup*"} | ForEach-Object {
  [PSCustomObject]@{name=$_.Name;size=$_.Length;sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()}
 }
 @{version=$version;files=@($records)} | ConvertTo-Json -Depth 4 | Set-Content -Encoding UTF8 (Join-Path $OutputDirectory 'installer-sha256.json')

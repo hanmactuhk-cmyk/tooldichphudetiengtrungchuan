@@ -25,12 +25,21 @@ MinVersion=10.0.17763
 UninstallDisplayName=HN Voice Studio {#AppVersion}
 UninstallDisplayIcon={app}\HN Voice Studio.exe
 OutputDir={#OutputDir}
+#ifdef UpdateOnly
+OutputBaseFilename=HNVoice-Studio-{#AppVersion}-Update-Setup
+Compression=zip/1
+#else
 OutputBaseFilename=HNVoice-Studio-{#AppVersion}-Setup
 Compression=lzma2/fast
+#endif
 SolidCompression=no
+#ifdef UpdateOnly
+DiskSpanning=no
+#else
 DiskSpanning=yes
 DiskSliceSize=1800000000
 SlicesPerDisk=1
+#endif
 WizardStyle=modern
 DisableProgramGroupPage=yes
 DisableDirPage=no
@@ -48,7 +57,9 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Excludes: "resources\models\*,HUONG-DAN.md,*.log,START.bat,TAO-LOI-TAT.bat,TAO-LOI-TAT.ps1,local-settings.json,desktop-settings.json,data\*,cache\*,chrome-profiles\*"; Flags: ignoreversion recursesubdirs createallsubdirs
+#ifndef UpdateOnly
 Source: "{#SourceDir}\resources\models\*"; DestDir: "{app}\resources\models"; Flags: ignoreversion recursesubdirs createallsubdirs nocompression
+#endif
 Source: "..\README.md"; DestDir: "{app}"; DestName: "HUONG-DAN.md"; Flags: ignoreversion
 Source: "installed-mode"; DestDir: "{app}"; Flags: ignoreversion
 
@@ -59,3 +70,17 @@ Name: "{autoprograms}\Uninstall HN Voice Studio"; Filename: "{uninstallexe}"
 
 [Run]
 Filename: "{app}\HN Voice Studio.exe"; Description: "Launch HN Voice Studio"; Flags: nowait postinstall skipifsilent
+
+#ifdef UpdateOnly
+[Code]
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  Result := '';
+  if not FileExists(ExpandConstant('{app}\resources\models\manifest.json')) or
+     not DirExists(ExpandConstant('{app}\resources\models\whisper-small')) or
+     not DirExists(ExpandConstant('{app}\resources\models\ocr-zh')) or
+     not DirExists(ExpandConstant('{app}\resources\models\qwen3')) or
+     not DirExists(ExpandConstant('{app}\resources\models\vieneu')) then
+    Result := 'This update requires the complete HN Voice Studio 5.4 installation. Choose its existing installation folder, or install the complete version first.';
+end;
+#endif

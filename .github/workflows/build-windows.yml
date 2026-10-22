@@ -38,6 +38,7 @@ jobs:
       - run: node --check electron-main.cjs
       - run: python -m compileall -q resources/backend scripts
       - run: python scripts/test_video_subtitles.py
+      - run: python scripts/test_whole_submissions.py
       - if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_build }}
         run: powershell -ExecutionPolicy Bypass -File scripts/build-desktop.ps1
       - if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_build }}

@@ -180,7 +180,7 @@ def gemini_video_subtitles(file:UploadFile=File(...),duration:float=Form(...)):
         with source.open('wb') as handle:
             while chunk:=file.file.read(1024*1024):
                 digest.update(chunk);handle.write(chunk)
-                if handle.tell()>2*1024**3:raise HTTPException(413,'Video vượt 2 GB. Hãy cắt video thành các phần nhỏ hơn.')
+                if handle.tell()>2*1024**3:raise HTTPException(413,'Video vượt giới hạn tải 2 GB của tool. Hãy chọn một tệp video dung lượng nhỏ hơn; tool không tự chia video.')
         import cv2
         cap=cv2.VideoCapture(str(source))
         try:

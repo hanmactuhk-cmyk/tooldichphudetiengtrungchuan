@@ -73,7 +73,7 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     report.geminiCues=await page.locator('textarea:not([placeholder])').count();assert(report.geminiCues>0);
     report.geminiVideoImported=true;
     if(!process.env.HN_TEST_GEMINI_READ_ONLY){
-    await page.getByLabel('Chọn cách dịch',{exact:true}).selectOption('gemini');await page.getByRole('button',{name:'Dịch sang tiếng Việt',exact:true}).click();
+    await page.getByLabel('Chọn cách dịch',{exact:true}).selectOption(process.env.HN_TEST_GEMINI_TO_CHATGPT?'chatgpt':'gemini');await page.getByRole('button',{name:'Dịch sang tiếng Việt',exact:true}).click();
     await page.getByRole('heading',{name:'VieNeu-TTS v3 Turbo',exact:true}).waitFor({timeout:360000});
     const vi=await page.locator('textarea[placeholder]').evaluateAll(els=>els.map(e=>e.value));assert(vi.length&&vi.every(t=>t.trim().length&&!t.includes('```')&&!t.includes('<ElicitationsGroup>')));report.geminiVideoToTranslation=true;
     fs.writeFileSync(path.join(out,'gemini-video-translated.json'),JSON.stringify(vi,null,2));}

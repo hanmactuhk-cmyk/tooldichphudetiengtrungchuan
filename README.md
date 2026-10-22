@@ -1,10 +1,12 @@
-# HN Voice Studio 5.4 — Bộ cài Windows
+# HN Voice Studio 5.4.1 — Bộ cài Windows
 
 Đọc lời nói hoặc chữ phụ đề tiếng Trung từ video MP4, dịch sang tiếng Việt và tạo giọng VieNeu-TTS. Giao diện mở trong cửa sổ ứng dụng Windows; không phải mở trình duyệt để dùng các chức năng offline. Gemini và ChatGPT vẫn dùng Chrome riêng để đăng nhập và dịch theo lựa chọn của người dùng.
 
 ## Cài đặt Windows
 
-Vào [Releases](https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan/releases/latest), tải `HNVoice-Studio-5.4.0-Setup.exe` và **tất cả** file `HNVoice-Studio-5.4.0-Setup-*.bin` vào cùng một thư mục. Chạy Setup.exe, chọn thư mục cài, chờ hoàn tất rồi mở HN Voice Studio từ Desktop hoặc Start Menu. Không cần giải nén, cài Python/Node hay tải thêm model. Giữ nguyên tên các file tải xuống. `installer-sha256.json` chứa kích thước và SHA256 để đối chiếu.
+**Đã cài bản đầy đủ 5.4:** đóng ứng dụng sau khi xuất WAV/SRT cần giữ, tải `HNVoice-Studio-5.4.1-Update-Setup.exe` ở [bản cập nhật 5.4.1](https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan/releases/tag/v5.4.1) rồi cài vào đúng thư mục hiện tại. Bản cập nhật giữ model đã cài; không phải tải lại model. 5.4.1 gửi nguyên video Gemini một lần và toàn bộ SRT ChatGPT một lần.
+
+**Máy chưa cài:** vào [bộ cài đầy đủ 5.4.0](https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan/releases/tag/v5.4.0), tải `HNVoice-Studio-5.4.0-Setup.exe` và **tất cả** file `HNVoice-Studio-5.4.0-Setup-*.bin` vào cùng một thư mục. Chạy Setup.exe, chọn thư mục cài, chờ hoàn tất rồi mở HN Voice Studio từ Desktop hoặc Start Menu. Không cần giải nén, cài Python/Node hay tải thêm model. Giữ nguyên tên các file tải xuống. `installer-sha256.json` chứa kích thước và SHA256 để đối chiếu.
 
 Bản cài đầy đủ có Electron, Python đã đóng gói, FFmpeg, Whisper-small, RapidOCR Trung, Qwen3-4B Q4 và VieNeu v3 Turbo ONNX + codec + giọng mẫu. Cài cho tài khoản Windows hiện tại, không bắt buộc quyền quản trị. Có mục gỡ trong Windows Settings → Apps. Gỡ cài không xóa hồ sơ người dùng, tài khoản Chrome hay sản phẩm đã xuất. Cập nhật bằng bộ cài mới vào cùng thư mục. Đóng ứng dụng trước khi cập nhật hoặc gỡ.
 
@@ -14,8 +16,8 @@ Dữ liệu bản cài nằm ở `%LOCALAPPDATA%/HN Voice Studio/UserData`. Có 
 
 ## Sử dụng
 
-1. Chọn video. Ở Nhận diện, chọn lời nói (Whisper), chữ in trên hình (OCR; điều chỉnh vùng phụ đề), hoặc Gemini video qua Chrome đã đăng nhập. Với Gemini, bấm “Mở Gemini / đăng nhập”, sau đó “Tải video lên Gemini → lấy SRT”. Video được gửi tới tài khoản Gemini của bạn; app yêu cầu phụ đề tiếng Trung kèm thời gian, tải SRT và đưa kết quả vào bước dịch. Có thể nhập SRT Trung/Việt trực tiếp. Video dài được chia đoạn; tốc độ và khả năng nhận diện phụ thuộc Gemini và hạn mức tài khoản.
-2. Chọn dịch Offline, Gemini hoặc ChatGPT. Với dịch qua web, bấm Mở Chrome và tự đăng nhập. Công cụ gửi SRT với yêu cầu giữ mốc, sát nghĩa, ngắn gọn và đúng nhân xưng. Có thể sao chép yêu cầu và dán SRT trả về để nhập thủ công.
+1. Chọn video. Ở Nhận diện, chọn lời nói (Whisper), chữ in trên hình (OCR; điều chỉnh vùng phụ đề), hoặc Gemini video qua Chrome đã đăng nhập. Với Gemini, bấm “Mở Gemini / đăng nhập”, sau đó “Tải video lên Gemini → lấy SRT”. Video được gửi tới tài khoản Gemini của bạn; app yêu cầu phụ đề tiếng Trung kèm thời gian, tải SRT và đưa kết quả vào bước dịch. Có thể nhập SRT Trung/Việt trực tiếp. Gemini nhận nguyên tệp video trong một lần tải và yêu cầu SRT cho toàn bộ thời lượng; tool không tự cắt/chia video. Nếu tệp vượt giới hạn tải hoặc Gemini không xử lý được, tool báo lỗi để kiểm tra, không tự chuyển sang gửi từng đoạn.
+2. Chọn dịch Offline, Gemini hoặc ChatGPT. Với dịch qua web, bấm Mở Chrome và tự đăng nhập. Với ChatGPT, công cụ gửi toàn bộ SRT trong đúng một yêu cầu, đợi phản hồi đầy đủ rồi kiểm tra đủ số câu và đúng mốc trước khi nhập. Không tự chia 40 câu hoặc tự gửi tiếp từng phần; nếu dịch thiếu, giữ nguyên phụ đề hiện tại và báo lỗi. Công cụ yêu cầu giữ mốc, sát nghĩa, ngắn gọn và đúng nhân xưng. Có thể sao chép yêu cầu và dán SRT trả về để nhập thủ công.
 3. Duyệt bản dịch, gán nhân vật/quan hệ/xưng hô/giọng cho từng câu. Tạo giọng và căn timeline.
 4. Chọn khung tự động theo video, 16:9 hoặc 9:16. Kéo phụ đề trong phần hình ảnh; chọn áp dụng toàn bộ hoặc riêng câu hiện tại. Chỉnh cỡ chữ/chiều rộng, bấm “Tách đôi câu” khi câu quá dài; thời gian được chia liên tiếp và cần tạo lại giọng. Dùng nút phóng to khung hình khi chỉnh video dọc; Escape để trở lại.
 5. Nghe kiểm tra rồi xuất SRT gốc, SRT theo giọng đã căn, ASS giữ vị trí hoặc WAV toàn bộ. **SRT không lưu vị trí/cỡ chữ**; dùng ASS để mang bố cục sang trình hỗ trợ ASS. Xuất MP4 để ghi khung hình, vùng mờ, phụ đề và âm thanh vào video.
@@ -101,3 +103,5 @@ powershell -ExecutionPolicy Bypass -File scripts/build-installer.ps1 -AppDirecto
 ```
 
 Giữ toàn bộ file Setup-*.bin cạnh Setup.exe. Mã nguồn không chứa model GB, bộ cài hay thông tin đăng nhập; những file phát hành được tải ở Releases.
+
+Tạo bộ cài cập nhật giữ model: thêm `-UpdateOnly` khi gọi `scripts/build-installer.ps1`. Bộ cập nhật từ chối thư mục thiếu bộ model của bản đầy đủ.

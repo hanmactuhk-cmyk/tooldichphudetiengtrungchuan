@@ -67,7 +67,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const fw=Math.min(viewport.width,viewport.height*ratio),fh=fw/ratio,pw=Math.min(fw,fh*nativeRatio),ph=pw/nativeRatio;
   useEffect(()=>{const el=containerRef.current;if(!el)return;const obs=new ResizeObserver(([entry])=>setViewport({width:Math.max(1,entry.contentRect.width-16),height:Math.max(1,entry.contentRect.height-16)}));obs.observe(el);return()=>obs.disconnect();},[]);
   useEffect(()=>{setNativeRatio(16/9);},[videoUrl]);
-  useEffect(()=>{const el=captionRef.current;if(!el)return;const obs=new ResizeObserver(()=>setCaptionSize({width:el.offsetWidth,height:el.offsetHeight}));obs.observe(el);return()=>obs.disconnect();},[subtitles,currentTime,layout]);
+  useEffect(()=>{const el=captionRef.current;if(!el)return;const obs=new ResizeObserver(()=>setCaptionSize({width:el.offsetWidth,height:el.offsetHeight}));obs.observe(el);return()=>obs.disconnect();},[subtitles,layout]);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [subtitleMode, setSubtitleMode] = useState<'bilingual' | 'vi' | 'zh' | 'off'>('bilingual');

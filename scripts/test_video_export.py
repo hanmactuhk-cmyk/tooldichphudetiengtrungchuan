@@ -21,3 +21,8 @@ ass='[Script Info]\nScriptType: v4.00+\nPlayResX: 320\nPlayResY: 180\n[V4+ Style
 r=run({'originalMuted':True,'dubAudioUrl':'/cache/voice.wav','aspect':'9:16','ass':ass,'blur':{'enabled':True,'x':.1,'y':.65,'width':.8,'height':.25,'strength':16}});assert r['height']>r['width'] and r['duration']==3
 f=out/Path(r['url']).name;audio=out/'decoded.wav';subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(),'-v','error','-y','-i',str(f),str(audio)],check=True);a,sr=sf.read(audio);a=a.mean(axis=1) if a.ndim>1 else a;peak=np.fft.rfftfreq(len(a),1/sr)[np.abs(np.fft.rfft(a)).argmax()];assert abs(peak-660)<2
 report={'blurVarianceReduced':True,'portrait':r,'originalMutedDubFrequency':peak};(out/'report.json').write_text(json.dumps(report,indent=2));print('MP4 BLUR / ASS / PORTRAIT / DUB TAIL / AUDIO TESTS PASSED')
+
+assert base['videoCopied']
+again=run({'originalMuted':True});assert again['cached'] and again['url']==base['url']
+assert not r['videoCopied']
+print('STREAM COPY / EXPORT CACHE PASSED')

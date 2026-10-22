@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, session } = require('electron');
+const { app, BrowserWindow, dialog, session, ipcMain, shell } = require('electron');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 const fs = require('node:fs');
@@ -53,6 +53,19 @@ async function start(){
  mainWindow.webContents.setWindowOpenHandler(()=>({action:'deny'}));
  mainWindow.webContents.on('will-navigate',(event,url)=>{if(new URL(url).origin!==origin)event.preventDefault();});
  mainWindow.webContents.on('will-attach-webview',event=>event.preventDefault());
+ let chosenExport=null,lastExport=null;
+ const trusted=event=>event.sender===mainWindow?.webContents&&new URL(event.senderFrame.url).origin===origin;
+ ipcMain.handle('hn-choose-export',async(event,name)=>{
+  if(!trusted(event))throw Error('Nguồn không hợp lệ.');
+  const result=await dialog.showSaveDialog(mainWindow,{title:'Chọn nơi lưu video MP4',defaultPath:path.join(settings.exportHome||app.getPath('videos'),path.basename(String(name))),filters:[{name:'Video MP4',extensions:['mp4']}]});
+  chosenExport=result.canceled?null:result.filePath;return chosenExport;
+ });
+ ipcMain.handle('hn-save-export',async(event,url)=>{
+  if(!trusted(event)||!chosenExport||!/^\/cache\/export-[a-f0-9]{64}\.mp4$/.test(String(url)))throw Error('Tệp xuất không hợp lệ.');
+  const source=path.join(cacheHome,path.basename(url)),destination=chosenExport;chosenExport=null;
+  await fs.promises.copyFile(source,destination);lastExport=destination;settings.exportHome=path.dirname(destination);fs.writeFileSync(settingsPath,JSON.stringify(settings,null,2));return destination;
+ });
+ ipcMain.handle('hn-reveal-export',event=>{if(trusted(event)&&lastExport)shell.showItemInFolder(lastExport);});
  session.defaultSession.on('will-download',(_event,item)=>{item.setSaveDialogOptions({title:'Lưu file xuất từ HN Voice Studio',defaultPath:path.join(app.getPath('downloads'),path.basename(item.getFilename()))});});
  mainWindow.once('ready-to-show',()=>{mainWindow.show();if(splash){splash.destroy();splash=null;}});
  await mainWindow.loadURL(origin);mainWindow.on('closed',()=>{mainWindow=null;app.quit();});

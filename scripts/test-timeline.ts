@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {editTimeline,projectClips,timelineSubtitles,validateTimeline} from '../src/lib/timeline-engine';
+import {deleteTimelineSelection,editTimeline,projectClips,timelineSubtitles,validateTimeline} from '../src/lib/timeline-engine';
 import {ProjectData} from '../src/types';
 const p={duration:10,subtitles:[{id:'s',startTime:1,endTime:5,textZh:'你好，今天天气很好。',textVi:'Xin chào, hôm nay trời đẹp.',ttsAudioUrl:'/cache/a.wav',ttsDuration:4,dubStartTime:2,dubEndTime:6}],audioClips:undefined,dubAudioUrl:'/cache/mix.wav'} as unknown as ProjectData;
 const original=JSON.stringify(p);
@@ -12,3 +12,6 @@ const silent=editTimeline(cut,{track:'voice',id:a.id,kind:'mute',time:0,linked:f
 for(let i=1;i<99;i++){const t=2+4*i/100;const r=editTimeline(p,{track:'voice',id:'voice-s',kind:'split',time:t,linked:true});validateTimeline(r);const [x,y]=projectClips(r);assert(Math.abs(x.trimEnd-y.trimStart)<.001);assert.equal(new Set(r.subtitles.map(s=>s.id)).size,2);}
 const subTrim=editTimeline(p,{track:'subtitle',id:'s',kind:'left',time:3,linked:true});assert.equal(projectClips(subTrim)[0].trimStart,1);assert.equal(timelineSubtitles(subTrim)[0].startTime,3);
 console.log('TIMELINE MOVE / LINK / SPLIT / TRIM / DELETE / MUTE / COLLISION TESTS PASSED');
+
+const batch=deleteTimelineSelection(cut,[{track:'subtitle',id:cut.subtitles[0].id},{track:'voice',id:b.id}],false);assert.equal(batch.subtitles.length,1);assert.equal(projectClips(batch).length,1);
+const linkedBatch=deleteTimelineSelection(cut,[{track:'subtitle',id:cut.subtitles[0].id},{track:'voice',id:b.id}],true);assert.equal(linkedBatch.subtitles.length,0);assert.equal(projectClips(linkedBatch).length,0);

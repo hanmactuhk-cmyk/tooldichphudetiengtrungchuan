@@ -2,6 +2,13 @@ import {ProjectData,Subtitle,TimelineAudioClip} from '../types';
 export type TimelineEdit={track:'subtitle'|'voice'|'audio';id:string;kind:'move'|'left'|'right'|'split'|'delete'|'duplicate'|'mute'|'volume';time:number;linked:boolean};
 const round=(n:number)=>Math.round(n*1000)/1000;
 export const audioEnd=(c:TimelineAudioClip)=>c.startTime+c.trimEnd-c.trimStart;
+export function deleteTimelineSelection(original:ProjectData,items:{track:'subtitle'|'voice'|'audio';id:string}[],linked:boolean):ProjectData{
+ const subtitles=timelineSubtitles(original),clips=projectClips(original);
+ const subIds=new Set(items.filter(i=>i.track==='subtitle').map(i=>i.id));
+ const clipIds=new Set(items.filter(i=>i.track!=='subtitle').map(i=>i.id));
+ if(linked)for(const c of clips)if(clipIds.has(c.id)&&c.subtitleId)subIds.add(c.subtitleId);
+ return validateTimeline({...original,manualTimeline:true,selectedSubtitleId:null,subtitles:subtitles.filter(s=>!subIds.has(s.id)),audioClips:clips.filter(c=>!clipIds.has(c.id)&&!(linked&&c.subtitleId&&subIds.has(c.subtitleId)))});
+}
 export function projectClips(p:ProjectData):TimelineAudioClip[]{return p.audioClips??p.subtitles.filter(s=>s.ttsAudioUrl).map(s=>({id:'voice-'+s.id,subtitleId:s.id,track:'voice',name:s.textVi||s.textZh,audioUrl:s.ttsAudioUrl!,startTime:s.dubStartTime??s.startTime,trimStart:0,trimEnd:s.ttsDuration||s.endTime-s.startTime,sourceDuration:s.ttsDuration||s.endTime-s.startTime,volume:1}));}
 export function timelineSubtitles(p:ProjectData){return p.manualTimeline||!p.dubAudioUrl?p.subtitles:p.subtitles.map(s=>({...s,startTime:s.dubStartTime??s.startTime,endTime:s.dubEndTime??s.endTime}));}
 export function timelineEnd(p:ProjectData){return Math.max(p.duration,...p.subtitles.map(s=>s.endTime),...projectClips(p).map(audioEnd),0);}

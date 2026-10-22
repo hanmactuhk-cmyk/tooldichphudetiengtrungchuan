@@ -1,5 +1,5 @@
 """Render the actual picture before padding, so normalized caption/blur coordinates stay aligned."""
-import json,math,os,subprocess,tempfile,uuid
+import json,math,os,subprocess,tempfile,uuid,hashlib
 from pathlib import Path
 import cv2,imageio_ffmpeg
 
@@ -10,7 +10,15 @@ def render_video(source,options,cache,dubbing,progress,cancelled):
  if dub:
   import soundfile
   duration=max(duration,soundfile.info(str(dub)).duration)
- output=cache/(uuid.uuid4().hex+'.mp4');filters=[];label='0:v';blur=options.get('blur') or {}
+ fingerprint=hashlib.sha256(('export-v544:'+json.dumps(options,sort_keys=True)).encode());
+ with Path(source).open('rb') as handle:
+  for chunk in iter(lambda:handle.read(8*1024*1024),b''):
+   if cancelled():raise RuntimeError('Đã hủy xuất MP4.')
+   fingerprint.update(chunk)
+ if dub:
+  stat=dub.stat();fingerprint.update(f'{dub.name}:{stat.st_size}:{stat.st_mtime_ns}'.encode())
+ output=cache/('export-'+fingerprint.hexdigest()+'.mp4')
+ filters=[];label='0:v';blur=options.get('blur') or {}
  if blur.get('enabled'):
   vals=[float(blur.get(k,v)) for k,v in [('x',.1),('y',.78),('width',.8),('height',.15),('strength',16)]]
   if not all(math.isfinite(v) for v in vals):raise ValueError('Vùng mờ không hợp lệ.')
@@ -23,6 +31,10 @@ def render_video(source,options,cache,dubbing,progress,cancelled):
    (folder/'captions.ass').write_text(ass,encoding='utf-8');filters.append(f'[{label}]ass=captions.ass[captioned]');label='captioned'
   aspect=options.get('aspect','auto');ratio=16/9 if aspect=='16:9' else 9/16 if aspect=='9:16' else w/h
   ow=math.ceil(max(w,h*ratio)/2)*2;oh=math.ceil(max(h,w/ratio)/2)*2
+  copy_video=not ass and not blur.get('enabled') and ow==w and oh==h and duration<=frames/fps+.001
+  if output.is_file():
+   progress(100,'MP4 đã sẵn sàng từ lần xuất trước.');return {'url':'/cache/'+output.name,'duration':duration,'cached':True,'width':ow,'height':oh,'videoCopied':copy_video}
+  completed_output=output;output=cache/(uuid.uuid4().hex+'.mp4')
   filters.append(f'[{label}]pad={ow}:{oh}:(ow-iw)/2:(oh-ih)/2:black,setsar=1,tpad=stop_mode=clone:stop_duration={max(0,duration-frames/fps):.3f},format=yuv420p[outv]')
   # Probe presence of original audio; a video without audio is a valid input.
   probe=subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(),'-hide_banner','-i',str(source)],capture_output=True,creationflags=0x08000000 if os.name=='nt' else 0)
@@ -35,10 +47,13 @@ def render_video(source,options,cache,dubbing,progress,cancelled):
   if original and dub:filters.extend([f'[0:a]volume={volume}[original]','[original][1:a]amix=inputs=2:duration=longest:normalize=0,alimiter=limit=0.95[outa]']);audio='[outa]'
   elif original:filters.append(f'[0:a]volume={volume},apad[outa]');audio='[outa]'
   elif dub:audio='1:a:0'
-  args+=['-filter_complex',';'.join(filters),'-map','[outv]']
+  if copy_video:filters=[f for f in filters if '[outv]' not in f]
+  if filters:args+=['-filter_complex',';'.join(filters)]
+  args+=['-map','0:v:0' if copy_video else '[outv]']
   if audio:args+=['-map',audio,'-c:a','aac','-b:a','192k']
   else:args+=['-an']
-  args+=['-c:v','libx264','-preset','veryfast','-crf','21','-t',str(duration),'-movflags','+faststart','-progress','pipe:1','-nostats',str(output)]
+  args+=['-c:v','copy'] if copy_video else ['-c:v','libx264','-preset','superfast','-crf','21']
+  args+=['-t',str(duration),'-movflags','+faststart','-progress','pipe:1','-nostats',str(output)]
   progress(2,'Đang ghép MP4: vùng mờ, phụ đề và âm thanh...')
   with (folder/'ffmpeg-error.txt').open('w+',encoding='utf-8') as errors:
    process=subprocess.Popen(args,cwd=folder,stdout=subprocess.PIPE,stderr=errors,text=True,creationflags=0x08000000 if os.name=='nt' else 0)
@@ -54,4 +69,5 @@ def render_video(source,options,cache,dubbing,progress,cancelled):
    except BaseException:
     if process.poll() is None:process.kill();process.wait()
     output.unlink(missing_ok=True);raise
- progress(100,'Đã xuất MP4.');return {'url':'/cache/'+output.name,'duration':duration,'width':ow,'height':oh}
+ os.replace(output,completed_output);output=completed_output
+ progress(100,'Đã xuất MP4.');return {'url':'/cache/'+output.name,'duration':duration,'width':ow,'height':oh,'videoCopied':copy_video}

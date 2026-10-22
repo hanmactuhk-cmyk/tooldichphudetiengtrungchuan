@@ -1,5 +1,5 @@
 import {rememberVideo,readVideo} from './lib/video-source';
-import {editTimeline,projectClips,timelineEnd,TimelineEdit,validateTimeline} from './lib/timeline-engine';
+import {deleteTimelineSelection,editTimeline,projectClips,timelineEnd,TimelineEdit,validateTimeline} from './lib/timeline-engine';
 import {DEFAULT_CAPTION_LAYOUT,splitCue,generateAss} from './lib/caption-layout';
 import {apiJson,runJob} from './lib/jobs';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -59,12 +59,13 @@ export default function App() {
   };
 
   const handleSplitCue=(id:string)=>{try{const cue=project.subtitles.find(s=>s.id===id);if(!cue)return;const parts=splitCue(cue);if(project.manualTimeline){handleTimelineEdit({track:'subtitle',id,kind:'split',time:parts[0].endTime,linked:true});return;}stopAudioPreview();setIsPlaying(false);pushHistory(project);setProject(p=>({...p,subtitles:p.subtitles.flatMap(s=>s.id===id?parts:[s]),dubAudioUrl:undefined,dubDuration:undefined,selectedSubtitleId:parts[0].id}));}catch(e){alert(String(e));}};
+  const [lastExport,setLastExport]=useState('');
   const handleExportMp4=async(captions:boolean)=>{
-    if(!project.videoUrl)return;stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,progressPercent:0,currentTaskName:'Chuẩn bị xuất MP4...'}));
+    if(!project.videoUrl)return;const desktop=(window as any).hnDesktop;if(desktop&&!await desktop.chooseExport(project.title.replace(/[<>:\x22/\\|?*]/g,'_')+'_HNVoice.mp4'))return;stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,progressPercent:0,currentTaskName:'Chuẩn bị xuất MP4...'}));
     try{let exportProject=project;if(project.manualTimeline&&!project.dubAudioUrl){const mixed=await runJob('/api/timeline/mix',{clips:projectClips(project),duration:timelineEnd(project)},(v,t)=>setHardwareStatus(h=>({...h,progressPercent:v,currentTaskName:t})));exportProject={...project,dubAudioUrl:mixed.audioUrl,dubDuration:mixed.duration};setProject(exportProject);}
       const form=new FormData();form.append('file',await readVideo(exportProject.videoUrl!),exportProject.videoFileName||'video.mp4');form.append('options',JSON.stringify({timelineDuration:timelineEnd(exportProject),ass:captions&&exportProject.subtitles.length?generateAss(exportProject):'',blur:exportProject.blurRegion,aspect:exportProject.captionLayout?.aspect||'auto',dubAudioUrl:exportProject.dubAudioUrl,originalMuted:exportProject.originalAudioMuted,originalVolume:exportProject.originalAudioVolume}));
       const body=await apiJson('/api/video/export',{method:'POST',body:form});window.dispatchEvent(new CustomEvent('hn-job',{detail:body.jobId}));
-      for(;;){const job=await apiJson('/api/jobs/'+body.jobId);setHardwareStatus(h=>({...h,progressPercent:job.percent,currentTaskName:job.message}));if(job.state==='done'){const a=document.createElement('a');a.href=job.result.url;a.download=project.title+'_HNVoice.mp4';a.click();break;}if(['error','cancelled'].includes(job.state))throw new Error(job.message);await new Promise(r=>setTimeout(r,750));}
+      for(;;){const job=await apiJson('/api/jobs/'+body.jobId);setHardwareStatus(h=>({...h,progressPercent:job.percent,currentTaskName:job.message}));if(job.state==='done'){if(desktop){setLastExport(await desktop.saveExport(job.result.url));break;}const a=document.createElement('a');a.href=job.result.url;a.download=project.title+'_HNVoice.mp4';a.click();break;}if(['error','cancelled'].includes(job.state))throw new Error(job.message);await new Promise(r=>setTimeout(r,750));}
     }catch(e){alert(String(e));}finally{window.dispatchEvent(new CustomEvent('hn-job',{detail:null}));setHardwareStatus(h=>({...h,isProcessing:false,progressPercent:0,currentTaskName:''}));}
   };
   const handleGeminiVideo=async()=>{
@@ -81,7 +82,7 @@ export default function App() {
 
   const applyTimeline=async(next:ProjectData)=>{
     if(hardwareStatus.isProcessing)return;stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,progressPercent:0,currentTaskName:'Cập nhật timeline...'}));
-    try{validateTimeline(next);const mixed=await runJob('/api/timeline/mix',{clips:projectClips(next),duration:timelineEnd(next)},(v,t)=>setHardwareStatus(h=>({...h,progressPercent:v,currentTaskName:t})));pushHistory(project);setProject({...next,dubAudioUrl:mixed.audioUrl,dubDuration:mixed.duration});setCurrentTime(t=>Math.min(t,mixed.duration));}
+    try{validateTimeline(next);if(project.dubAudioUrl&&timelineEnd(next)===timelineEnd(project)&&JSON.stringify(projectClips(next))===JSON.stringify(projectClips(project))){pushHistory(project);setProject({...next,dubAudioUrl:project.dubAudioUrl,dubDuration:project.dubDuration});return;}const mixed=await runJob('/api/timeline/mix',{clips:projectClips(next),duration:timelineEnd(next)},(v,t)=>setHardwareStatus(h=>({...h,progressPercent:v,currentTaskName:t})));pushHistory(project);setProject({...next,dubAudioUrl:mixed.audioUrl,dubDuration:mixed.duration});setCurrentTime(t=>Math.min(t,mixed.duration));}
     catch(e){alert(String(e));}finally{setHardwareStatus(h=>({...h,isProcessing:false,progressPercent:0,currentTaskName:''}));}
   };
   const handleTimelineEdit=(edit:TimelineEdit)=>{try{applyTimeline(editTimeline(project,edit));}catch(e){alert(String(e));}};
@@ -474,6 +475,20 @@ export default function App() {
     triggerDownload(jsonStr, `${project.title}_project.json`, 'application/json');
   };
 
+  const editorPanel=React.useMemo(()=>(
+        <div className={previewExpanded?'hidden':'contents'}><SubtitleEditor
+          isProcessing={hardwareStatus.isProcessing}
+          subtitles={project.subtitles}
+          characters={project.characters}
+          selectedSubtitleId={project.selectedSubtitleId}
+          onSelectSubtitle={(id) => setProject((p) => ({ ...p, selectedSubtitleId: id }))}
+          onUpdateSubtitle={handleUpdateSubtitle}
+          onRetranslateSentence={handleRetranslateSentence}
+          onSplitCue={handleSplitCue}
+          onRegenerateTtsSentence={handleRegenerateTtsSentence}
+          onCheckWithParaformer={handleCheckWithParaformer}
+        /></div>
+  ),[project,hardwareStatus.isProcessing,previewExpanded,voices]);
   return (
     <div className="flex flex-col h-screen min-w-[1100px] w-full bg-[#101014] text-zinc-100 overflow-hidden font-sans select-none">
       {/* 1. Header Toolbar */}
@@ -545,27 +560,18 @@ export default function App() {
         />
 
         {/* Right: Subtitle & Dubbing Editor */}
-        <div className={previewExpanded?'hidden':'contents'}><SubtitleEditor
-          isProcessing={hardwareStatus.isProcessing}
-          subtitles={project.subtitles}
-          characters={project.characters}
-          selectedSubtitleId={project.selectedSubtitleId}
-          onSelectSubtitle={(id) => setProject((p) => ({ ...p, selectedSubtitleId: id }))}
-          onUpdateSubtitle={handleUpdateSubtitle}
-          onRetranslateSentence={handleRetranslateSentence}
-          onSplitCue={handleSplitCue}
-          onRegenerateTtsSentence={handleRegenerateTtsSentence}
-          onCheckWithParaformer={handleCheckWithParaformer}
-        /></div>
+        {editorPanel}
+
       </div>
 
+      {lastExport&&<div className="px-3 py-2 text-xs bg-emerald-950 text-emerald-100 flex gap-3 items-center"><span>Đã lưu MP4: {lastExport}</span><button className="underline" onClick={()=>(window as any).hnDesktop?.revealExport()}>Mở thư mục chứa video</button></div>}
       {/* 3. Bottom: CapCut-Style Multi-Track Timeline */}
       <div className={previewExpanded?'hidden':'contents'}><Timeline
         project={project} currentTime={currentTime} busy={hardwareStatus.isProcessing}
         canUndo={historyPast.length>0} canRedo={historyFuture.length>0} onUndo={handleUndo} onRedo={handleRedo}
         onSeek={setCurrentTime} onPause={()=>{stopAudioPreview();setIsPlaying(false);}}
         onSelectSubtitle={id=>setProject(p=>({...p,selectedSubtitleId:id}))}
-        onRemix={()=>applyTimeline({...project,manualTimeline:true})} onEdit={handleTimelineEdit} onImportAudio={file=>handleTimelineAudio(file)} onExtractOriginal={()=>handleTimelineAudio()}
+        onDeleteMany={(items,linked)=>{try{applyTimeline(deleteTimelineSelection(project,items,linked));}catch(e){alert(String(e));}}} onRemix={()=>applyTimeline({...project,manualTimeline:true})} onEdit={handleTimelineEdit} onImportAudio={file=>handleTimelineAudio(file)} onExtractOriginal={()=>handleTimelineAudio()}
       /></div>
 
       {/* 4. Offline Packaging & Manifest Modal */}

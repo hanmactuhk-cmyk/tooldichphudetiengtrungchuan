@@ -6,6 +6,11 @@ const net = require('node:net');
 const crypto = require('node:crypto');
 let worker, mainWindow, splash, quitting = false, logFd;
 app.setName('HN Voice Studio');
+// A stable installed profile allows the installer and older portable copy to coexist.
+const installedMode=app.isPackaged&&fs.existsSync(path.join(path.dirname(process.execPath),'installed-mode'));
+if(installedMode&&!app.commandLine.hasSwitch('user-data-dir')){
+ app.setPath('userData',path.join(process.env.LOCALAPPDATA||app.getPath('appData'),'HN Voice Studio','UserData'));
+}
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
  app.on('second-instance',()=>{const win=mainWindow||splash;if(win){if(win.isMinimized())win.restore();win.show();win.focus();}});

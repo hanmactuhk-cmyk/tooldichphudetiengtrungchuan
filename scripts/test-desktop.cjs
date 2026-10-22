@@ -5,7 +5,8 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
  const root=path.resolve(__dirname,'..'),out=path.resolve(process.env.HN_TEST_OUT||path.join(root,'test-results/desktop'));fs.mkdirSync(out,{recursive:true});
  const executablePath=process.env.HN_DESKTOP_EXE||path.join(root,'release/win-unpacked/HN Voice Studio.exe');
  const launchEnv={...process.env,HN_BROWSER_HOME:process.env.HN_BROWSER_HOME||path.join(out,'chrome-profiles')};delete launchEnv.ELECTRON_RUN_AS_NODE;
- const app=await _electron.launch({executablePath,args:['--user-data-dir='+path.join(out,'profile')],env:launchEnv,timeout:120000});
+ const launchArgs=process.env.HN_TEST_INSTALLED?[]:['--user-data-dir='+path.join(out,'profile')];
+ const app=await _electron.launch({executablePath,args:launchArgs,env:launchEnv,timeout:120000});
  const report={};let origin;
  try{
   let page;
@@ -15,8 +16,17 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
   const parsed=await (await fetch(origin+'/api/translation/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({srt:'1\n00:00:00,000 --> 00:00:01,000\nXin chào.\n```<ElicitationsGroup>\n</ElicitationsGroup>',subtitles:[{id:'parser-test',startTime:0,endTime:1,textZh:'你好'}]})})).json();assert.equal(parsed.translations[0].viFull,'Xin chào.');report.webCodeTailParser=true;
   report.desktop=await app.evaluate(({BrowserWindow,app})=>({version:app.getVersion(),windows:BrowserWindow.getAllWindows().length,preferences:BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().startsWith('http:')).webContents.getLastWebPreferences()}));
   assert.equal(report.desktop.windows,1);assert.equal(report.desktop.preferences.nodeIntegration,false);assert.equal(report.desktop.preferences.contextIsolation,true);assert.equal(report.desktop.preferences.sandbox,true);
-  const duplicate=spawn(executablePath,['--user-data-dir='+path.join(out,'profile')],{windowsHide:true,stdio:'ignore',env:launchEnv});await new Promise((res,rej)=>{duplicate.once('exit',res);duplicate.once('error',rej);setTimeout(()=>rej(new Error('Second instance did not exit')),10000).unref();});
+  const duplicate=spawn(executablePath,launchArgs,{windowsHide:true,stdio:'ignore',env:launchEnv});await new Promise((res,rej)=>{duplicate.once('exit',res);duplicate.once('error',rej);setTimeout(()=>rej(new Error('Second instance did not exit')),10000).unref();});
   report.singleInstance=await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().length===1);assert(report.singleInstance);
+  if(process.env.HN_TEST_INSTALLED){
+   report.installedUserData=await app.evaluate(({app})=>app.getPath('userData'));
+   assert.equal(report.installedUserData,path.join(process.env.LOCALAPPDATA,'HN Voice Studio','UserData'));
+   assert(fs.existsSync(path.join(path.dirname(executablePath),'installed-mode')));
+   for(const [route,fixture,key] of [['transcribe','video-tieng-trung.mp4','asr'],['ocr','video-phu-de-chu-trung.mp4','ocr']]){
+    const body=new FormData();body.append('file',new Blob([fs.readFileSync(path.join(root,'tests/fixtures',fixture))]),fixture);
+    const response=await fetch(origin+'/api/'+route,{method:'POST',body});const data=await response.json();assert(response.ok,JSON.stringify(data));assert(data.subtitles.length);report[key]={cues:data.subtitles.length,model:data.modelUsed};
+   }
+  }
   const python=process.env.HN_TEST_PYTHON||'python';
   for(const script of (process.env.HN_SKIP_MODEL_TESTS?[]:['regression_v4.py','quality_test_v4.py'])){
    const r=spawnSync(python,[path.join(root,'scripts',script)],{cwd:root,env:{...process.env,PYTHONUTF8:'1',HN_TEST_URL:origin,HN_TEST_OUT:out},encoding:'utf8',timeout:600000});

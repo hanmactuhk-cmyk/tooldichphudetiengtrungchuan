@@ -1,7 +1,7 @@
 {
   "name": "tooldichphudetiengtrungchuan",
   "private": true,
-  "version": "5.3.1",
+  "version": "5.4.0",
   "type": "module",
   "main": "electron-main.cjs",
   "scripts": {
@@ -14,7 +14,8 @@
     "electron:start": "electron .",
     "electron:build": "vite build && electron-builder --win --x64 --dir",
     "desktop": "electron .",
-    "test:desktop": "node scripts/test-desktop.cjs"
+    "test:desktop": "node scripts/test-desktop.cjs",
+    "installer:build": "powershell -ExecutionPolicy Bypass -File scripts/build-installer.ps1"
   },
   "devDependencies": {
     "@google/genai": "^2.4.0",

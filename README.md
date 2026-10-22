@@ -1,12 +1,16 @@
-# HN Voice Studio 5.3 — Windows Electron
+# HN Voice Studio 5.4 — Bộ cài Windows
 
 Đọc lời nói hoặc chữ phụ đề tiếng Trung từ video MP4, dịch sang tiếng Việt và tạo giọng VieNeu-TTS. Giao diện mở trong cửa sổ ứng dụng Windows; không phải mở trình duyệt để dùng các chức năng offline. Gemini và ChatGPT vẫn dùng Chrome riêng để đăng nhập và dịch theo lựa chọn của người dùng.
 
-## Tải bản chạy đầy đủ
+## Cài đặt Windows
 
-Vào [Releases](https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan/releases/latest). Bản 5.3 dùng lại bộ model của [bản đầy đủ 5.1](https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan/releases/tag/v5.1.0). Tải và giải nén đầy đủ 5.1, đóng ứng dụng, sau đó giải nén `HNVoice-5.3.0-update.zip` vào cùng thư mục cha để ghi đè thư mục `HNVoice-Electron`. Các model không đổi. Với bộ đầy đủ 5.1, tải **tất cả** các phần `HNVoice-Electron-5.1.0-Windows.zip.001`, `.002`… cùng `release-parts.json`, `GIAI-NEN.ps1`, `GIAI-NEN.bat` vào cùng một thư mục. Chạy `GIAI-NEN.bat`: chương trình kiểm tra SHA256, giải nén trực tiếp các phần, không cần ghép thêm một ZIP lớn. Mở `HNVoice-Electron/HN Voice Studio.exe`. Có thể chạy `TAO-LOI-TAT.bat` bên trong để tạo lối tắt Desktop; giữ nguyên cả thư mục ứng dụng.
+Vào [Releases](https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan/releases/latest), tải `HNVoice-Studio-5.4.0-Setup.exe` và **tất cả** file `HNVoice-Studio-5.4.0-Setup-*.bin` vào cùng một thư mục. Chạy Setup.exe, chọn thư mục cài, chờ hoàn tất rồi mở HN Voice Studio từ Desktop hoặc Start Menu. Không cần giải nén, cài Python/Node hay tải thêm model. Giữ nguyên tên các file tải xuống. `installer-sha256.json` chứa kích thước và SHA256 để đối chiếu.
 
-Bộ tải đầy đủ có Electron, Python đã đóng gói, FFmpeg, Whisper-small, RapidOCR Trung, Qwen3-4B Q4 và VieNeu v3 Turbo ONNX FP32 + codec + giọng mẫu. Người dùng bản chạy không cần cài Node, Python hay nhập API key. Cần Windows 10/11 x64, CPU x64 hỗ trợ AVX2, khuyến nghị RAM 16 GB; máy RAM 8 GB có thể phải dùng bộ nhớ ảo và chậm hơn. Gói sau giải nén khoảng 4,4 GB; cần đủ dung lượng cho cả phần tải và thư mục giải nén. Bản EXE chưa ký chứng thư thương mại.
+Bản cài đầy đủ có Electron, Python đã đóng gói, FFmpeg, Whisper-small, RapidOCR Trung, Qwen3-4B Q4 và VieNeu v3 Turbo ONNX + codec + giọng mẫu. Cài cho tài khoản Windows hiện tại, không bắt buộc quyền quản trị. Có mục gỡ trong Windows Settings → Apps. Gỡ cài không xóa hồ sơ người dùng, tài khoản Chrome hay sản phẩm đã xuất. Cập nhật bằng bộ cài mới vào cùng thư mục. Đóng ứng dụng trước khi cập nhật hoặc gỡ.
+
+Cần Windows 10 1809/11 x64, CPU hỗ trợ AVX2; khuyến nghị RAM 16 GB. Dành khoảng 5 GB cho ứng dụng/model, ngoài chỗ chứa bộ cài và các video/âm thanh tạm. Có thể chọn ổ E hoặc ổ còn trống. EXE chưa ký chứng thư thương mại. Bản cài dùng hồ sơ riêng, không ghi đè phiên portable đang mở; chọn lại video trong bản cài. Đăng nhập Gemini/ChatGPT bằng nút Mở Chrome nếu cần.
+
+Dữ liệu bản cài nằm ở `%LOCALAPPDATA%/HN Voice Studio/UserData`. Có thể đặt `cacheHome` và `browserHome` trong `desktop-settings.json` bên trong thư mục đó (đường dẫn tuyệt đối); cache và tệp tạm của bộ xử lý cùng dùng cacheHome. Không chia sẻ file cấu hình hay hồ sơ Chrome cá nhân lên GitHub.
 
 ## Sử dụng
 
@@ -81,3 +85,19 @@ Gemini tự mở Chrome và đợi kết nối; nếu trang hiện Sign in/Đăn
 - WAV và MP4 dùng bản âm thanh đã ghép từ timeline. Khi sửa nội dung câu làm giọng cũ không còn phù hợp, tạo lại giọng hoặc bấm “Ghép lại âm thanh” cho những đoạn còn lại. Video gốc giữ cố định; các hàng phụ đề/âm thanh có thể chỉnh.
 
 Kiểm thử: `pnpm exec tsx scripts/test-timeline.ts`, `python scripts/test_timeline_audio.py`, `node scripts/test-timeline-ui.cjs` và `node scripts/test-original-audio-ui.cjs` (các bài giao diện dùng HN_TEST_URL hoặc bộ xử lý thử tại cổng 8008). Đặt HN_TEST_MP4=1 cho bài thử Electron.
+
+## Tạo bộ cài từ mã nguồn
+
+Cài Inno Setup 6.7.3 hoặc mới hơn từ [trang chính thức](https://jrsoftware.org/isdl.php), sau đó chạy:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/build-installer.ps1
+```
+
+Script xây ứng dụng đầy đủ, xác minh SHA256 model rồi tạo Setup.exe và các phần dữ liệu dưới 1,8 GB để đăng GitHub Releases. Để dùng ứng dụng đã xây:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/build-installer.ps1 -AppDirectory release/win-unpacked -OutputDirectory release/installer -InnoCompiler "C:/Program Files (x86)/Inno Setup 6/ISCC.exe"
+```
+
+Giữ toàn bộ file Setup-*.bin cạnh Setup.exe. Mã nguồn không chứa model GB, bộ cài hay thông tin đăng nhập; những file phát hành được tải ở Releases.

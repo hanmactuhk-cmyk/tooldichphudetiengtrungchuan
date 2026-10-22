@@ -10,6 +10,10 @@ on:
         description: 'Download all models and build complete Windows app'
         type: boolean
         default: false
+      build_installer:
+        description: 'Also build complete Windows installer (requires full_build)'
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -41,4 +45,21 @@ jobs:
         with:
           name: HNVoice-Electron-Windows-complete
           path: release/win-unpacked/**
+          compression-level: 0
+      - if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_build && inputs.build_installer }}
+        shell: pwsh
+        run: |
+          $download=Join-Path $env:RUNNER_TEMP 'innosetup.exe'
+          Invoke-WebRequest 'https://github.com/jrsoftware/issrc/releases/download/is-6_7_3/innosetup-6.7.3.exe' -OutFile $download
+          if((Get-FileHash $download -Algorithm SHA256).Hash -ne '9C73C3BAE7ED48D44112A0F48E66742C00090BDB5BEF71D9D3C056C66E97B732'){throw 'Inno Setup checksum mismatch'}
+          if((Get-AuthenticodeSignature $download).Status -ne 'Valid'){throw 'Inno Setup signature invalid'}
+          $compilerHome=Join-Path $env:RUNNER_TEMP 'InnoSetup'
+          $setup=Start-Process $download -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER','/NOICONS',('/DIR="'+$compilerHome+'"')) -Wait -PassThru -WindowStyle Hidden
+          if($setup.ExitCode){throw 'Compiler installation failed'}
+          ./scripts/build-installer.ps1 -AppDirectory release/win-unpacked -InnoCompiler (Join-Path $compilerHome 'ISCC.exe')
+      - if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_build && inputs.build_installer }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: HNVoice-Windows-Installer-complete
+          path: release/installer/**
           compression-level: 0

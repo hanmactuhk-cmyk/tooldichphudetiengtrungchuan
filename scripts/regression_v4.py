@@ -19,7 +19,7 @@ def dub():
   if job['state']=='error':raise RuntimeError(job)
   time.sleep(.5)
 t=time.monotonic();report['firstDub']=dub();report['firstSeconds']=time.monotonic()-t
-r=report['firstDub'];assert r['noOverlap'];assert all(b['dubStartTime']>=a['dubEndTime'] for a,b in zip(r['subtitles'],r['subtitles'][1:]));assert r['shiftedCues']>0
+r=report['firstDub'];assert r['noOverlap'];assert all(b['dubStartTime']>=a['dubEndTime'] for a,b in zip(r['subtitles'],r['subtitles'][1:]));assert r['shiftedCues']==0
 (out/'vieneu-no-overlap.wav').write_bytes(requests.get(base+r['audioUrl']).content)
 t=time.monotonic();report['secondDub']=dub();report['cachedSeconds']=time.monotonic()-t;assert all(s['cacheHit'] for s in report['secondDub']['subtitles'])
 for route,file,key in [('/api/transcribe','video-tieng-trung.mp4','asr'),('/api/ocr','video-phu-de-chu-trung.mp4','ocr')]:

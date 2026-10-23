@@ -1,3 +1,4 @@
+import {captionSpeechCues} from './lib/speech-cues';
 import {CaptionPopup,CaptionChange} from './components/CaptionPopup';
 import {DEFAULT_DECORATION} from './lib/styled-caption';
 import {rememberVideo,readVideo} from './lib/video-source';
@@ -324,36 +325,9 @@ export default function App() {
 
   // 4. Batch VieNeu-TTS v3 Turbo synthesis
   const handleRunBatchTts = async () => {
-    setIsPlaying(false);stopAudioPreview();
-    pushHistory(project);
-    setHardwareStatus((h) => ({
-      ...h,
-      isProcessing: true,
-      activeModel: 'VieNeu-TTS v3 Turbo (ONNX 48kHz)',
-      vramUsedMb: 2200,
-      currentTaskName: 'Đang khởi động VieNeu-TTS offline...',
-    }));
-
-    try {
-      const subtitles=project.subtitles.map(sub=>({...sub,voiceId:sub.voiceId||project.characters.find(c=>c.id===sub.characterId)?.voiceId||'Hải Đăng'}));
-      const result=await runJob('/api/dub',{subtitles,videoDuration:project.duration},(percent,message)=>setHardwareStatus(h=>({...h,progressPercent:percent,currentTaskName:message})));
-      const rows=result.subtitles.map((s:Subtitle)=>({...s,status:(s.ttsShift||0)>.15?'warning_overflow':'synced'}));
-      let next:ProjectData={...project,subtitles:rows,audioClips:undefined,dubAudioUrl:result.audioUrl,dubDuration:result.duration,originalAudioMuted:true};
-      const imported=projectClips(project).filter(c=>c.track==='audio');
-      if(project.manualTimeline||imported.length){next={...next,manualTimeline:true,audioClips:[...projectClips(next),...imported]};const mix=await runJob('/api/timeline/mix',{clips:next.audioClips,duration:timelineEnd(next)},(v,t)=>setHardwareStatus(h=>({...h,progressPercent:v,currentTaskName:t})));next={...next,dubAudioUrl:mix.audioUrl,dubDuration:mix.duration};}
-      setProject(next);
-    } catch (err) {
-      alert(String(err));
-    } finally {
-      setHardwareStatus((h) => ({
-        ...h,
-        isProcessing: false,
-        activeModel: null,
-        vramUsedMb: 1250,
-        progressPercent: 0,
-        currentTaskName: '',
-      }));
-    }
+    const cues=timelineSubtitles(project).filter(s=>!s.hiddenVi&&s.textVi?.trim());
+    if(!cues.length){alert('Hãy nhập hoặc dịch phụ đề Việt trước.');return;}
+    await generatePopupSpeech(cues.map(s=>({id:s.id,textVi:s.textVi||'',voiceId:s.voiceId||project.characters.find(c=>c.id===s.characterId)?.voiceId||'Hải Đăng',captionStyle:s.captionStyle||{}})));
   };
 
   // Subtitle updates (Rule compliance: Chinese edit marks needs_retranslation; Vietnamese edit marks needs_tts)
@@ -399,40 +373,8 @@ export default function App() {
 
   // Regenerate VieNeu-TTS for a single sentence
   const handleRegenerateTtsSentence = async (id: string) => {
-    const sub = project.subtitles.find((s) => s.id === id);
-    if (!sub) return;
-
-    const char = project.characters.find((c) => c.id === sub.characterId);
-    const voiceId = sub.voiceId || char?.voiceId || 'Hải Đăng';
-
-    setHardwareStatus((h) => ({
-      ...h,
-      isProcessing: true,
-      activeModel: 'VieNeu-TTS v3 Turbo',
-      currentTaskName: `Tạo lại âm thanh câu ${sub.id}...`,
-    }));
-
-    try {
-    if (!sub.textVi) throw new Error('Hãy dịch sang tiếng Việt trước.');
-    const synthResult = await synthesizeVieNeuTTS(
-      sub.textVi,
-      voiceId,
-      sub.speed,
-      sub.pitch,
-      sub.volume
-    );
-
-    const updated=project.subtitles.map(s=>s.id===id?{...s,ttsAudioUrl:synthResult.audioUrl,ttsDuration:synthResult.duration}:s);
-    if(project.manualTimeline){const previous=projectClips(project);const old=previous.find(c=>c.subtitleId===id);const next:ProjectData={...project,subtitles:updated,audioClips:[...previous.filter(c=>c.subtitleId!==id),{id:old?.id||crypto.randomUUID(),subtitleId:id,track:'voice',name:sub.textVi,audioUrl:synthResult.audioUrl,startTime:old?.startTime??sub.startTime,trimStart:0,trimEnd:synthResult.duration,sourceDuration:synthResult.duration,volume:1}]};validateTimeline(next);const mix=await runJob('/api/timeline/mix',{clips:next.audioClips,duration:timelineEnd(next)},(v,t)=>setHardwareStatus(h=>({...h,progressPercent:v,currentTaskName:t})));pushHistory(project);setProject({...next,dubAudioUrl:mix.audioUrl,dubDuration:mix.duration,originalAudioMuted:true});}
-    else{const ready=updated.filter(s=>s.ttsAudioUrl&&s.textVi);const mixed=await apiJson('/api/mix',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subtitles:ready,videoDuration:project.duration})});const map=new Map<string,Subtitle>(mixed.subtitles.map((s:Subtitle)=>[s.id,s]));setProject(p=>({...p,audioClips:undefined,subtitles:updated.map(s=>map.get(s.id)||s),dubAudioUrl:mixed.audioUrl,dubDuration:mixed.duration,originalAudioMuted:true}));}
-    } catch(e) {alert(String(e));} finally {
-    setHardwareStatus((h) => ({
-      ...h,
-      isProcessing: false,
-      activeModel: null,
-      currentTaskName: '',
-    }));
-      }
+    const sub=project.subtitles.find(s=>s.id===id);if(!sub)return;
+    await generatePopupSpeech([{id,textVi:sub.textVi||'',voiceId:sub.voiceId||project.characters.find(c=>c.id===sub.characterId)?.voiceId||'Hải Đăng',captionStyle:sub.captionStyle||{}}]);
   };
 
   // Check single sentence with Paraformer-ZH
@@ -478,7 +420,7 @@ export default function App() {
   const applyCaptionChanges=(changes:CaptionChange[])=>{const map=new Map(changes.map(c=>[c.id,c]));pushHistory(project);setProject(p=>({...p,subtitles:p.subtitles.map(s=>map.has(s.id)?{...s,...map.get(s.id),status:'translated'}:s)}));};
   const generatePopupSpeech=async(changes:CaptionChange[])=>{
     if(hardwareStatus.isProcessing)return;stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,progressPercent:0,currentTaskName:'Chuẩn bị tạo giọng cho phụ đề đã chọn…'}));
-    try{const map=new Map(changes.map(c=>[c.id,c]));const subtitles=timelineSubtitles(project).map(s=>map.has(s.id)?{...s,...map.get(s.id)}:s);const selected=subtitles.filter(s=>map.has(s.id));const cues=selected.map(s=>({...s,startTime:s.viStartTime??s.startTime,endTime:s.viEndTime??s.endTime}));
+    try{const map=new Map(changes.map(c=>[c.id,c]));const subtitles=project.subtitles.map(s=>map.has(s.id)?{...s,...map.get(s.id)}:s);const cues=captionSpeechCues(subtitles,new Set(map.keys()),project.characters);
       const result=await runJob('/api/timeline/speech',{cues},(progressPercent,currentTaskName)=>setHardwareStatus(h=>({...h,progressPercent,currentTaskName})));
       const clips=[...projectClips(project).filter(c=>c.track!=='voice'||!c.subtitleId||!map.has(c.subtitleId)),...result.clips];const updates=new Map<string,any>(result.subtitles.map((s:any)=>[s.id,s]));const next:ProjectData={...project,manualTimeline:true,audioClips:clips,subtitles:subtitles.map(s=>updates.has(s.id)?{...s,...updates.get(s.id),status:'synced'}:s),originalAudioMuted:true};validateTimeline(next);
       const mixed=await runJob('/api/timeline/mix',{clips,duration:timelineEnd(next)},(progressPercent,currentTaskName)=>setHardwareStatus(h=>({...h,progressPercent,currentTaskName})));pushHistory(project);setProject({...next,dubAudioUrl:mixed.audioUrl,dubDuration:mixed.duration});

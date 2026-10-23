@@ -1,10 +1,10 @@
-# HNstudio 5.6.0 — Bộ cài Windows
+# HNstudio 5.6.1 — Bộ cài Windows
 
 Đọc lời nói hoặc chữ phụ đề tiếng Trung từ video MP4, dịch sang tiếng Việt và tạo giọng VieNeu-TTS. Giao diện mở trong cửa sổ ứng dụng Windows; không phải mở trình duyệt để dùng các chức năng offline. Gemini và ChatGPT vẫn dùng Chrome riêng để đăng nhập và dịch theo lựa chọn của người dùng.
 
 ## Cài đặt Windows
 
-**Đã cài bản đầy đủ 5.4:** đóng ứng dụng sau khi xuất WAV/SRT cần giữ, tải `HNVoice-Studio-5.6.0-Update-Setup.exe` ở [bản cập nhật 5.6.0](https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan/releases/tag/v5.6.0) rồi cài vào đúng thư mục hiện tại. Bản cập nhật giữ model đã cài; không phải tải lại model. 5.6.0 có logo HNstudio, hướng dẫn và giới thiệu Hoài Nguyễn Studio. Giao diện không hiện tên model hoặc các màn hình kỹ thuật.
+**Đã cài bản đầy đủ:** lưu project rồi đóng ứng dụng, tải `HNVoice-Studio-5.6.1-Update-Setup.exe` ở [bản cập nhật 5.6.1](https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan/releases/tag/v5.6.1) rồi cài vào đúng thư mục hiện tại. Bản cập nhật giữ model đã cài; không phải tải lại model. 5.6.1 sửa đồng bộ giọng theo đúng mốc phụ đề, tự tăng tốc câu dài và giữ nguyên giờ câu sau; có logo HNstudio, hướng dẫn và giới thiệu Hoài Nguyễn Studio. Giao diện không hiện tên model hoặc các màn hình kỹ thuật.
 
 - **Popup một câu / nhóm:** nhấp đúp hoặc chuột phải vào hàng phụ đề Việt; cũng có nút Chỉnh popup trong bảng bên phải. Chọn tất cả phụ đề Việt hoặc Ctrl+A khi timeline có tiêu điểm, rồi chuột phải để chỉnh nhóm. Popup kéo được, không che mờ hoặc khóa ứng dụng phía sau.
 - Popup sửa chữ, chọn giọng, cỡ chữ, đậm/thường, nghiêng/thường, phông, màu chữ/nền, độ đục và bo góc cho các câu đã chọn. Bôi đen ký tự trong ô văn bản, chọn màu rồi bấm Tô màu. Kiểu chữ áp dụng cả nhóm; nội dung và màu riêng sửa theo câu đang chọn.
@@ -36,7 +36,7 @@ Dữ liệu bản cài nằm ở `%LOCALAPPDATA%/HN Voice Studio/UserData`. Có 
 4. Chọn khung tự động theo video, 16:9 hoặc 9:16. Kéo phụ đề trong phần hình ảnh; chọn áp dụng toàn bộ hoặc riêng câu hiện tại. Chỉnh cỡ chữ/chiều rộng, bấm “Tách đôi câu” khi câu quá dài; thời gian được chia liên tiếp và cần tạo lại giọng. Dùng nút phóng to khung hình khi chỉnh video dọc; Escape để trở lại.
 5. Nghe kiểm tra rồi xuất SRT gốc, SRT theo giọng đã căn, ASS giữ vị trí hoặc WAV toàn bộ. **SRT không lưu vị trí/cỡ chữ**; dùng ASS để mang bố cục sang trình hỗ trợ ASS. Xuất MP4 để ghi khung hình, vùng mờ, phụ đề và âm thanh vào video.
 
-Giọng được tăng tốc tối đa 1,35 lần để vừa mốc, sau đó dời câu sau nếu vẫn quá dài. Không cắt mất câu và không cho hai đoạn giọng chồng nhau; có thể kết thúc muộn hơn video. Tiếng video gốc tự tắt sau khi tạo giọng; bật lại thủ công có thể nghe hai nguồn cùng lúc. Nghe thử một câu sẽ dừng nguồn đang phát. Đã có xuất MP4 lồng tiếng; chưa tự nhận diện người nói; cần gán nhân vật thủ công. Hiện chưa tự khôi phục dự án/video sau khi thoát: hãy xuất WAV/SRT trước khi đóng.
+Giọng bắt đầu đúng mốc phụ đề Việt. Câu dài tự tăng tốc để kết thúc trước giờ kết thúc phụ đề và trước câu sau, không đẩy mốc hoặc cắt đuôi lời. Áp dụng đồng nhất cho tạo hàng loạt, tạo lại từng câu và popup. Nếu tỷ lệ cần thiết vượt 12 lần, ứng dụng yêu cầu rút gọn chữ hoặc kéo dài phụ đề, không áp dụng âm thanh bị lệch. Tiếng video gốc tự tắt sau khi tạo giọng; bật lại thủ công có thể nghe hai nguồn cùng lúc. Nghe thử một câu sẽ dừng nguồn đang phát. Đã có xuất MP4 lồng tiếng; chưa tự nhận diện người nói; cần gán nhân vật thủ công. Lưu dự án .hnproject để mở lại video, timeline và giọng clone; chưa có tự động lưu.
 
 Offline dùng CPU và tải lần lượt từng loại model để tiết kiệm RAM. Model được giữ khi tiếp tục cùng loại tác vụ. Có cache giọng, OCR bỏ qua khung hình lặp và hàng đợi tác vụ để tránh sinh trùng. Thời gian phụ thuộc CPU, số câu, độ dài và lần tải model đầu. Không cam kết mọi bản dịch đều chính xác; Gemini/ChatGPT thường phù hợp hơn khi cần xử lý ngữ cảnh dài nhưng phụ thuộc tài khoản, hạn mức và giao diện dịch vụ. Công cụ kiểm tra ID/số câu/mốc SRT, không coi đó là bảo đảm đúng nghĩa.
 

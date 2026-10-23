@@ -27,19 +27,18 @@ def tempo_filters(rate):
     parts.append(f'atempo={rate:.9f}')
     return ','.join(parts)
 
-def schedule(cues, durations, max_speed=1.35, gap=.025):
-    """Never truncate speech. Fit moderately, then push later cues if necessary."""
+def schedule(cues, durations, max_speed=12, gap=0):
+    """Keep caption starts fixed; fit inside its end and the next speech start."""
     ordered = sorted(zip(cues,durations),key=lambda item:float(item[0]['startTime']))
-    result=[];cursor=0.0
+    result=[]
     for i,(cue,duration) in enumerate(ordered):
-        start=float(cue['startTime'])
-        limit=float(ordered[i+1][0]['startTime']) if i+1<len(ordered) else float(cue['endTime'])
-        available=max(.1,limit-start-gap)
-        rate=min(max_speed,max(1.,float(duration)/available))
-        actual_duration=float(duration)/rate
-        at=max(start,cursor+(gap if i else 0))
-        result.append({'id':cue['id'],'startTime':start,'dubStartTime':at,'dubEndTime':at+actual_duration,'fitSpeed':rate,'shift':at-start})
-        cursor=at+actual_duration
+        start=float(cue['startTime']);end=float(cue['endTime'])
+        if i+1<len(ordered):end=min(end,float(ordered[i+1][0]['startTime']))
+        available=math.floor((end-start-gap)*SAMPLE_RATE)/SAMPLE_RATE
+        if available<=0:raise ValueError('Có phụ đề trùng mốc bắt đầu. Hãy chỉnh lại thời gian trước khi tạo giọng.')
+        rate=max(1.,float(duration)/available)
+        if not math.isfinite(rate) or rate>max_speed:raise ValueError('Câu quá dài so với thời gian phụ đề. Hãy rút gọn chữ hoặc kéo dài đoạn.')
+        result.append({'id':cue['id'],'startTime':start,'dubStartTime':start,'dubEndTime':start+min(float(duration),available),'fitSpeed':rate,'shift':0,'slot':available})
     return result
 
 class DubbingService:
@@ -138,6 +137,18 @@ class DubbingService:
             os.replace(temporary,output)
         return {**clip,'audioUrl':'/cache/'+output.name,'duration':sf.info(str(output)).duration}
 
+    def fit_to_slot(self, clip, slot):
+        # atempo duration is approximate; verify the actual WAV, never truncate words.
+        slot=math.floor(float(slot)*SAMPLE_RATE)/SAMPLE_RATE
+        if slot<=0:raise ValueError('Khoảng phụ đề quá ngắn.')
+        rate=max(1.,clip['duration']/slot)
+        if rate>12:raise ValueError('Câu quá dài so với thời gian phụ đề. Hãy rút gọn chữ hoặc kéo dài đoạn.')
+        for attempt in range(6):
+            fitted=self.fit(clip,rate)
+            if fitted['duration']<=slot+1e-9:return {**fitted,'fitSpeed':rate}
+            rate*=max(1.01,fitted['duration']/slot*1.005)
+        raise ValueError('Chưa căn được giọng trong thời gian phụ đề. Hãy kéo dài đoạn hoặc rút gọn chữ.')
+
     def resolve(self, url):
         if not isinstance(url,str) or not url.startswith('/cache/') or Path(url[7:]).name!=url[7:] or not url.endswith('.wav'):
             raise ValueError('Đường dẫn âm thanh không hợp lệ.')
@@ -149,16 +160,16 @@ class DubbingService:
         validate_cues(cues,'textVi')
         planned=schedule(cues,[c['duration'] for c in clips])
         lookup={cue['id']:(cue,clip) for cue,clip in zip(cues,clips)}
-        actual=[];cursor=0
+        actual=[]
         for entry in planned:
             cue,clip=lookup[entry['id']]
-            fitted=self.fit(clip,entry['fitSpeed'])
-            at=max(entry['startTime'],cursor+(.025 if actual else 0))
+            fitted=self.fit_to_slot(clip,entry['slot'])
+            at=entry['startTime']
             row={**cue,'ttsAudioUrl':fitted['audioUrl'],'ttsDuration':fitted['duration'],
-                'dubStartTime':at,'dubEndTime':at+fitted['duration'],'ttsFitSpeed':entry['fitSpeed'],
+                'dubStartTime':at,'dubEndTime':at+fitted['duration'],'ttsFitSpeed':fitted['fitSpeed'],
                 'ttsShift':at-entry['startTime'],'cacheHit':clip.get('cacheHit',False)}
-            actual.append(row);cursor=row['dubEndTime']
-        key=hashlib.sha256(json.dumps([float(video_duration),[(r['id'],r['ttsAudioUrl'],r['dubStartTime']) for r in actual]]).encode()).hexdigest()
+            actual.append(row)
+        key=hashlib.sha256(json.dumps(['fixed-caption-v1',float(video_duration),[(r['id'],r['ttsAudioUrl'],r['dubStartTime']) for r in actual]]).encode()).hexdigest()
         output=self.cache/('mix-'+key+'.wav')
         if not output.is_file():
             temporary=output.with_suffix('.partial.wav')

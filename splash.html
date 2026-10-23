@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'"><title>HNstudio · Khởi động</title>
+<style>
+*{box-sizing:border-box}body{margin:0;overflow:hidden;background:#090e1b;color:#edf5ff;font-family:'Segoe UI',sans-serif;user-select:none;-webkit-app-region:drag}
+.scene{height:620px;position:relative;display:flex;align-items:center;flex-direction:column;background:radial-gradient(ellipse at 15% 80%,#19315d80,transparent 55%),radial-gradient(ellipse at 90% 15%,#632e6948,transparent 52%),#090e1b}
+.close{position:absolute;right:14px;top:10px;border:0;background:transparent;color:#8395b3;font-size:23px;cursor:pointer;-webkit-app-region:no-drag}.close:hover{color:white}.top{margin-top:26px;font-size:11px;letter-spacing:4px;color:#8294b7}.disc{position:relative;width:450px;height:450px;margin-top:16px;border-radius:50%;background:radial-gradient(circle,#101d32 25%,#090e19 60%);border:1px solid #718aaf35;box-shadow:0 20px 65px #0008,inset 0 0 0 7px #131d2c,0 0 65px #376cb51c}
+svg{position:absolute;inset:16px;width:418px;height:418px;overflow:visible}.ring{transform-origin:210px 210px;animation:orbit 45s linear infinite}.ring:nth-child(2){animation-direction:reverse;animation-duration:60s}.ring:nth-child(3){animation-duration:36s}.ring:nth-child(4){animation-direction:reverse;animation-duration:50s}.beat{animation:beat 2.8s ease-in-out infinite;animation-delay:var(--delay)}
+.core{position:absolute;inset:116px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;background:radial-gradient(circle,#192a43,#0c1525 68%);box-shadow:0 0 35px #59c5ff16}.logo{width:68px;height:68px;filter:drop-shadow(0 0 15px #49dcff30)}h1{font-size:30px;letter-spacing:1px;margin:8px 0 3px;background:linear-gradient(100deg,#aca2ff,#4cdbec);background-clip:text;color:transparent}.studio{font-size:10px;letter-spacing:6px;color:#56dcec;margin-left:6px}.pulse{margin-top:18px;display:flex;gap:5px}.pulse i{height:4px;width:4px;border-radius:50%;background:#69d6eb;animation:dot 1.5s infinite}.pulse i:nth-child(2){animation-delay:.2s}.pulse i:nth-child(3){animation-delay:.4s}
+#status{font-size:14px;margin:20px 0 8px;color:#cedaf0}.tagline{font-size:12px;color:#8395b3}.credit{font-size:10px;color:#526681;margin-top:18px;letter-spacing:1px}
+@keyframes orbit{to{transform:rotate(360deg)}}@keyframes beat{0%,100%{opacity:.38}50%{opacity:1}}@keyframes dot{0%,80%,100%{opacity:.25}40%{opacity:1}}
+@media(prefers-reduced-motion:reduce){.ring,.beat,.pulse i{animation:none}}
+</style></head><body><main class="scene"><button class="close" aria-label="Đóng ứng dụng" onclick="window.close()">×</button><div class="top">HOÀI NGUYỄN STUDIO</div><div class="disc"><svg viewBox="0 0 420 420" aria-hidden="true" id="waves"></svg><div class="core"><img class="logo" src="dist/hnstudio.svg" alt="HNstudio"><h1>HNstudio</h1><div class="studio">VIDEO & VOICE</div><div class="pulse"><i></i><i></i><i></i></div></div></div><div id="status" role="status">Đang khởi động ứng dụng…</div><div class="tagline">Đọc video · Dịch phụ đề · Tạo giọng đọc</div><div class="credit">SÁNG TẠO THEO CÁCH CỦA BẠN</div></main>
+<script>
+const svg=document.getElementById('waves'),ns='http://www.w3.org/2000/svg';
+for(let ring=0;ring<4;ring++){
+ const group=document.createElementNS(ns,'g');group.setAttribute('class','ring');
+ for(let i=0;i<64;i++){
+  const a=i*Math.PI/32,r=125+ring*23,height=7+Math.round((Math.sin(i*.69+ring*1.7)+1)*4),bar=document.createElementNS(ns,'rect');
+  bar.setAttribute('x','206');bar.setAttribute('y',String(210-r-height/2));bar.setAttribute('width','8');bar.setAttribute('height',String(height));bar.setAttribute('rx','1');bar.setAttribute('transform',`rotate(${i*360/64} 210 210)`);
+  const hue=(195+i*3.9+ring*6)%360;bar.setAttribute('fill',`hsl(${hue} 65% 65%)`);bar.setAttribute('class','beat');bar.style.setProperty('--delay',`${-(i%13)*.19-ring*.4}s`);group.appendChild(bar);
+ }svg.appendChild(group);
+}
+window.setStartupStatus=message=>{document.getElementById('status').textContent=message;};
+</script></body></html>

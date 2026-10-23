@@ -60,7 +60,8 @@
       "electron-main.cjs",
       "preload.cjs",
       "package.json",
-      "desktop-project.cjs"
+      "desktop-project.cjs",
+      "splash.html"
     ],
     "extraResources": [
       {

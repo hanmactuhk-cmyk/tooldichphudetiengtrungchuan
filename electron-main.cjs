@@ -30,8 +30,11 @@ async function start(){
  const data=app.getPath('userData');fs.mkdirSync(data,{recursive:true});let settings={};
  const settingsPath=path.join(data,'desktop-settings.json');
  if(fs.existsSync(settingsPath))settings=JSON.parse(fs.readFileSync(settingsPath,'utf8'));
- splash=new BrowserWindow({width:490,height:230,resizable:false,center:true,autoHideMenuBar:true,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true}});
- await splash.loadURL('data:text/html;charset=utf-8,'+encodeURIComponent('<html lang="vi"><body style="background:#101827;color:#eef2ff;font:16px Segoe UI;padding:28px"><h2>HNstudio</h2><p>Đang khởi động ứng dụng…</p><p style="color:#9ca3af">Đọc video · Dịch phụ đề · Tạo giọng đọc</p></body></html>'));
+ splash=new BrowserWindow({width:580,height:620,frame:false,resizable:false,maximizable:false,center:true,show:false,backgroundColor:'#090e1b',icon:path.join(__dirname,'dist','hnstudio.ico'),webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true}});
+ splash.once('ready-to-show',()=>splash?.show());
+ await splash.loadFile(path.join(__dirname,'splash.html'));
+ const splashStatus=(message)=>{if(splash&&!splash.isDestroyed())splash.webContents.executeJavaScript('window.setStartupStatus('+JSON.stringify(message)+')').catch(()=>{});};
+ splashStatus('Đang khởi động bộ xử lý…');
  const port=await freePort(),instance=crypto.randomUUID(),origin=`http://127.0.0.1:${port}`;
  const cacheHome=process.env.HN_CACHE_DIR||settings.cacheHome||path.join(data,'cache');
  fs.mkdirSync(cacheHome,{recursive:true});
@@ -47,6 +50,7 @@ async function start(){
   await new Promise(r=>setTimeout(r,500));
  }
  if(quitting)return;if(!ready)throw new Error('Bộ xử lý không sẵn sàng sau 90 giây.');
+ splashStatus('Đang mở không gian làm việc…');
  session.defaultSession.setPermissionRequestHandler((_wc,_permission,callback)=>callback(false));
  mainWindow=new BrowserWindow({icon:path.join(__dirname,'dist','hnstudio.ico'),title:'HNstudio '+app.getVersion(),width:1440,height:930,minWidth:1100,minHeight:700,show:false,backgroundColor:'#101827',autoHideMenuBar:true,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true,preload:path.join(__dirname,'preload.cjs')}});
  mainWindow.on('page-title-updated',event=>{event.preventDefault();mainWindow.setTitle('HNstudio '+app.getVersion());});

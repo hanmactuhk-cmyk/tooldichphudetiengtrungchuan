@@ -30,8 +30,9 @@ async function start(){
  const data=app.getPath('userData');fs.mkdirSync(data,{recursive:true});let settings={};
  const settingsPath=path.join(data,'desktop-settings.json');
  if(fs.existsSync(settingsPath))settings=JSON.parse(fs.readFileSync(settingsPath,'utf8'));
- splash=new BrowserWindow({width:580,height:620,frame:false,resizable:false,maximizable:false,center:true,show:false,backgroundColor:'#090e1b',icon:path.join(__dirname,'dist','hnstudio.ico'),webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true}});
- splash.once('ready-to-show',()=>splash?.show());
+ splash=new BrowserWindow({width:520,height:520,transparent:true,hasShadow:false,frame:false,resizable:false,maximizable:false,center:true,show:false,backgroundColor:'#00000000',icon:path.join(__dirname,'dist','hnstudio.ico'),webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true}});
+ let splashShownAt=Date.now();
+ splash.once('ready-to-show',()=>{splashShownAt=Date.now();splash?.show();});
  await splash.loadFile(path.join(__dirname,'splash.html'));
  const splashStatus=(message)=>{if(splash&&!splash.isDestroyed())splash.webContents.executeJavaScript('window.setStartupStatus('+JSON.stringify(message)+')').catch(()=>{});};
  splashStatus('Đang khởi động bộ xử lý…');
@@ -72,7 +73,7 @@ async function start(){
  require('./desktop-project.cjs')({ipcMain,dialog,mainWindow,trusted,cacheHome,origin,voiceHome:path.join(data,'voices')});
  ipcMain.handle('hn-reveal-export',event=>{if(trusted(event)&&lastExport)shell.showItemInFolder(lastExport);});
  session.defaultSession.on('will-download',(_event,item)=>{item.setSaveDialogOptions({title:'Lưu file xuất từ HN Voice Studio',defaultPath:path.join(app.getPath('downloads'),path.basename(item.getFilename()))});});
- mainWindow.once('ready-to-show',()=>{mainWindow.show();if(splash){splash.destroy();splash=null;}});
+ mainWindow.once('ready-to-show',async()=>{await new Promise(resolve=>setTimeout(resolve,Math.max(0,3000-(Date.now()-splashShownAt))));if(quitting||!mainWindow||mainWindow.isDestroyed())return;mainWindow.show();if(splash&&!splash.isDestroyed()){splash.destroy();splash=null;}});
  await mainWindow.loadURL(origin);mainWindow.on('closed',()=>{mainWindow=null;app.quit();});
 }
 app.on('before-quit',()=>{quitting=true;if(worker&&!worker.killed)worker.kill();if(logFd!==undefined){fs.closeSync(logFd);logFd=undefined;}});

@@ -1,4 +1,13 @@
-# HN601 — HNstudio 6.0.1, bản cài độc lập
+# HN601 — HNstudio 6.0.2, bản cài độc lập
+
+### Sửa trong 6.0.2
+- Dịch ưu tiên đầy đủ nghĩa, diễn đạt hay và tự nhiên. Chỉ cô đọng khi vượt thời gian đọc; không yêu cầu rút mọi câu. Cần dịch lại các câu cũ để áp dụng lời nhắc mới.
+- Menu chuột phải đo kích thước thực, tự đặt trong màn hình, cuộn nếu màn hình quá nhỏ.
+- Mọi clip âm thanh có menu **Tách giọng nói / Tách nhạc nền / Chỉnh tốc độ, cao độ**. Tách đúng phần đã cắt, đưa kết quả sang hàng riêng, tắt tiếng nguồn để tránh nghe trùng.
+- Thanh tốc độ cập nhật độ dài ô timeline ngay khi kéo; nghe thử đổi tốc độ trực tiếp. Mặc định giữ cao độ; có công tắc đổi cao độ theo tốc độ. Bấm Áp dụng để lưu. Nếu kéo dài chạm âm thanh khác, đoạn đang sửa tự chuyển sang hàng riêng và giữ nguyên thời điểm, các đoạn khác không bị xê dịch.
+- Kéo Chữ từ thư viện tới thời điểm bất kỳ tạo **Viết văn bản.....**, nhảy preview tới đúng chỗ để sửa. Khi thả lên hàng video, chữ có hàng riêng để không bị video che.
+- Bỏ giới hạn chuyển động 12 fps, dùng thời gian liên tục và easing khi vào/ra; phụ đề động được lấy mẫu 60 fps khi xuất.
+
 
 HN601 cài vào thư mục riêng, dùng hồ sơ ứng dụng riêng và không ghi đè HNstudio 6.0.0. Giữ project gốc; dùng Lưu dự án để tạo bản sao khi mở trong HN601. Chrome đăng nhập được tái sử dụng theo thiết lập cũ; mật khẩu/cookie không được đưa vào bộ cài hoặc GitHub.
 

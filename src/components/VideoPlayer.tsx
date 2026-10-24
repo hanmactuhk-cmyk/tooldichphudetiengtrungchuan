@@ -130,7 +130,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   },[isPlaying,currentTime,playbackSpeed,dubAudioUrl]);
   useEffect(()=>{const pauseForPreview=()=>{dubRef.current?.pause();videoRef.current?.pause();if(isPlaying)onTogglePlay();};window.addEventListener('hnvoice-preview',pauseForPreview);return()=>window.removeEventListener('hnvoice-preview',pauseForPreview);},[isPlaying,onTogglePlay]);
   const timeRef=useRef(currentTime);timeRef.current=currentTime;const tickCallback=useRef(onTimeUpdate);tickCallback.current=onTimeUpdate;const endCallback=useRef(onTogglePlay);endCallback.current=onTogglePlay;
-  useEffect(()=>{if(!isPlaying)return;const start=performance.now(),at=timeRef.current;let frame=0,last=0;const tick=(now:number)=>{const t=Math.min(duration,at+(now-start)/1000*playbackSpeed);if(now-last>=40){tickCallback.current(t);last=now;}if(t>=duration){endCallback.current();return;}frame=requestAnimationFrame(tick)};frame=requestAnimationFrame(tick);return()=>cancelAnimationFrame(frame);},[isPlaying,playbackSpeed,duration]);
+  useEffect(()=>{if(!isPlaying)return;const start=performance.now(),at=timeRef.current;let frame=0,last=0;const tick=(now:number)=>{const t=Math.min(duration,at+(now-start)/1000*playbackSpeed);tickCallback.current(t);if(t>=duration){endCallback.current();return;}frame=requestAnimationFrame(tick)};frame=requestAnimationFrame(tick);return()=>cancelAnimationFrame(frame);},[isPlaying,playbackSpeed,duration]);
 
   const position=(scope==='cue'&&activeSub?.position)||activeSub?.position||layout.position;
   const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));

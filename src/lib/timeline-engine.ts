@@ -60,3 +60,11 @@ export function editTimeline(original:ProjectData,e:TimelineEdit):ProjectData{
  }
  p.subtitles.sort((a,b)=>a.startTime-b.startTime);return validateTimeline(p);
 }
+
+// A longer edit keeps its timing and gets an independent lane instead of moving neighbouring clips.
+export function placeAudioEdit(clips:TimelineAudioClip[],edited:TimelineAudioClip):TimelineAudioClip[]{
+ const lane=edited.laneId||edited.track;
+ const collision=!edited.muted&&clips.some(c=>c.id!==edited.id&&!c.muted&&(c.laneId||c.track)===lane&&c.startTime<audioEnd(edited)-.00001&&audioEnd(c)>edited.startTime+.00001);
+ const next=collision?{...edited,laneId:'audio-'+crypto.randomUUID()}:edited;
+ return clips.map(c=>c.id===edited.id?next:c);
+}

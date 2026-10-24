@@ -27,7 +27,7 @@ export function generateAss(project:ProjectData){
  const event=(layer:number,a:number,b:number,tags:string,text:string)=>events.push(`Dialogue: ${layer},${stamp(a)},${stamp(b)},Default,,0,0,0,,{${tags}}${text}`);
  const rect=(layer:number,a:number,b:number,x:number,y:number,bw:number,bh:number,color:string,opacity:number,radius=0,extraTags='')=>{if(opacity<=0)return;event(layer,a,b,`\\an7\\pos(${x.toFixed(2)},${y.toFixed(2)})\\bord0\\shad0\\1c${assColor(color)}\\1a&H${Math.round((1-opacity)*255).toString(16).padStart(2,'0')}&\\p1${extraTags}`,roundedRectPath(bw,bh,radius));};
  const box=(text:string,a:number,b:number,x:number,y:number,width:number,style:CaptionLayout,layer=2,motionStart=a,motionEnd=b)=>{
-  const m=captionBox(text,width,style),animated=!!style.motion&&Object.values(style.motion).some(p=>p&&p.effect!=='none'),step=animated?1/12:b-a;
+  const m=captionBox(text,width,style),animated=!!style.motion&&Object.values(style.motion).some(p=>p&&p.effect!=='none'),step=animated?1/60:b-a;
   for(let t=a;t<b-.00001;t+=step){const end=Math.min(b,t+step),v=motionAt(style.motion,t,motionStart,motionEnd,text.length,text.split(/\s+/).length),xx=x+v.x*w,yy=y+v.y*h,scale=v.scale;
 
    const clip=v.reveal<1?`\\clip(${Math.round(xx-m.width*scale/2)},0,${Math.round(xx-m.width*scale/2+m.width*scale*v.reveal)},${oh})`:'';

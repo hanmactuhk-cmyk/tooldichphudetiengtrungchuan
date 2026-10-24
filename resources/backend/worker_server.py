@@ -22,7 +22,7 @@ from translation import OfflineTranslator
 from browser_translation import BrowserTranslator
 from subtitle_contract import validate_cues,from_srt,parse_srt
 from jobs import JOBS
-app = FastAPI(title='HN Voice Studio', version='6.0.1')
+app = FastAPI(title='HN Voice Studio', version='6.0.2')
 DUBBING=DubbingService(MODELS,CACHE,lambda *args:ffmpeg(*args))
 TRANSLATOR=OfflineTranslator(MODELS)
 BROWSER_HOME=Path(os.environ.get('HN_BROWSER_HOME',APP_DIR/'data/chrome-profiles'))
@@ -51,7 +51,7 @@ def ffmpeg(*args):
 @app.get('/health')
 @app.get('/api/health')
 def health():
-    return {'status':'ok','device':'cpu','models':{n:(MODELS/n).is_dir() for n in ['whisper-small','qwen3','vieneu','ocr-zh']},'modelDirectory':str(MODELS),'version':'6.0.1','instanceId':os.environ.get('HN_INSTANCE_ID'),'activeModel':POOL.name,'modelLoads':POOL.loads}
+    return {'status':'ok','device':'cpu','models':{n:(MODELS/n).is_dir() for n in ['whisper-small','qwen3','vieneu','ocr-zh']},'modelDirectory':str(MODELS),'version':'6.0.2','instanceId':os.environ.get('HN_INSTANCE_ID'),'activeModel':POOL.name,'modelLoads':POOL.loads}
 @app.post('/api/transcribe')
 def transcribe(file: UploadFile=File(...)):
     from faster_whisper import WhisperModel
@@ -282,20 +282,37 @@ def retime_audio(body:dict):
     import math,hashlib,soundfile
     from dubbing import tempo_filters
     try:
-        source=DUBBING.resolve(body['audioUrl']);a=float(body.get('trimStart',0));b=float(body['trimEnd']);speed=float(body.get('speed',1));duration=soundfile.info(str(source)).duration
+        source=DUBBING.resolve(body['audioUrl']);a=float(body.get('trimStart',0));b=float(body['trimEnd']);speed=float(body.get('speed',1));shift_pitch=body.get('shiftPitch') is True;info=soundfile.info(str(source));duration=info.duration
         if not all(math.isfinite(x) for x in [a,b,speed]) or a<0 or b>a+86400 or b<=a or b>duration+.003 or not .25<=speed<=4:raise ValueError('Mốc cắt hoặc tốc độ không hợp lệ.')
     except (ValueError,KeyError) as exc:raise HTTPException(422,str(exc))
     def render(progress,cancelled):
-        output=CACHE/('retime-'+hashlib.sha256(f'{source.name}:{a:.9f}:{b:.9f}:{speed:.9f}'.encode()).hexdigest()+'.wav')
+        output=CACHE/('retime-'+hashlib.sha256(f'{source.name}:{a:.9f}:{b:.9f}:{speed:.9f}:{shift_pitch}'.encode()).hexdigest()+'.wav')
         if not output.is_file():
-            temporary=output.with_suffix('.partial.wav');progress(10,'Đang đổi tốc độ âm thanh, giữ cao độ…')
+            temporary=output.with_suffix('.partial.wav');progress(10,'Đang đổi tốc độ âm thanh…')
             try:
-                ffmpeg('-i',source,'-af',f'atrim=start={a}:end={b},asetpts=PTS-STARTPTS,'+tempo_filters(speed),'-ar',48000,'-ac',1,'-c:a','pcm_s16le',temporary)
+                ffmpeg('-i',source,'-af',f'atrim=start={a}:end={b},asetpts=PTS-STARTPTS,'+(f'asetrate={info.samplerate*speed},aresample=48000' if shift_pitch else tempo_filters(speed)),'-ar',48000,'-ac',1,'-c:a','pcm_s16le',temporary)
                 if cancelled():raise RuntimeError('Đã dừng chỉnh tốc độ.')
                 os.replace(temporary,output)
             finally:temporary.unlink(missing_ok=True)
         progress(100,'Đã tạo âm thanh theo tốc độ.');return {'audioUrl':'/cache/'+output.name,'duration':soundfile.info(str(output)).duration}
     return JOBS.submit('audio-retime',body,render)
+
+@app.post('/api/audio/separate-clip')
+def separate_audio_clip(body:dict):
+    import soundfile,math
+    from audio_separation import separate_audio
+    try:
+        source=DUBBING.resolve(body['audioUrl']);a=float(body.get('trimStart',0));b=float(body['trimEnd']);info=soundfile.info(str(source))
+        if not all(math.isfinite(x) for x in (a,b)) or a<0 or b-a<.039 or b>info.duration+.003:raise ValueError('Mốc cắt âm thanh không hợp lệ.')
+    except (ValueError,KeyError) as exc:raise HTTPException(422,str(exc))
+    def render(progress,cancelled):
+        import tempfile
+        with tempfile.TemporaryDirectory(dir=CACHE,prefix='clip-stems-') as temp:
+            trimmed=Path(temp)/'selected.wav'
+            ffmpeg('-i',source,'-af',f'atrim=start={a}:end={b},asetpts=PTS-STARTPTS','-ar',48000,'-ac',2,trimmed)
+            if cancelled():raise RuntimeError('Đã dừng tách âm thanh.')
+            return separate_audio(trimmed,MODELS,CACHE,ffmpeg,progress,cancelled)
+    return JOBS.submit('separate-clip',body,render)
 
 @app.post('/api/media/import')
 def import_media(file:UploadFile=File(...)):

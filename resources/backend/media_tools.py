@@ -85,21 +85,23 @@ class AlphaCapture:
 def text_motion(m,t,a,b,count=20,words=5):
  out=dict(x=0,y=0,scale=1,opacity=1,reveal=1,glow=0)
  if not m:return out
- t=math.floor(t*12)/12
  for phase,preset in m.items():
   if not preset or preset.get('effect')=='none':continue
   duration=max(.08,min(preset.get('duration',.5),max(.08,(b-a)/2)));loop=phase=='loop'
   p=((t-a)%max(.1,preset.get('duration',.5)))/max(.1,preset.get('duration',.5)) if loop else max(0,min(1,((b-t) if phase=='exit' else (t-a))/duration))
+  linear=p
+  if not loop and preset.get('effect') not in ('typewriter','words'):p=p*p if phase=='exit' else 1-(1-p)**3
   intensity=preset.get('intensity',1);effect=preset.get('effect')
-  if effect=='fade':out['opacity']*=.65+.35*math.sin(p*math.pi) if loop else p
+  if effect=='fade':out['opacity']*=.825-.175*math.cos(p*math.pi*2) if loop else p
   if effect in ('left','right','up','down'):
    v=(math.sin(p*math.pi*2)*.04 if loop else (1-p)*.15)*intensity
    out['x' if effect in ('left','right') else 'y']+=-v if effect in ('left','up') else v
    if not loop:out['opacity']*=p
   if effect in ('zoom-in','zoom-out'):out['scale']*=1+math.sin(p*math.pi*2)*.08*intensity if loop else 1+(-1 if effect=='zoom-in' else 1)*(1-p)*.5*intensity
-  if effect=='bounce':out['scale']*=1+abs(math.sin(p*math.pi*2))*.12*intensity if loop else .7+.3*p+math.sin(p*math.pi*3)*(1-p)*.18*intensity
+  if effect=='bounce':out['scale']*=1+abs(math.sin(p*math.pi*2))*.12*intensity if loop else 1-math.exp(-7*linear)*math.cos(linear*math.pi*3)*.3*intensity*(1 if linear<1 else 0)
+  if not loop and effect in ('zoom-in','zoom-out','bounce'):out['opacity']*=p
   if effect in ('typewriter','words'):
-   n=max(1,words if effect=='words' else count);out['reveal']*=math.floor(p*n)/n
+   n=max(1,words if effect=='words' else count);out['reveal']*=1 if p>=1 else (math.floor(p*n)+min(1,(p*n%1)*3))/n
   if effect=='shake':out['x']+=math.sin((t-a)*30)*.01*intensity
   if effect=='blink':out['opacity']*=.45+.55*(math.sin((t-a)*10)+1)/2
   if effect=='glow':out['glow']=max(out['glow'],(.4+.6*(math.sin((t-a)*7)+1)/2)*intensity)

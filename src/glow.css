@@ -160,3 +160,7 @@
 .auto-fields{display:grid;gap:12px}.auto-fields label{display:grid;gap:5px}.auto-fields small{overflow-wrap:anywhere}.auto-steps{display:grid;gap:5px;margin:14px 0;padding:10px;border:1px solid var(--line);border-radius:12px}.auto-steps li[data-active=true]{font-weight:900;color:#087f94}.hn-studio[data-theme=glow-dark] .auto-steps li[data-active=true]{color:#86ffdc}
 .motion-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:10px 0}.motion-grid button{display:grid;gap:4px;justify-items:center;font-size:10px}.motion-tile{font-size:19px;font-weight:900;height:30px}.motion-grid button:hover .animated{animation:hn-content-open .65s ease-in-out infinite alternate}
 .edit-menu{display:flex;gap:7px;padding:4px 14px;flex-shrink:0;font-size:12px}.edit-menu button{border:1px solid var(--line);border-radius:9px;padding:5px 12px;background:var(--panel);box-shadow:var(--soft-shadow);font-weight:700}.edit-menu button:hover{filter:brightness(1.12)}
+
+.timeline-dropdown-trigger{border-radius:9px;padding:7px 10px;font-size:12px;background:var(--panel);border:1px solid var(--line);color:var(--ink)}
+
+@keyframes hn-menu-fade{from{opacity:0}to{opacity:1}}

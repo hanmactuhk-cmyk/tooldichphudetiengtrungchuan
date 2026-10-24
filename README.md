@@ -1,4 +1,8 @@
-# HN601 — HNstudio 6.0.2, bản cài độc lập
+# HN601 — HNstudio 6.0.3, bản cài độc lập
+
+### Sửa trong 6.0.3
+Menu Âm thanh và Phụ đề trên thanh timeline dùng lớp nổi bên ngoài khung cuộn, tự căn trong màn hình. Menu Âm thanh có Trích xuất âm thanh từ video và Tách video → Giọng nói + Nhạc nền (2 hàng). Kết quả là hai WAV riêng trên hai hàng riêng, giữ thời điểm và có âm lượng độc lập. Menu chuột phải âm thanh cũng có Tách giọng nói + nhạc nền cùng lúc. Bản cập nhật có thể chép trực tiếp vào thư mục HN601 đang có, không cần chạy bộ cài; giữ hồ sơ và project ngoài các tệp chương trình.
+
 
 ### Sửa trong 6.0.2
 - Dịch ưu tiên đầy đủ nghĩa, diễn đạt hay và tự nhiên. Chỉ cô đọng khi vượt thời gian đọc; không yêu cầu rút mọi câu. Cần dịch lại các câu cũ để áp dụng lời nhắc mới.

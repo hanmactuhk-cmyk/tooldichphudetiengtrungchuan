@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+import {DEFAULT_SPLIT,planSmartSplit,applySmartSplit,undoSmartSplit,segmentVietnamese,countWords} from '../src/lib/smart-split';
+import {generateSrt} from '../src/lib/export-engine';
+import {captionSpeechCues} from '../src/lib/speech-cues';
+const long='Tôi đã nói với bạn bao nhiêu lần rồi rằng bạn không được tự ý rời khỏi nơi này khi chưa có sự cho phép của tôi.';
+const cue=(id:string,textVi:string,startTime:number,endTime:number,characterId='A'):any=>({id,textVi,textZh:'你没有得到我的允许就不能离开这里。',startTime,endTime,characterId,voiceId:'Mai Anh',speed:1,pitch:0,volume:1,status:'synced',ttsAudioUrl:'/cache/old.wav',ttsDuration:2});
+const original:any={id:'p',title:'Split',videoUrl:null,videoFileName:'',duration:25,subtitles:[cue('s',long,10,19),cue('short','Được rồi!',19,21,'B')],characters:[{id:'A',voiceId:'Mai Anh',color:'#aa0000'},{id:'B',voiceId:'Hải Đăng'}],selectedSubtitleId:null,currentTime:0,originalAudioVolume:1,originalAudioMuted:false,bgmDucking:false,translationMode:'offline'};
+const before=JSON.stringify(original),zh=generateSrt(original.subtitles,'zh'),settings={...DEFAULT_SPLIT,protectedPhrases:['Mai Anh']};
+const plan=planSmartSplit(original.subtitles,settings);assert.equal(plan.report.long,1);assert.equal(plan.report.split,1);assert.equal(JSON.stringify(original),before);
+const parts=plan.rows[0].parts;assert(parts.length>1);assert(parts.every(p=>countWords(p.text)<=8));assert.equal(parts.map(p=>p.text).join(' '),long);assert.equal(parts[0].start,10);assert.equal(parts.at(-1)!.end,19);for(let i=1;i<parts.length;i++)assert.equal(parts[i].start,parts[i-1].end);
+const next=applySmartSplit(original,plan),children=next.subtitles.filter(c=>c.smartSourceId==='s');assert.equal(generateSrt(next.subtitles,'zh'),zh);assert.equal(next.subtitles.find(c=>c.id==='short'),original.subtitles[1]);assert(children.every(c=>c.characterId==='A'&&c.voiceId==='Mai Anh'&&!c.ttsAudioUrl));assert(next.subtitles.find(c=>c.id==='s')!.ttsAudioUrl);assert(next.audioClips!.find(c=>c.subtitleId==='s')!.muted);assert.equal(generateSrt(next.subtitles,'vi').split('-->').length-1,children.length+1);
+const speech=captionSpeechCues(next.subtitles,new Set(children.map(c=>c.id)),next.characters);assert.equal(speech.length,children.length);assert(speech.every(c=>c.smartMaxSpeed===1.2));assert.deepEqual(undoSmartSplit(next).subtitles,original.subtitles);
+const capped=applySmartSplit(next,planSmartSplit(next.subtitles,{...settings,maxSpeed:1.3}));assert(capped.subtitles.filter(s=>s.smartSourceId&&!s.hiddenVi).every(s=>s.smartMaxSpeed===1.3));assert.deepEqual(undoSmartSplit(capped).subtitles,original.subtitles);
+const tiny=planSmartSplit([cue('tiny',long,0,.05)],settings);assert(tiny.report.overflow>0);assert.throws(()=>applySmartSplit({...original,subtitles:[tiny.rows[0].original]},tiny),/thời gian/);
+const protectedName='Nguyễn Hoài Nam';const named=segmentVietnamese('Hôm nay tôi đã gặp Nguyễn Hoài Nam, rồi chúng tôi đi làm.',4,[protectedName]);assert(named.texts.some(t=>t.includes(protectedName)));assert(named.texts.every(t=>countWords(t)<=4));
+assert.equal(countWords('Xin chào — bạn! ...'),3);assert(segmentVietnamese('Một Hai Ba Bốn Năm Sáu Bảy Tám Chín',4).blocked);
+for(let limit=4;limit<=20;limit++){const p=planSmartSplit(original.subtitles,{...settings,maxWords:limit});for(const row of p.rows.filter(r=>r.changed))assert(row.parts.every(part=>countWords(part.text)<=limit));}
+const overlap=planSmartSplit([cue('x',long,0,9),cue('y','Không!',8,10)],settings);assert(overlap.report.manual>0);assert.throws(()=>applySmartSplit({...original,subtitles:overlap.rows.map(r=>r.original)},overlap),/thời gian/);
+const selected=planSmartSplit(original.subtitles,settings,new Set(['short']));assert.equal(selected.rows.length,1);assert.equal(selected.report.split,0);
+console.log('SMART SPLIT: LOSSLESS / LIMITS / TIMING / SPEAKERS / CHINESE SRT / ARCHIVE / UNDO / SHORT / OVERLAP PASSED');

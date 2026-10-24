@@ -137,13 +137,14 @@ class DubbingService:
             os.replace(temporary,output)
         return {**clip,'audioUrl':'/cache/'+output.name,'duration':sf.info(str(output)).duration}
 
-    def fit_to_slot(self, clip, slot):
+    def fit_to_slot(self, clip, slot, max_speed=12):
         # atempo duration is approximate; verify the actual WAV, never truncate words.
         slot=math.floor(float(slot)*SAMPLE_RATE)/SAMPLE_RATE
         if slot<=0:raise ValueError('Khoảng phụ đề quá ngắn.')
         rate=max(1.,clip['duration']/slot)
-        if rate>12:raise ValueError('Câu quá dài so với thời gian phụ đề. Hãy rút gọn chữ hoặc kéo dài đoạn.')
+        if rate>max_speed+1e-9:raise ValueError('Giọng đọc vượt giới hạn tăng tốc; cần kiểm tra thủ công.')
         for attempt in range(6):
+            if rate>max_speed+1e-9:raise ValueError('Chưa vừa thời gian trong giới hạn tăng tốc; không cắt lời.')
             fitted=self.fit(clip,rate)
             if fitted['duration']<=slot+1e-9:return {**fitted,'fitSpeed':rate}
             rate*=max(1.01,fitted['duration']/slot*1.005)

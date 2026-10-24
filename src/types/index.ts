@@ -20,7 +20,7 @@ export type SubtitleStatus =
   | 'synced'
   | 'warning_overflow';
 
-export interface Subtitle {sourceClipId?:string;
+export interface Subtitle {smartOriginal?:boolean;smartSourceId?:string;smartGroupId?:string;smartGroupCount?:number;smartGroupStart?:number;smartGroupEnd?:number;smartMaxSpeed?:number;smartWarnings?:string[];sourceClipId?:string;
   id: string;
   startTime: number; // in seconds
   endTime: number;   // in seconds
@@ -89,7 +89,7 @@ export interface HardwareVramStatus {
 
 export interface VideoDecoration {align?:"left"|"center"|"right";bold?:boolean;italic?:boolean;topColors?:Record<number,string>;bottomColors?:Record<number,string>;overlayColor?:string;enabled:boolean;topText:string;bottomText:string;topHeight:number;bottomHeight:number;backgroundColor:string;textColor:string;fontFamily:string;fontSize:number;overlays:{id:string;text:string;x:number;y:number;characterColors?:Record<number,string>}[];}
 export interface ExportSettings {resolution:"source"|"1080p"|"1080p-portrait";quality:"fast"|"quality";}
-export interface ProjectData {exportSettings?:ExportSettings;
+export interface ProjectData {smartSplitSettings?:import('../lib/smart-split').SplitSettings;smartSplitBackup?:{subtitles:Subtitle[];audioClips?:TimelineAudioClip[];manualTimeline?:boolean;dubAudioUrl?:string;dubDuration?:number;selectedSubtitleId:string|null};exportSettings?:ExportSettings;
   mediaLibrary?:MediaAsset[];visuals?:VisualClip[];visualTracks?:VisualTrack[];videoEdited?:boolean;
   decoration?:VideoDecoration;
   id: string;

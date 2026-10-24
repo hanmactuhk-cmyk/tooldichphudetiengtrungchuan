@@ -1,3 +1,5 @@
+import {SmartSplitDialog} from './components/SmartSplitDialog';
+import {SplitPlan,applySmartSplit,undoSmartSplit} from './lib/smart-split';
 import {appendExportOptions} from './lib/export-options';
 import {recognizeProject,recognitionParts} from './lib/recognition-source';
 import type {TimelineAudioClip} from './types';
@@ -120,7 +122,7 @@ export default function App() {
     try{validateTimeline(next);if(project.dubAudioUrl&&timelineEnd(next)===timelineEnd(project)&&JSON.stringify(projectClips(next))===JSON.stringify(projectClips(project))){pushHistory(project);setProject({...next,dubAudioUrl:project.dubAudioUrl,dubDuration:project.dubDuration});return true;}const mixed=await runJob('/api/timeline/mix',{clips:projectClips(next),duration:timelineEnd(next)},(v,t)=>setHardwareStatus(h=>({...h,progressPercent:v,currentTaskName:t})));pushHistory(project);setProject({...next,dubAudioUrl:mixed.audioUrl,dubDuration:mixed.duration});setCurrentTime(t=>Math.min(t,mixed.duration));return true;}
     catch(e){alert(String(e));return false;}finally{setHardwareStatus(h=>({...h,isProcessing:false,progressPercent:0,currentTaskName:''}));}
   };
-  const handleTimelineEdit=(edit:TimelineEdit)=>{try{applyTimeline(editTimeline(project,edit));}catch(e){alert(String(e));}};
+  const handleTimelineEdit=(edit:TimelineEdit)=>{try{let next=editTimeline(project,edit);const group=project.subtitles.find(s=>s.id===edit.id)?.smartGroupId;if(group&&(edit.track==='vi'||edit.track==='subtitle'))next={...next,subtitles:next.subtitles.map(s=>s.smartGroupId===group?{...s,smartGroupCount:0}:s)};applyTimeline(next);}catch(e){alert(String(e));}};
   const handleTimelineAudio=async(file?:File,stem:'all'|'voice'|'background'='all')=>{
     if(hardwareStatus.isProcessing)return;stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,progressPercent:0,currentTaskName:file?'Đọc tệp âm thanh...':'Tách tiếng gốc từ video...'}));
     try{const form=new FormData();if(file)form.append('file',file);else{if(!project.videoUrl)throw Error('Chưa chọn video.');form.append('file',await readVideo(project.videoUrl),project.videoFileName);}
@@ -296,6 +298,7 @@ export default function App() {
 
   // 3. Run Qwen3-4B-Instruct-2507 Translation
   const handleRunTranslation = async (mode: TranslationProvider,inputMode:'text'|'srt-file'='srt-file') => {
+    if(project.subtitles.some(s=>s.smartSourceId&&!s.hiddenVi)){alert('Phụ đề đang có nhóm đã chia. Hoàn tác lần chia trước trước khi dịch lại để giữ nguyên liên kết tiếng Trung.');return;}
     pushHistory(project);
     setHardwareStatus((h) => ({
       ...h,
@@ -370,7 +373,7 @@ export default function App() {
   };
 
   const handleRunBatchTts = async () => {
-    const cues=timelineSubtitles(project).filter(s=>!s.hiddenVi&&s.textVi?.trim());
+    const visible=timelineSubtitles(project).filter(s=>!s.hiddenVi&&s.textVi?.trim());const cues=visible.filter(s=>!s.ttsAudioUrl||s.status==='needs_tts'||s.status==='warning_overflow');if(visible.length&&!cues.length){alert('Giọng hiện có đã cập nhật. Chọn riêng câu cần tạo lại trong popup phụ đề.');return;}
     if(!cues.length){alert('Hãy nhập hoặc dịch phụ đề Việt trước.');return;}
     await generatePopupSpeech(cues.map(s=>({id:s.id,textVi:s.textVi||'',voiceId:s.voiceId||project.characters.find(c=>c.id===s.characterId)?.voiceId||'Hải Đăng',captionStyle:s.captionStyle||{}})));
   };
@@ -388,6 +391,7 @@ export default function App() {
   const handleRetranslateSentence = async (id: string) => {
     const sub = project.subtitles.find((s) => s.id === id);
     if (!sub) return;
+    if(sub.smartSourceId){alert('Câu này thuộc nhóm đã chia. Dùng Hoàn tác lần chia trước để dịch lại nguyên câu, rồi chia lại.');return;}
 
     setHardwareStatus((h) => ({
       ...h,
@@ -512,8 +516,11 @@ export default function App() {
     }catch(e){alert(String(e))}finally{setHardwareStatus(h=>({...h,isProcessing:false,currentTaskName:'',progressPercent:0}))}
   };
 
+  const [showSmartSplit,setShowSmartSplit]=useState(false);
+  const applySplit=(plan:SplitPlan)=>{try{const next=applySmartSplit(project,plan);stopAudioPreview();setIsPlaying(false);pushHistory(project);setProject(next);setShowSmartSplit(false);}catch(e){alert(String(e))}};
+  const undoSplit=()=>{try{const next=undoSmartSplit(project);stopAudioPreview();setIsPlaying(false);pushHistory(project);setProject(next);setShowSmartSplit(false);}catch(e){alert(String(e))}};
   const [popupIds,setPopupIds]=useState<string[]>([]);
-  const applyCaptionChanges=(changes:CaptionChange[])=>{const map=new Map(changes.map(c=>[c.id,c]));pushHistory(project);setProject(p=>({...p,subtitles:p.subtitles.map(s=>map.has(s.id)?{...s,...map.get(s.id),status:'translated'}:s)}));};
+  const applyCaptionChanges=(changes:CaptionChange[])=>{const map=new Map(changes.map(c=>[c.id,c]));const changed=new Set(project.subtitles.filter(s=>map.has(s.id)&&(map.get(s.id)!.textVi!==s.textVi||map.get(s.id)!.voiceId!==s.voiceId)).map(s=>s.id));pushHistory(project);setProject(p=>({...p,...(changed.size?{dubAudioUrl:undefined,dubDuration:undefined,audioClips:p.audioClips?.filter(c=>!c.subtitleId||!changed.has(c.subtitleId))}:{}),subtitles:p.subtitles.map(s=>map.has(s.id)?{...s,...map.get(s.id),...(changed.has(s.id)?{status:'needs_tts' as const,ttsAudioUrl:undefined,ttsDuration:undefined}:{})}:s)}));};
   const generatePopupSpeech=async(changes:CaptionChange[])=>{
     if(hardwareStatus.isProcessing)return;stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,progressPercent:0,currentTaskName:'Chuẩn bị tạo giọng cho phụ đề đã chọn…'}));
     try{const map=new Map(changes.map(c=>[c.id,c]));const subtitles=project.subtitles.map(s=>map.has(s.id)?{...s,...map.get(s.id)}:s);const cues=captionSpeechCues(subtitles,new Set(map.keys()),project.characters);
@@ -532,13 +539,14 @@ export default function App() {
           onUpdateSubtitle={handleUpdateSubtitle}
           onRetranslateSentence={handleRetranslateSentence}
           onOpenCaptionPopup={id=>{stopAudioPreview();setIsPlaying(false);setPopupIds([id]);}}
-          onSplitCue={handleSplitCue}
+          onOpenSmartSplit={()=>setShowSmartSplit(true)} maxWords={project.smartSplitSettings?.maxWords||8} onSplitCue={handleSplitCue}
           onRegenerateTtsSentence={handleRegenerateTtsSentence}
           onCheckWithParaformer={handleCheckWithParaformer}
         /></div>
   ),[project,hardwareStatus.isProcessing,previewExpanded,voices]);
   return (
     <div data-theme={theme} className="hn-studio flex flex-col h-screen min-w-[1100px] w-full bg-[#101014] text-zinc-100 overflow-hidden font-sans select-none">
+      {showSmartSplit&&<SmartSplitDialog project={project} selectedIds={captionSelection} onClose={()=>setShowSmartSplit(false)} onApply={applySplit} onUndo={undoSplit} onSeek={t=>{setCurrentTime(t);setIsPlaying(false)}}/>}
       {extractId&&<FloatingPanel title="Trích xuất âm thanh clip" onClose={()=>setExtractId(null)}><label>Kết quả<select aria-label="Kết quả trích xuất" value={extractMode} onChange={e=>setExtractMode(e.target.value as 'all'|'stems')}><option value="all">Toàn bộ âm thanh (1 hàng)</option><option value="stems">Giọng nói + Nhạc nền (2 hàng riêng)</option></select></label>{extractMode==='all'&&<label>Đưa âm thanh vào hàng<select aria-label="Hàng âm thanh trích xuất" value={extractLane} onChange={e=>setExtractLane(e.target.value)}><option value="new">＋ Hàng âm thanh mới</option><option value="audio">Âm thanh thêm / gốc</option>{[...new Set(projectClips(project).map(c=>c.laneId).filter(Boolean))].map(id=><option key={id} value={id}>{projectClips(project).find(c=>c.laneId===id)?.name}</option>)}</select></label>}<p>Mỗi hàng có thể chỉnh âm lượng riêng trong menu Âm thanh hoặc nhấp đúp vào đoạn. Giữ đúng phần đã cắt, tốc độ và vị trí timeline. Tiếng clip gốc sẽ tắt để tránh trùng.</p><button className="primary-action" disabled={hardwareStatus.isProcessing} onClick={extractClipAudio}>Trích xuất âm thanh</button></FloatingPanel>}
       {showAuto&&<AutoDialog voices={voices} videoName={project.videoFileName} defaultVoice={project.characters[0]?.voiceId||voices[0]?.id} onClose={()=>setShowAuto(false)} onRun={runAutomatic} onStop={()=>{autoStop.current=true;handleCancel()}}/>}
       {/* 1. Header Toolbar */}
@@ -574,7 +582,7 @@ export default function App() {
           voices={voices}
           onRunAsr={handleRunAsr}
           onOpenProject={handleOpenProject}
-          onExportSettings={settings=>setProject(p=>({...p,exportSettings:settings}))} onExportMp4={handleExportMp4}
+          onOpenSmartSplit={()=>setShowSmartSplit(true)} onExportSettings={settings=>setProject(p=>({...p,exportSettings:settings}))} onExportMp4={handleExportMp4}
           onGeminiVideo={handleGeminiVideo}
           onExportAss={()=>triggerDownload(generateAss(project),project.title+'.ass','text/plain')}
           onRunTranslation={handleRunTranslation}

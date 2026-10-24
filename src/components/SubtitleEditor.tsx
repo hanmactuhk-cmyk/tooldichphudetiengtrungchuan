@@ -1,3 +1,4 @@
+import {countWords} from '../lib/smart-split';
 import React, { useState } from 'react';
 import {
   Play,
@@ -20,7 +21,7 @@ import { Subtitle, Character } from '../types';
 import { VIENEU_VOICES, playAudioPreview, stopAudioPreview } from '../lib/vieneu-engine';
 import { evaluateDubbingPacing } from '../lib/translator-engine';
 
-interface SubtitleEditorProps {
+interface SubtitleEditorProps {onOpenSmartSplit:()=>void;maxWords:number;
   isProcessing?:boolean;
   subtitles: Subtitle[];
   characters: Character[];
@@ -35,7 +36,7 @@ interface SubtitleEditorProps {
 }
 
 export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
-  subtitles,
+  onOpenSmartSplit,maxWords,subtitles,
   characters,
   selectedSubtitleId,
   onSelectSubtitle,
@@ -53,6 +54,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
 
   // Filtered list
   const filteredSubtitles = subtitles.filter((sub) => {
+    if(sub.smartOriginal)return false;
     if (statusFilter !== 'all' && sub.status !== statusFilter) return false;
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
@@ -117,6 +119,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
           </span>
         </div>
 
+        <button className="primary-action text-xs" disabled={isProcessing} onClick={onOpenSmartSplit}>Tự động chia câu dài</button>
         {/* Search & Filter */}
         <div className="flex items-center space-x-2">
           <div className="relative flex-1">
@@ -148,8 +151,8 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
         {filteredSubtitles.map((sub, index) => {
           const isSelected = sub.id === selectedSubtitleId;
           const char = characters.find((c) => c.id === sub.characterId);
-          const duration = sub.endTime - sub.startTime;
-          const pacing = sub.textVi ? evaluateDubbingPacing(sub.textVi, sub.startTime, sub.endTime, sub.speed) : null;
+          const duration = (sub.viEndTime??sub.endTime) - (sub.viStartTime??sub.startTime);
+          const pacing = sub.textVi ? evaluateDubbingPacing(sub.textVi, sub.viStartTime??sub.startTime, sub.viEndTime??sub.endTime, sub.speed) : null;
 
           return (
             <div
@@ -274,6 +277,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
               <div className="flex items-center justify-between pt-1 text-xs">
                 <div className="flex items-center space-x-1.5">
                   {/* Re-translate button */}
+                  {countWords(sub.textVi||'')>maxWords&&<p className="text-xs font-bold" style={{color:'#e87924'}}>⚠ {countWords(sub.textVi||'')} từ · vượt {maxWords} từ</p>}{sub.smartWarnings?.length? <p className="text-xs" style={{color:'#e87924'}}>Cần kiểm tra: {sub.smartWarnings.join(' ')}</p>:null}
                   <button aria-label={'Mở popup phụ đề '+sub.id} disabled={isProcessing} className="text-[10px] bg-cyan-900 rounded px-2 py-1" onClick={e=>{e.stopPropagation();onOpenCaptionPopup(sub.id);}}>Chỉnh popup</button><button aria-label={'Tách đôi câu '+sub.id} disabled={isProcessing} className="text-[10px] bg-zinc-800 rounded px-2 py-1" onClick={e=>{e.stopPropagation();onSplitCue(sub.id);}}>Tách đôi câu</button>
                   <button
                     onClick={(e) => {

@@ -22,7 +22,7 @@ from translation import OfflineTranslator
 from browser_translation import BrowserTranslator
 from subtitle_contract import validate_cues,from_srt,parse_srt
 from jobs import JOBS
-app = FastAPI(title='HN Voice Studio', version='6.0.6')
+app = FastAPI(title='HN Voice Studio', version='6.0.7')
 DUBBING=DubbingService(MODELS,CACHE,lambda *args:ffmpeg(*args))
 TRANSLATOR=OfflineTranslator(MODELS)
 BROWSER_HOME=Path(os.environ.get('HN_BROWSER_HOME',APP_DIR/'data/chrome-profiles'))
@@ -51,7 +51,7 @@ def ffmpeg(*args):
 @app.get('/health')
 @app.get('/api/health')
 def health():
-    return {'status':'ok','device':'cpu','models':{n:(MODELS/n).is_dir() for n in ['whisper-small','qwen3','vieneu','ocr-zh']},'modelDirectory':str(MODELS),'version':'6.0.6','instanceId':os.environ.get('HN_INSTANCE_ID'),'activeModel':POOL.name,'modelLoads':POOL.loads}
+    return {'status':'ok','device':'cpu','models':{n:(MODELS/n).is_dir() for n in ['whisper-small','qwen3','vieneu','ocr-zh']},'modelDirectory':str(MODELS),'version':'6.0.7','instanceId':os.environ.get('HN_INSTANCE_ID'),'activeModel':POOL.name,'modelLoads':POOL.loads}
 _ASR_CONTEXT=threading.local()
 def asr_progress(percent,message):
     if getattr(_ASR_CONTEXT,'cancelled',lambda:False)():raise RuntimeError('Đã dừng nhận diện.')
@@ -379,17 +379,14 @@ def timeline_speech(req:TimelineSpeechRequest):
     except ValueError as exc:raise HTTPException(422,str(exc))
     def render(progress,cancelled):
         clips=[];subtitles=[]
-        ordered=sorted(req.cues,key=lambda cue:float(cue['startTime']))
-        for index,cue in enumerate(ordered):
-            if cancelled():raise RuntimeError('Đã dừng tạo giọng.')
-            progress(int(index/len(req.cues)*95),'Đang tạo giọng '+str(index+1)+'/'+str(len(req.cues)))
-            clip=DUBBING.synthesize(cue['textVi'],cue.get('voiceId'),cue.get('speed',1),cue.get('pitch',0),cue.get('volume',1))
-            end=float(cue['endTime'])
-            if index+1<len(ordered):end=min(end,float(ordered[index+1]['startTime']))
-            fitted=DUBBING.fit_to_slot(clip,end-float(cue['startTime']));rate=fitted['fitSpeed']
-            if cancelled():raise RuntimeError('Đã dừng tạo giọng.')
-            duration=fitted['duration'];clips.append({'id':uuid.uuid4().hex,'subtitleId':cue['id'],'track':'voice','name':cue['textVi'],'audioUrl':fitted['audioUrl'],'startTime':float(cue['startTime']),'trimStart':0,'trimEnd':duration,'sourceDuration':fitted['duration'],'volume':1})
-            subtitles.append({'id':cue['id'],'ttsAudioUrl':fitted['audioUrl'],'ttsDuration':duration,'ttsFitSpeed':rate,'dubStartTime':float(cue['startTime']),'dubEndTime':float(cue['startTime'])+duration,'ttsShift':0})
+        from smart_speech import measured_speech
+        measured=measured_speech(req.cues,DUBBING,progress,cancelled)
+        for cue,fitted in measured:
+            duration=fitted['duration'];rate=fitted['fitSpeed']
+            clips.append({'id':uuid.uuid4().hex,'subtitleId':cue['id'],'track':'voice','name':cue['textVi'],'audioUrl':fitted['audioUrl'],'startTime':float(cue['startTime']),'trimStart':0,'trimEnd':duration,'sourceDuration':duration,'volume':1})
+            row={'id':cue['id'],'ttsAudioUrl':fitted['audioUrl'],'ttsDuration':duration,'ttsFitSpeed':rate,'dubStartTime':float(cue['startTime']),'dubEndTime':float(cue['startTime'])+duration,'ttsShift':0}
+            if cue.get('smartGroupId'):row.update({'startTime':cue['startTime'],'endTime':cue['endTime'],'viStartTime':cue['startTime'],'viEndTime':cue['endTime'],'smartWarnings':[]})
+            subtitles.append(row)
         return {'clips':clips,'subtitles':subtitles}
     return JOBS.submit('timeline-speech',req.model_dump(),render)
 

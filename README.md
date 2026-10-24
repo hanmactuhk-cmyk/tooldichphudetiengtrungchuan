@@ -1,3 +1,13 @@
+## HN601 6.0.7 — Tự động chia câu dài
+
+Ở bước Dịch hoặc Giọng đọc, chọn **Tự động chia câu dài → Xem trước → Áp dụng**. Mặc định tối đa 8 từ theo khoảng trắng (chỉnh 4–20), mục tiêu 3 từ/giây, giới hạn tăng tốc TTS 1,2×. Phụ đề Trung giữ nguyên. Các đoạn Việt kế thừa nhân vật/giọng, nằm trong khoảng gốc và có liên kết ID. Chia câu không tạo thêm thời gian đọc: câu thiếu thời gian vẫn được cảnh báo để duyệt.
+
+Giữ toàn bộ chữ và dấu câu ở chế độ mặc định; ưu tiên dấu câu, mệnh đề và tên riêng. Có ô bảo vệ cụm từ/tên riêng; các điểm ngắt khó cần duyệt thủ công. Có thể chỉnh bản nháp cô đọng với xác nhận đã duyệt ý nghĩa. Không tự xóa ý.
+
+Khi bạn bấm tạo giọng, dùng VieNeu-TTS v3 Turbo, đo WAV thật và phân bổ lại các đoạn trong nhóm gốc nếu chọn cả nhóm. Không cắt đuôi lời hoặc vượt giới hạn tốc độ. Nếu vẫn không vừa, dừng và giữ kết quả cũ. Batch chỉ tạo những câu mới/thay đổi; từng câu vẫn nghe thử/tạo lại riêng được.
+
+Có Hoàn tác lần chia trước, được lưu cùng project và media cũ; Ctrl+Z cũng hoạt động. SRT Trung và Việt xuất riêng như trước. Sau khi chia, hãy hoàn tác trước nếu muốn dịch lại cả câu gốc.
+
 ## HN601 6.0.6 — Xuất video và mở lại project
 
 - Full HD ngang 1920×1080 hoặc dọc 1080×1920, giữ tỷ lệ hình.

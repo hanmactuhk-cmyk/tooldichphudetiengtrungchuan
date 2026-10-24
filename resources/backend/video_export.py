@@ -3,7 +3,7 @@ import json,math,os,subprocess,tempfile,uuid,hashlib
 from pathlib import Path
 import cv2,imageio_ffmpeg
 
-def render_video(source,options,cache,dubbing,progress,cancelled):
+def _render_video(source,options,cache,dubbing,progress,cancelled):
  cap=cv2.VideoCapture(str(source));w=int(cap.get(3));h=int(cap.get(4));fps=cap.get(5);frames=cap.get(7);cap.release()
  if min(w,h)<2 or not fps or not frames:raise ValueError('Không đọc được hình ảnh video.')
  duration=max(frames/fps,float(options.get('timelineDuration') or 0));dub=dubbing.resolve(options['dubAudioUrl']) if options.get('dubAudioUrl') else None
@@ -87,3 +87,27 @@ def render_video(source,options,cache,dubbing,progress,cancelled):
     output.unlink(missing_ok=True);raise
  os.replace(output,completed_output);output=completed_output
  progress(100,'Đã xuất MP4.');return {'url':'/cache/'+output.name,'duration':duration,'width':ow,'height':oh,'videoCopied':copy_video}
+
+
+def render_video(source,options,cache,dubbing,progress,cancelled):
+ if not options.get('visuals') and not options.get('videoEdited'):return _render_video(source,options,cache,dubbing,progress,cancelled)
+ from visual_media import compose,media_path,validate_visuals
+ validate_visuals(options.get('visuals') or [],cache)
+ fingerprint=hashlib.sha256(('scene-v570:'+json.dumps(options,sort_keys=True)).encode())
+ with Path(source).open('rb') as handle:
+  for chunk in iter(lambda:handle.read(8*1024*1024),b''):
+   if cancelled():raise RuntimeError('Đã hủy xuất MP4.')
+   fingerprint.update(chunk)
+ for url in sorted({c.get('url') for c in options.get('visuals',[]) if c.get('url')}):
+  p=media_path(cache,url);stat=p.stat();fingerprint.update(f'{p.name}:{stat.st_size}:{stat.st_mtime_ns}'.encode())
+ if options.get('dubAudioUrl'):
+  p=dubbing.resolve(options['dubAudioUrl']);stat=p.stat();fingerprint.update(f'{p.name}:{stat.st_size}:{stat.st_mtime_ns}'.encode())
+ final=Path(cache)/('export-'+fingerprint.hexdigest()+'.mp4')
+ if final.is_file():
+  cap=cv2.VideoCapture(str(final));w,h=int(cap.get(3)),int(cap.get(4));duration=cap.get(7)/(cap.get(5) or 25);cap.release();progress(100,'MP4 đã sẵn sàng từ lần xuất trước.');return {'url':'/cache/'+final.name,'width':w,'height':h,'duration':duration,'cached':True,'videoCopied':False}
+ with tempfile.TemporaryDirectory(prefix='scene-',dir=cache) as folder:
+  composed=compose(source,options,cache,folder,progress,cancelled)
+  clean={k:v for k,v in options.items() if k not in ['visuals','videoEdited']}
+  result=_render_video(composed,clean,cache,dubbing,lambda p,t:progress(60+round(p*.4),t),cancelled)
+  os.replace(Path(cache)/Path(result['url']).name,final);result['url']='/cache/'+final.name
+  return result

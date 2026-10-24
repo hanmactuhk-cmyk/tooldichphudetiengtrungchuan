@@ -22,7 +22,7 @@ from translation import OfflineTranslator
 from browser_translation import BrowserTranslator
 from subtitle_contract import validate_cues,from_srt,parse_srt
 from jobs import JOBS
-app = FastAPI(title='HN Voice Studio', version='5.6.1')
+app = FastAPI(title='HN Voice Studio', version='5.7.0')
 DUBBING=DubbingService(MODELS,CACHE,lambda *args:ffmpeg(*args))
 TRANSLATOR=OfflineTranslator(MODELS)
 BROWSER_HOME=Path(os.environ.get('HN_BROWSER_HOME',APP_DIR/'data/chrome-profiles'))
@@ -51,7 +51,7 @@ def ffmpeg(*args):
 @app.get('/health')
 @app.get('/api/health')
 def health():
-    return {'status':'ok','device':'cpu','models':{n:(MODELS/n).is_dir() for n in ['whisper-small','qwen3','vieneu','ocr-zh']},'modelDirectory':str(MODELS),'version':'5.6.1','instanceId':os.environ.get('HN_INSTANCE_ID'),'activeModel':POOL.name,'modelLoads':POOL.loads}
+    return {'status':'ok','device':'cpu','models':{n:(MODELS/n).is_dir() for n in ['whisper-small','qwen3','vieneu','ocr-zh']},'modelDirectory':str(MODELS),'version':'5.7.0','instanceId':os.environ.get('HN_INSTANCE_ID'),'activeModel':POOL.name,'modelLoads':POOL.loads}
 @app.post('/api/transcribe')
 def transcribe(file: UploadFile=File(...)):
     from faster_whisper import WhisperModel
@@ -213,10 +213,11 @@ class TranslateRequest(BaseModel):
     characters:list[dict]=[]
     provider:Literal['offline','gemini','chatgpt']='offline'
     mode:str='fast'
+    inputMode:Literal['text','srt-file']='srt-file'
 
 def run_translation(req,progress=lambda *_:None,cancelled=lambda:False):
     if req.provider=='offline':return TRANSLATOR.translate(req.subtitles,req.characters,progress,cancelled)
-    return BROWSERS.translate(req.provider,req.subtitles,req.characters,progress,cancelled)
+    return BROWSERS.translate(req.provider,req.subtitles,req.characters,progress,cancelled,input_mode=req.inputMode)
 
 @app.post('/api/translate')
 def translate(req:TranslateRequest):
@@ -276,6 +277,47 @@ def clone_voice(file:UploadFile=File(...),name:str=Form(...)):
 
 class TimelineSpeechRequest(BaseModel):
     cues:list[dict]
+@app.post('/api/media/import')
+def import_media(file:UploadFile=File(...)):
+    import cv2,numpy as np
+    name=file.filename or 'media';image=Path(name).suffix.lower() in ['.png','.jpg','.jpeg','.webp']
+    target=CACHE/('media-'+uuid.uuid4().hex+('.png' if image else '.mp4'))
+    try:
+        with target.open('wb') as handle:
+            while chunk:=file.file.read(1024*1024):
+                handle.write(chunk)
+                if handle.tell()>(40*1024**2 if image else 2*1024**3):raise ValueError('Ảnh tối đa 40 MB, video tối đa 2 GB.')
+        if image:
+            im=cv2.imdecode(np.fromfile(str(target),np.uint8),cv2.IMREAD_UNCHANGED)
+            if im is None or im.shape[0]*im.shape[1]>40_000_000:raise ValueError('Ảnh không hợp lệ hoặc quá lớn.')
+            ok,data=cv2.imencode('.png',im)
+            if not ok:raise ValueError('Không đọc được ảnh.')
+            data.tofile(str(target));return {'url':'/cache/'+target.name,'kind':'image','width':im.shape[1],'height':im.shape[0],'duration':5}
+        probe=subprocess.run([__import__('imageio_ffmpeg').get_ffmpeg_exe(),'-hide_banner','-i',str(target)],capture_output=True,creationflags=0x08000000 if os.name=='nt' else 0)
+        if b'Video: h264' not in probe.stderr:
+            converted=target.with_name(target.stem+'-web.mp4')
+            try:
+                ffmpeg('-i',target,'-c:v','libx264','-preset','veryfast','-crf','20','-c:a','aac','-movflags','+faststart',converted)
+                os.replace(converted,target)
+            finally:converted.unlink(missing_ok=True)
+        cap=cv2.VideoCapture(str(target))
+        try:
+            fps=cap.get(5);frames=cap.get(7)
+            if fps<=0 or frames<=0:raise ValueError('Không đọc được video. Chọn MP4 H.264/AAC.')
+            return {'url':'/cache/'+target.name,'kind':'video','width':int(cap.get(3)),'height':int(cap.get(4)),'duration':frames/fps}
+        finally:cap.release()
+    except Exception as exc:
+        target.unlink(missing_ok=True);raise HTTPException(422,str(exc))
+
+@app.post('/api/media/track')
+def track_media(body:dict):
+    from visual_media import track,media_path
+    try:
+        source=media_path(CACHE,body['url']);start=float(body['start']);end=float(body['end']);region=body['region']
+        if not __import__('math').isfinite(start+end):raise ValueError('Thời gian không hợp lệ.')
+    except (ValueError,KeyError) as exc:raise HTTPException(422,str(exc))
+    return JOBS.submit('track-media',body,lambda progress,cancelled:track(source,start,end,region,progress,cancelled))
+
 @app.post('/api/timeline/speech')
 def timeline_speech(req:TimelineSpeechRequest):
     try:
@@ -339,10 +381,10 @@ def audio_peaks(filename:str):
 
 @app.get('/cache/{filename}')
 def audio(filename:str):
-    if Path(filename).name!=filename or not filename.endswith(('.wav','.mp4')): raise HTTPException(404)
+    if Path(filename).name!=filename or not filename.endswith(('.wav','.mp4','.png','.jpg','.webp')): raise HTTPException(404)
     path=CACHE/filename
     if not path.is_file(): raise HTTPException(404)
-    return FileResponse(path,media_type='video/mp4' if filename.endswith('.mp4') else 'audio/wav')
+    return FileResponse(path,media_type='video/mp4' if filename.endswith('.mp4') else 'audio/wav' if filename.endswith('.wav') else 'image/png')
 if (ROOT/'dist').is_dir(): app.mount('/',StaticFiles(directory=ROOT/'dist',html=True),name='frontend')
 if __name__=='__main__':
     import uvicorn

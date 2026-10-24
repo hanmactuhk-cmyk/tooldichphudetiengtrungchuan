@@ -1,3 +1,7 @@
+import {LayerVideo} from './LayerVideo';
+import {FloatingPanel} from './FloatingPanel';
+import {geometry} from '../lib/visual-engine';
+import {VisualClip} from '../types';
 import {captionBox,coloredCharacters,placeCaptions,visibleCue,rgba,FONTS,DEFAULT_DECORATION} from '../lib/styled-caption';
 import {VideoDesignPanel} from './VideoDesignPanel';
 import {stopAudioPreview} from '../lib/vieneu-engine';
@@ -17,13 +21,14 @@ import { Subtitle, Character, CaptionLayout, CaptionPosition, BlurRegion,VideoDe
 
 interface VideoPlayerProps {
   videoUrl: string | null;
+  videoEdited?:boolean;visuals:VisualClip[];selectedVisual:string|null;onSelectVisual:(id:string)=>void;onVisualChange:(v:VisualClip[])=>void;mediaEditor:React.ReactNode;baseWidth?:number;baseHeight?:number;
   decoration:VideoDecoration;onDecorationChange:(d:VideoDecoration)=>void;
   blur:BlurRegion;onBlurChange:(b:BlurRegion)=>void;
   expanded:boolean;onToggleExpanded:()=>void;
   layout:CaptionLayout;
   onLayoutChange:(v:CaptionLayout)=>void;
   onCuePositionChange:(id:string,p:CaptionPosition)=>void;
-  originalDetached?:boolean;
+  originalDetached?:boolean;originalDetachedMuted?:boolean;
   manualTimeline?:boolean;
   dubAudioUrl?:string;
   dubDuration?:number;
@@ -43,8 +48,8 @@ interface VideoPlayerProps {
 }
 
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({
-  videoUrl,decoration,onDecorationChange,blur,onBlurChange,layout,onLayoutChange,onCuePositionChange,expanded,onToggleExpanded,
-  dubAudioUrl,manualTimeline,originalDetached,
+  videoUrl,videoEdited,visuals,selectedVisual,onSelectVisual,onVisualChange,mediaEditor,baseWidth,baseHeight,decoration,onDecorationChange,blur,onBlurChange,layout,onLayoutChange,onCuePositionChange,expanded,onToggleExpanded,
+  dubAudioUrl,manualTimeline,originalDetached,originalDetachedMuted,
   dubDuration,
   subtitles,
   characters,
@@ -60,6 +65,12 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onToggleOriginalMute,
   onToggleDucking,
 }) => {
+  const rootRef=useRef<HTMLDivElement>(null);const [tool,setTool]=useState<'design'|'blur'|'media'|null>(null),[zoom,setZoom]=useState(1),[full,setFull]=useState(false);
+  useEffect(()=>{const open=()=>setTool('media');window.addEventListener('hn-open-media',open);return()=>window.removeEventListener('hn-open-media',open)},[]);
+  const visualDrag=useRef<any>(null);const hasVideoLayers=videoEdited||visuals.some(c=>c.kind==='video');const activeVideo=[...visuals].reverse().find(c=>c.kind==='video'&&c.enabled&&currentTime>=c.startTime&&currentTime<c.endTime);const resolvedUrl=hasVideoLayers?activeVideo?.url||null:videoUrl;const sourceOffset=activeVideo?activeVideo.sourceStart-activeVideo.startTime:0;
+  const sourceAt=(t:number)=>Math.max(0,t+sourceOffset);const shown=visuals.filter(c=>(c.kind!=='video'||c.id===selectedVisual)&&c.enabled&&currentTime>=c.startTime&&currentTime<c.endTime);
+  useEffect(()=>{const f=()=>setFull(!!document.fullscreenElement);document.addEventListener('fullscreenchange',f);return()=>document.removeEventListener('fullscreenchange',f)},[]);
+  const changeGeometry=(c:VisualClip,updates:Partial<VisualClip>)=>{const g=geometry(c,currentTime),time=Math.max(c.startTime,Math.min(c.endTime,currentTime));const next={...c,...updates};if(c.keyframes.length)next.keyframes=[...c.keyframes.filter(k=>Math.abs(k.time-time)>.001),{time,x:g.x,y:g.y,width:g.width,height:g.height,opacity:g.opacity,...updates}].sort((a,b)=>a.time-b.time);onVisualChange(visuals.map(v=>v.id===c.id?next:v));};
   const containerRef=useRef<HTMLDivElement|null>(null),captionRef=useRef<HTMLDivElement|null>(null);
   const [viewport,setViewport]=useState({width:600,height:400}),[nativeRatio,setNativeRatio]=useState(16/9);
   const [scope,setScope]=useState<'all'|'cue'>('all'),[captionSize,setCaptionSize]=useState({width:0,height:0});
@@ -81,9 +92,9 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const video=videoRef.current;if(!video)return;
     video.playbackRate=playbackSpeed;
     video.volume=Math.min(1,Math.max(0,originalAudioVolume*(bgmDucking&&subtitles.some(s=>s.ttsAudioUrl&&currentTime>=s.startTime&&currentTime<s.endTime)?0.25:1)));
-    if(Math.abs(video.currentTime-Math.min(video.duration||currentTime,currentTime))>(isPlaying?.6:.005))video.currentTime=Math.min(video.duration||currentTime,currentTime);
-    if(isPlaying&&(!Number.isFinite(video.duration)||currentTime<video.duration-.05))video.play().catch(()=>{});else video.pause();
-  },[videoUrl,isPlaying,currentTime,playbackSpeed,originalAudioVolume,bgmDucking,subtitles]);
+    if(Math.abs(video.currentTime-Math.min(video.duration||sourceAt(currentTime),sourceAt(currentTime)))>(isPlaying?.6:.005))video.currentTime=Math.min(video.duration||sourceAt(currentTime),sourceAt(currentTime));
+    if(isPlaying&&(!Number.isFinite(video.duration)||sourceAt(currentTime)<video.duration-.05))video.play().catch(()=>{});else video.pause();
+  },[resolvedUrl,isPlaying,currentTime,playbackSpeed,originalAudioVolume,bgmDucking,subtitles,sourceOffset]);
 
   // Find currently active subtitle
   const activeCaptions=useMemo(()=>{const langs:('vi'|'zh')[]=subtitleMode==='off'?[]:subtitleMode==='bilingual'?['vi','zh']:[subtitleMode];return langs.flatMap(lang=>{const cue=subtitles.find(c=>{const v=visibleCue(c,lang,!!dubAudioUrl&&!manualTimeline);return v.text&&currentTime>=v.start&&currentTime<v.end});return cue?[{cue,lang,text:visibleCue(cue,lang,!!dubAudioUrl&&!manualTimeline).text}]:[];});},[subtitles,currentTime,dubAudioUrl,manualTimeline,subtitleMode]);
@@ -98,7 +109,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   useEffect(()=>{
     if(!dubAudioUrl)return;
     const audio=new Audio(dubAudioUrl);dubRef.current=audio;
-    audio.ontimeupdate=()=>{if(audio.paused)return;if(!videoRef.current||videoRef.current.ended||audio.currentTime>=(videoRef.current.duration||Infinity)-.05)onTimeUpdate(audio.currentTime);};
+
     return()=>{audio.pause();audio.src='';dubRef.current=null;};
   },[dubAudioUrl]);
   useEffect(()=>{
@@ -108,7 +119,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     if(isPlaying){stopAudioPreview();audio.play().catch(()=>{});}else audio.pause();
   },[isPlaying,currentTime,playbackSpeed,dubAudioUrl]);
   useEffect(()=>{const pauseForPreview=()=>{dubRef.current?.pause();videoRef.current?.pause();if(isPlaying)onTogglePlay();};window.addEventListener('hnvoice-preview',pauseForPreview);return()=>window.removeEventListener('hnvoice-preview',pauseForPreview);},[isPlaying,onTogglePlay]);
-  useEffect(()=>{const audio=dubRef.current;if(!audio)return;audio.onended=()=>{if(isPlaying)onTogglePlay();};},[isPlaying,dubAudioUrl,onTogglePlay]);
+  const timeRef=useRef(currentTime);timeRef.current=currentTime;const tickCallback=useRef(onTimeUpdate);tickCallback.current=onTimeUpdate;const endCallback=useRef(onTogglePlay);endCallback.current=onTogglePlay;
+  useEffect(()=>{if(!isPlaying)return;const start=performance.now(),at=timeRef.current;let frame=0,last=0;const tick=(now:number)=>{const t=Math.min(duration,at+(now-start)/1000*playbackSpeed);if(now-last>=40){tickCallback.current(t);last=now;}if(t>=duration){endCallback.current();return;}frame=requestAnimationFrame(tick)};frame=requestAnimationFrame(tick);return()=>cancelAnimationFrame(frame);},[isPlaying,playbackSpeed,duration]);
 
   const position=(scope==='cue'&&activeSub?.position)||activeSub?.position||layout.position;
   const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
@@ -117,9 +129,10 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const commit=(next:CaptionPosition)=>{next={x:clamp(next.x,Math.min(.5,(captionSize.width/2+3)/pw),Math.max(.5,1-(captionSize.width/2+3)/pw)),y:clamp(next.y,Math.min(.5,(captionSize.height/2+3)/ph),Math.max(.5,1-(captionSize.height/2+3)/ph))};if(scope==='cue'&&activeSub)onCuePositionChange(activeSub.id,next);else onLayoutChange({...layout,position:next});};
   const move=(e:React.PointerEvent)=>{if(!drag.current||e.pointerId!==drag.current.pointer)return;const b=e.currentTarget.parentElement!.getBoundingClientRect();commit({x:clamp((e.clientX-b.left-drag.current.dx)/b.width,0,1),y:clamp((e.clientY-b.top-drag.current.dy)/b.height,0,1)});};
   const formatTime=(sec:number)=>`${Math.floor(sec/60).toString().padStart(2,'0')}:${Math.floor(sec%60).toString().padStart(2,'0')}.${Math.floor(sec%1*10)}`;
-  return (<div className="flex-1 min-w-0 min-h-0 flex flex-col bg-[#161e2d] border border-slate-600 rounded-xl m-2 shadow-xl overflow-hidden select-none">
+  return (<div ref={rootRef} className="preview-shell flex-1 min-w-0 min-h-0 flex flex-col bg-[#161e2d] border border-slate-600 rounded-xl m-2 shadow-xl overflow-hidden select-none">
     <div className="shrink-0 flex flex-wrap gap-2 items-center p-2 text-xs bg-zinc-900 border-b border-zinc-800">
 <button className="bg-rose-700 rounded p-1" onClick={onToggleExpanded}>{expanded?'Hiện bảng biên tập':'Phóng to khung hình'}</button>
+      <button onClick={()=>setTool(tool==='design'?null:'design')}>✦ Phụ đề / Nền</button><button onClick={()=>setTool(tool==='blur'?null:'blur')}>◉ Làm mờ</button><button onClick={()=>setTool(tool==='media'?null:'media')}>🎬 Video / Ảnh / Keyframe</button><button aria-label="Preview toàn màn hình" onClick={()=>{if(document.fullscreenElement)document.exitFullscreen();else rootRef.current?.requestFullscreen();}}>⛶ Toàn màn hình</button><button aria-label="Thu nhỏ preview" onClick={()=>setZoom(z=>Math.max(.25,z-.25))}>−</button><input aria-label="Thu phóng preview" type="range" min=".25" max="3" step=".05" value={zoom} onChange={e=>setZoom(+e.target.value)} className="w-16"/><button aria-label="Phóng to preview" onClick={()=>setZoom(z=>Math.min(3,z+.25))}>＋</button><button onClick={()=>setZoom(1)}>{Math.round(zoom*100)}% · Vừa</button>
       <label>Khung hình <select aria-label="Tỷ lệ khung hình" value={layout.aspect} onChange={e=>onLayoutChange({...layout,aspect:e.target.value as CaptionLayout['aspect']})} className="bg-zinc-800 rounded p-1"><option value="auto">Theo video</option><option value="16:9">16:9</option><option value="9:16">9:16</option></select></label>
       <select aria-label="Hiển thị phụ đề" value={subtitleMode} onChange={e=>setSubtitleMode(e.target.value as typeof subtitleMode)} className="bg-zinc-800 rounded p-1"><option value="bilingual">Song ngữ</option><option value="vi">Tiếng Việt</option><option value="zh">Tiếng Trung</option><option value="off">Tắt phụ đề</option></select>
       <select aria-label="Phạm vi kéo phụ đề" value={scope} onChange={e=>setScope(e.target.value as 'all'|'cue')} className="bg-zinc-800 rounded p-1"><option value="all">Vị trí toàn bộ</option><option value="cue">Vị trí câu đang hiện</option></select>
@@ -127,18 +140,23 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       <label>Cỡ chữ <input aria-label="Cỡ chữ phụ đề" type="range" min=".5" max="15" step=".25" value={layout.fontSize} onChange={e=>onLayoutChange({...layout,fontSize:Number(e.target.value)})} className="w-16 align-middle"/></label>
       <label>Độ rộng <input aria-label="Độ rộng phụ đề" type="range" min="40" max="96" value={layout.width} onChange={e=>onLayoutChange({...layout,width:Number(e.target.value)})} className="w-16 align-middle"/></label>
     </div>
-    <VideoDesignPanel layout={layout} onLayoutChange={onLayoutChange} decoration={decoration} onDecorationChange={onDecorationChange}/>
-    <div className="shrink-0 flex flex-wrap gap-3 items-center px-2 py-1 text-xs bg-zinc-900"><label><input aria-label="Làm mờ phụ đề gốc" type="checkbox" checked={blur.enabled} onChange={e=>onBlurChange({...blur,enabled:e.target.checked})}/> Làm mờ phụ đề gốc</label>{blur.enabled&&<><label>Bo góc vùng mờ <input aria-label="Bo góc vùng mờ" type="range" min="0" max=".5" step=".025" value={blur.radius??.22} onChange={e=>onBlurChange({...blur,radius:Number(e.target.value)})}/></label><span>Kéo vùng mờ; kéo góc dưới phải để đổi kích thước</span><label>Độ mờ <input aria-label="Độ mờ" type="range" min="2" max="30" value={blur.strength} onChange={e=>onBlurChange({...blur,strength:Number(e.target.value)})}/></label></>}</div>
-    <div ref={containerRef} className="relative flex-1 min-h-0 min-w-0 bg-zinc-950 flex items-center justify-center overflow-hidden">
-      <div data-testid="video-frame" className="relative bg-black shrink-0 overflow-hidden ring-2 ring-slate-500 shadow-2xl" style={{width:fw,height:fh}}>
+    {tool==='design'&&<FloatingPanel title="Thiết kế phụ đề và nền" onClose={()=>setTool(null)}>    <VideoDesignPanel layout={layout} onLayoutChange={onLayoutChange} decoration={decoration} onDecorationChange={onDecorationChange}/>
+</FloatingPanel>}
+    {tool==='blur'&&<FloatingPanel title="Làm mờ" onClose={()=>setTool(null)}>    <div className="shrink-0 flex flex-wrap gap-3 items-center px-2 py-1 text-xs bg-zinc-900"><label><input aria-label="Làm mờ phụ đề gốc" type="checkbox" checked={blur.enabled} onChange={e=>onBlurChange({...blur,enabled:e.target.checked})}/> Làm mờ phụ đề gốc</label>{blur.enabled&&<><label>Bo góc vùng mờ <input aria-label="Bo góc vùng mờ" type="range" min="0" max=".5" step=".025" value={blur.radius??.22} onChange={e=>onBlurChange({...blur,radius:Number(e.target.value)})}/></label><span>Kéo vùng mờ; kéo góc dưới phải để đổi kích thước</span><label>Độ mờ <input aria-label="Độ mờ" type="range" min="2" max="30" value={blur.strength} onChange={e=>onBlurChange({...blur,strength:Number(e.target.value)})}/></label></>}</div>
+<p className="p-3 text-xs text-slate-300">Để tạo nhiều vùng mờ theo thời gian, mở Video / Ảnh / Keyframe → ＋ Vùng mờ.</p><button onClick={()=>setTool('media')}>Mở vùng mờ trên timeline</button></FloatingPanel>}
+    {tool==='media'&&<FloatingPanel title="Video · Ảnh · Chuyển động" onClose={()=>setTool(null)}>{mediaEditor}</FloatingPanel>}
+    <div ref={containerRef} className="relative flex-1 min-h-0 min-w-0 bg-zinc-950 flex items-center justify-center overflow-auto">
+      <div data-testid="video-frame" className="relative bg-black shrink-0 overflow-hidden ring-2 ring-slate-500 shadow-2xl" style={{width:fw,height:fh,transform:`scale(${zoom})`,transformOrigin:'center'}}>
         <div data-testid="video-picture" className="absolute overflow-hidden" style={{width:pw,height:ph,left:(fw-pw)/2,top:(fh-ph)/2}}>
-          {videoUrl?<video ref={videoRef} src={videoUrl} className="absolute inset-0 w-full h-full" muted={originalAudioMuted}
-            onLoadedMetadata={e=>{const v=e.currentTarget;if(v.videoWidth&&v.videoHeight)setNativeRatio(v.videoWidth/v.videoHeight);}}
-            onTimeUpdate={e=>{if(!e.currentTarget.paused&&currentTime<=e.currentTarget.duration+.05)onTimeUpdate(e.currentTarget.currentTime);}}
-            onEnded={()=>{if(isPlaying&&(!dubAudioUrl||(dubDuration||0)<=(videoRef.current?.duration||0)+.05))onTogglePlay();}}/>:
+          {visuals.filter(c=>c.kind==='video'&&c.enabled&&currentTime>=c.startTime&&currentTime<c.endTime&&c.id!==activeVideo?.id).map(c=><LayerVideo key={c.id} clip={c} time={currentTime} playing={isPlaying} speed={playbackSpeed} muted={originalAudioMuted||!!originalDetached} volume={originalAudioVolume}/>)}
+          {resolvedUrl?<video ref={videoRef} src={resolvedUrl} className="absolute" style={activeVideo?{left:geometry(activeVideo,currentTime).x*100+'%',top:geometry(activeVideo,currentTime).y*100+'%',width:geometry(activeVideo,currentTime).width*100+'%',height:geometry(activeVideo,currentTime).height*100+'%',opacity:geometry(activeVideo,currentTime).opacity,objectFit:activeVideo.fit||'contain'}:{inset:0,width:'100%',height:'100%'}} muted={originalAudioMuted||originalDetached}
+            onLoadedMetadata={e=>{const v=e.currentTarget;if(v.videoWidth&&v.videoHeight)setNativeRatio(baseWidth&&baseHeight?baseWidth/baseHeight:v.videoWidth/v.videoHeight);}}
+            onTimeUpdate={e=>{}}
+            onEnded={()=>{}}/>:
             <div className="absolute inset-0 flex items-center justify-center text-xs text-zinc-500">Chọn video hoặc nhập SRT</div>}
           {videoUrl&&blur.enabled&&<div data-testid="blur-region" aria-label="Kéo vùng làm mờ" className="absolute z-[5] border border-cyan-300/70 cursor-move touch-none" style={{left:blur.x*100+'%',top:blur.y*100+'%',width:blur.width*100+'%',height:blur.height*100+'%',borderRadius:Math.min(blur.width*pw,blur.height*ph)*(blur.radius??.22),overflow:'hidden',backdropFilter:`blur(${blur.strength*pw/Math.max(1,videoRef.current?.videoWidth||pw)}px)`}} onPointerDown={e=>{if(e.button!==0)return;blurDrag.current={x:e.clientX,y:e.clientY,region:{...blur},resize:(e.target as HTMLElement).dataset.resize==='yes'};e.currentTarget.setPointerCapture(e.pointerId);e.preventDefault();}} onPointerMove={blurMove} onPointerUp={()=>{blurDrag.current=null;}} onPointerCancel={()=>{blurDrag.current=null;}}><span data-resize="yes" aria-label="Đổi kích thước vùng mờ" className="absolute right-0 bottom-0 w-5 h-5 bg-cyan-400 cursor-se-resize"/></div>}
-          {placeCaptions(activeCaptions,videoRef.current?.videoWidth||1920,videoRef.current?.videoHeight||1080,layout,decoration.enabled?{top:Math.max(0,(decoration.topHeight*fh-(fh-ph)/2)/ph*(videoRef.current?.videoHeight||1080)),bottom:Math.min(videoRef.current?.videoHeight||1080,((1-decoration.bottomHeight)*fh-(fh-ph)/2)/ph*(videoRef.current?.videoHeight||1080))}:undefined).map(({cue,lang,style,box:m,x,y},index)=>{const scale=pw/(videoRef.current?.videoWidth||1920),pos={x:x/(videoRef.current?.videoWidth||1920),y:y/(videoRef.current?.videoHeight||1080)};return <div key={lang+cue.id} ref={index===0?captionRef:undefined} data-testid="subtitle-overlay" role="group" aria-label="Kéo vị trí phụ đề" className="absolute z-10 cursor-move touch-none text-center" style={{left:pos.x*100+'%',top:pos.y*100+'%',transform:'translate(-50%,-50%)',width:m.width*scale,height:m.height*scale,padding:m.pad*scale,background:rgba(style.backgroundColor||'#000000',style.backgroundOpacity??.75),borderRadius:Math.min(m.width,m.height)*(style.cornerRadius??.2)*scale,color:style.textColor||'#ffffff',fontFamily:style.fontFamily||'Arial',fontWeight:style.bold===false?400:700,fontStyle:style.italic?'italic':'normal',fontSize:m.size*scale,lineHeight:m.lineHeight*scale+'px'}} onPointerDown={e=>{if(e.button!==0)return;const b=e.currentTarget.parentElement!.getBoundingClientRect();drag.current={pointer:e.pointerId,dx:e.clientX-b.left-pos.x*b.width,dy:e.clientY-b.top-pos.y*b.height};e.currentTarget.setPointerCapture(e.pointerId);e.preventDefault();}} onPointerMove={move} onPointerUp={()=>{drag.current=null;}} onPointerCancel={()=>{drag.current=null;}}>{m.lines.map((line,i)=><div key={i} style={{whiteSpace:'pre',height:m.lineHeight*scale}}>{line?coloredCharacters(line,m.lineStarts[i],style.characterColors).map(c=><span key={c.index} style={{color:c.color}}>{c.text}</span>):'\u00a0'}</div>)}</div>;})}
+          {shown.map(c=>{const g=geometry(c,currentTime);return <div key={c.id} data-testid={'visual-'+c.kind} data-visual-id={c.id} onPointerDown={e=>{if(e.button!==0)return;onSelectVisual(c.id);setTool('media');const r=e.currentTarget.parentElement!.getBoundingClientRect();visualDrag.current={id:c.id,x:e.clientX,y:e.clientY,w:r.width,h:r.height,g,resize:(e.target as HTMLElement).dataset.resize==='yes'};e.currentTarget.setPointerCapture(e.pointerId)}} onPointerMove={e=>{const d=visualDrag.current;if(d?.id!==c.id)return;const dx=(e.clientX-d.x)/d.w,dy=(e.clientY-d.y)/d.h;changeGeometry(c,d.resize?{width:Math.max(.01,Math.min(1-d.g.x,d.g.width+dx)),height:Math.max(.01,Math.min(1-d.g.y,d.g.height+dy))}:{x:Math.max(0,Math.min(1-d.g.width,d.g.x+dx)),y:Math.max(0,Math.min(1-d.g.height,d.g.y+dy))})}} onPointerUp={()=>{visualDrag.current=null}} onPointerCancel={()=>{visualDrag.current=null}} className="absolute cursor-move touch-none" style={{left:g.x*100+'%',top:g.y*100+'%',width:g.width*100+'%',height:g.height*100+'%',opacity:g.opacity,zIndex:c.kind==='blur'?5:4,outline:selectedVisual===c.id?'1px solid #67e8f9':undefined,borderRadius:c.kind==='blur'?Math.min(g.width*pw,g.height*ph)*(c.radius??.22):0,overflow:'hidden',backdropFilter:c.kind==='blur'?`blur(${(c.strength||16)*pw/Math.max(1,baseWidth||1920)}px)`:undefined}}>{c.kind==='image'&&<img draggable={false} src={c.url} alt={c.name} className="w-full h-full pointer-events-none" style={{objectFit:c.fit||'contain'}}/>}{selectedVisual===c.id&&<span data-resize="yes" aria-label="Đổi kích thước lớp" className="absolute right-0 bottom-0 w-4 h-4 bg-cyan-300 cursor-se-resize"/>}</div>})}
+          {placeCaptions(activeCaptions,baseWidth||videoRef.current?.videoWidth||1920,baseHeight||videoRef.current?.videoHeight||1080,layout,decoration.enabled?{top:Math.max(0,(decoration.topHeight*fh-(fh-ph)/2)/ph*(baseHeight||videoRef.current?.videoHeight||1080)),bottom:Math.min(baseHeight||videoRef.current?.videoHeight||1080,((1-decoration.bottomHeight)*fh-(fh-ph)/2)/ph*(baseHeight||videoRef.current?.videoHeight||1080))}:undefined).map(({cue,lang,style,box:m,x,y},index)=>{const scale=pw/(baseWidth||videoRef.current?.videoWidth||1920),pos={x:x/(baseWidth||videoRef.current?.videoWidth||1920),y:y/(baseHeight||videoRef.current?.videoHeight||1080)};return <div key={lang+cue.id} ref={index===0?captionRef:undefined} data-testid="subtitle-overlay" role="group" aria-label="Kéo vị trí phụ đề" className="absolute z-10 cursor-move touch-none text-center" style={{left:pos.x*100+'%',top:pos.y*100+'%',transform:'translate(-50%,-50%)',width:m.width*scale,height:m.height*scale,padding:m.pad*scale,background:rgba(style.backgroundColor||'#000000',style.backgroundOpacity??.75),borderRadius:Math.min(m.width,m.height)*(style.cornerRadius??.2)*scale,color:style.textColor||'#ffffff',fontFamily:style.fontFamily||'Arial',fontWeight:style.bold===false?400:700,fontStyle:style.italic?'italic':'normal',fontSize:m.size*scale,lineHeight:m.lineHeight*scale+'px'}} onPointerDown={e=>{if(e.button!==0)return;const b=e.currentTarget.parentElement!.getBoundingClientRect();drag.current={pointer:e.pointerId,dx:e.clientX-b.left-pos.x*b.width,dy:e.clientY-b.top-pos.y*b.height};e.currentTarget.setPointerCapture(e.pointerId);e.preventDefault();}} onPointerMove={move} onPointerUp={()=>{drag.current=null;}} onPointerCancel={()=>{drag.current=null;}}>{m.lines.map((line,i)=><div key={i} style={{whiteSpace:'pre',height:m.lineHeight*scale}}>{line?coloredCharacters(line,m.lineStarts[i],style.characterColors).map(c=><span key={c.index} style={{color:c.color}}>{c.text}</span>):'\u00a0'}</div>)}</div>;})}
         </div>
         {decoration.enabled&&([['top',decoration.topText,decoration.topHeight,0],['bottom',decoration.bottomText,decoration.bottomHeight,1-decoration.bottomHeight]] as const).map(([id,text,height,y])=>{const m=captionBox(text,fw,{...layout,width:98,fontSize:decoration.fontSize,fontFamily:decoration.fontFamily,bold:decoration.bold!==false,italic:decoration.italic});return <div key={id} data-testid={'banner-'+id} className="absolute left-0 w-full flex items-center justify-center text-center pointer-events-none z-20" style={{top:y*100+'%',height:height*100+'%',background:decoration.backgroundColor,color:decoration.textColor,fontFamily:decoration.fontFamily,fontSize:m.size,fontWeight:decoration.bold===false?400:700,fontStyle:decoration.italic?'italic':'normal',lineHeight:1.28}}><div>{m.lines.map((line,i)=><div key={i} style={{whiteSpace:'pre',lineHeight:'1.28',height:m.lineHeight}}>{coloredCharacters(line,m.lineStarts[i],id==='top'?decoration.topColors:decoration.bottomColors).map(c=><span key={c.index} style={{color:c.color}}>{c.text}</span>)}</div>)}</div></div>;})}
         {decoration.overlays.map(t=>{const m=captionBox(t.text,fw,{...layout,fontSize:decoration.fontSize,fontFamily:decoration.fontFamily,bold:decoration.bold!==false,italic:decoration.italic});return <div key={t.id} data-testid="custom-video-text" className="absolute z-30 cursor-move text-center touch-none" style={{left:t.x*100+'%',top:t.y*100+'%',transform:'translate(-50%,-50%)',width:m.width,padding:m.pad,background:rgba(layout.backgroundColor||'#000000',layout.backgroundOpacity??.75),color:decoration.overlayColor||'#ffffff',fontFamily:decoration.fontFamily,fontSize:m.size,fontWeight:decoration.bold===false?400:700,fontStyle:decoration.italic?'italic':'normal',lineHeight:1.28}} onPointerDown={e=>{e.currentTarget.setPointerCapture(e.pointerId);e.preventDefault();}} onPointerMove={e=>{if(e.currentTarget.hasPointerCapture(e.pointerId)){const r=e.currentTarget.parentElement!.getBoundingClientRect();onDecorationChange({...decoration,overlays:decoration.overlays.map(o=>o.id===t.id?{...o,x:Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)),y:Math.max(0,Math.min(1,(e.clientY-r.top)/r.height))}:o)});}}} onPointerUp={e=>e.currentTarget.releasePointerCapture(e.pointerId)}>{m.lines.map((line,i)=><div key={i} style={{whiteSpace:'pre',height:m.lineHeight}}>{coloredCharacters(line,m.lineStarts[i],t.characterColors).map(c=><span key={c.index} style={{color:c.color}}>{c.text}</span>)}</div>)}</div>;})}
@@ -178,13 +196,13 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           {/* Original Audio controls */}
           <div className="flex items-center space-x-2 bg-[#1b1b20] px-2.5 py-1 rounded-md border border-zinc-800">
             <button
-              disabled={originalDetached} onClick={onToggleOriginalMute}
+              onClick={onToggleOriginalMute}
               className={`p-1 rounded ${
-                originalAudioMuted ? 'text-red-400' : 'text-zinc-400 hover:text-white'
+                (originalDetached?originalDetachedMuted:originalAudioMuted) ? 'text-red-400' : 'text-zinc-400 hover:text-white'
               }`}
               title={originalDetached?'Tiếng gốc đã tách: chỉnh ở timeline':originalAudioMuted ? 'Bật tiếng gốc' : 'Tắt tiếng gốc'}
             >
-              {originalAudioMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+              {(originalDetached?originalDetachedMuted:originalAudioMuted) ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
             </button>
             <span className="text-[11px] text-zinc-400">{originalDetached?'Tiếng gốc ở timeline':'Âm thanh gốc:'}</span>
             <input
@@ -192,8 +210,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
               min="0"
               max="1"
               step="0.05"
-              disabled={originalDetached} value={originalAudioMuted ? 0 : originalAudioVolume}
-              onChange={(e) => onChangeOriginalVolume(parseFloat(e.target.value))}
+              key={'original-volume-'+originalAudioVolume} defaultValue={originalDetached?originalAudioVolume:originalAudioMuted?0:originalAudioVolume}
+              onChange={e=>{if(!originalDetached)onChangeOriginalVolume(+e.target.value)}} onPointerUp={e=>{if(originalDetached)onChangeOriginalVolume(+e.currentTarget.value)}} onKeyUp={e=>{if(originalDetached)onChangeOriginalVolume(+e.currentTarget.value)}} onBlur={e=>{if(originalDetached&&+e.target.value!==originalAudioVolume)onChangeOriginalVolume(+e.target.value)}} aria-label="Âm lượng tiếng gốc"
               className="w-16 h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-rose-500"
             />
           </div>
@@ -213,7 +231,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           </button>
 
           {/* Speed Selector */}
-          <select
+          <select aria-label="Tốc độ phát xem trước"
             value={playbackSpeed}
             onChange={(e) => setPlaybackSpeed(parseFloat(e.target.value))}
             className="bg-[#1b1b20] border border-zinc-800 rounded px-2 py-1 text-zinc-300 text-[11px] focus:outline-none"

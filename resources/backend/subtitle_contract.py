@@ -2,7 +2,7 @@
 import json
 import re
 
-INSTRUCTION = ('Hãy dịch giúp SRT tiếng Trung này thành tiếng Việt. Yêu cầu dịch sát nghĩa, '
+INSTRUCTION = ('Dịch để lồng tiếng: mỗi câu tiếng Việt ngắn gọn, tự nhiên và vừa khoảng thời gian của câu đó. Không dịch từng chữ; bỏ từ đệm hoặc ý lặp, nhưng giữ thông tin quan trọng, tên riêng, con số, phủ định, cảm xúc và nhân xưng. Không gộp hay chuyển ý sang câu khác. Hãy dịch giúp SRT tiếng Trung này thành tiếng Việt. Yêu cầu dịch sát nghĩa, '
     'không quá dài dòng, giống người thật nhất. Phân biệt nhân xưng phù hợp với quan hệ '
     'và ngữ cảnh; giữ nhất quán tên riêng. Không tự bịa quan hệ khi chưa rõ. '
     'Giữ nguyên số thứ tự, mốc thời gian, số lượng câu và thứ tự câu. '

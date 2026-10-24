@@ -52,7 +52,9 @@ async function start(){
  }
  if(quitting)return;if(!ready)throw new Error('Bộ xử lý không sẵn sàng sau 90 giây.');
  splashStatus('Đang mở không gian làm việc…');
- session.defaultSession.setPermissionRequestHandler((_wc,_permission,callback)=>callback(false));
+ const permitted=(wc,permission)=>!!wc&&wc===mainWindow?.webContents&&new URL(wc.getURL()).origin===origin&&['fullscreen','clipboard-sanitized-write'].includes(permission);
+ session.defaultSession.setPermissionRequestHandler((wc,permission,callback)=>callback(permitted(wc,permission)));
+ session.defaultSession.setPermissionCheckHandler((wc,permission)=>permitted(wc,permission));
  mainWindow=new BrowserWindow({icon:path.join(__dirname,'dist','hnstudio.ico'),title:'HNstudio '+app.getVersion(),width:1440,height:930,minWidth:1100,minHeight:700,show:false,backgroundColor:'#101827',autoHideMenuBar:true,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true,preload:path.join(__dirname,'preload.cjs')}});
  mainWindow.on('page-title-updated',event=>{event.preventDefault();mainWindow.setTitle('HNstudio '+app.getVersion());});
  mainWindow.webContents.setWindowOpenHandler(()=>({action:'deny'}));

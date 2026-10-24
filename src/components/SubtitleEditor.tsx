@@ -102,7 +102,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
   };
 
   return (
-    <div inert={isProcessing} aria-busy={isProcessing} className={"w-96 lg:w-[440px] bg-[#16161a] border-l border-[#27272a] flex flex-col shrink-0 select-none overflow-hidden "+(isProcessing?"pointer-events-none opacity-60":"")}>
+    <div inert={isProcessing} aria-busy={isProcessing} className={"w-72 lg:w-[320px] bg-[#16161a] border-l border-[#27272a] flex flex-col shrink-0 select-none overflow-hidden "+(isProcessing?"pointer-events-none opacity-60":"")}>
       {/* Editor Header */}
       <div className="p-3 border-b border-[#27272a] bg-[#18181c] space-y-2">
         <div className="flex items-center justify-between">

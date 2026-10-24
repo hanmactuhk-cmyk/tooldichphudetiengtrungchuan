@@ -12,7 +12,7 @@ export function deleteTimelineSelection(original:ProjectData,items:{track:'subti
 }
 export function projectClips(p:ProjectData):TimelineAudioClip[]{return p.audioClips??p.subtitles.filter(s=>s.ttsAudioUrl).map(s=>({id:'voice-'+s.id,subtitleId:s.id,track:'voice',name:s.textVi||s.textZh,audioUrl:s.ttsAudioUrl!,startTime:s.dubStartTime??s.startTime,trimStart:0,trimEnd:s.ttsDuration||s.endTime-s.startTime,sourceDuration:s.ttsDuration||s.endTime-s.startTime,volume:1}));}
 export function timelineSubtitles(p:ProjectData){return p.manualTimeline||!p.dubAudioUrl?p.subtitles:p.subtitles.map(s=>({...s,startTime:s.dubStartTime??s.startTime,endTime:s.dubEndTime??s.endTime}));}
-export function timelineEnd(p:ProjectData){return Math.max(p.duration,...p.subtitles.flatMap(s=>[s.endTime,s.zhEndTime||0,s.viEndTime||0]),...projectClips(p).map(audioEnd),0);}
+export function timelineEnd(p:ProjectData){return Math.max(p.videoEdited?0:p.duration,...(p.visuals||[]).map(c=>c.endTime),...p.subtitles.flatMap(s=>[s.endTime,s.zhEndTime||0,s.viEndTime||0]),...projectClips(p).map(audioEnd),0);}
 export function validateTimeline(p:ProjectData){
  for(const s of p.subtitles)if(!Number.isFinite(s.startTime+s.endTime)||s.startTime<0||s.endTime-s.startTime<.039)throw Error('Phụ đề cần dài ít nhất 0,04 giây.');
  const clips=projectClips(p);const ids=new Set<string>();

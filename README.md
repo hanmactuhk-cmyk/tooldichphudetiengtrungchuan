@@ -1,10 +1,20 @@
-# HNstudio 5.6.1 — Bộ cài Windows
+# HNstudio 5.7.0 — Bộ cài Windows
 
 Đọc lời nói hoặc chữ phụ đề tiếng Trung từ video MP4, dịch sang tiếng Việt và tạo giọng VieNeu-TTS. Giao diện mở trong cửa sổ ứng dụng Windows; không phải mở trình duyệt để dùng các chức năng offline. Gemini và ChatGPT vẫn dùng Chrome riêng để đăng nhập và dịch theo lựa chọn của người dùng.
 
+## Mới trong 5.7.0
+- Dịch qua ChatGPT hoặc Gemini: gửi toàn bộ văn bản hoặc một tệp SRT, prompt dịch ngắn gọn theo thời lượng. Không chia lô.
+- Preview có zoom riêng, vừa khung, toàn màn hình; bảng thiết kế/làm mờ/media nổi, kéo, thu gọn và đổi kích thước.
+- Video / Ảnh / Keyframe: khởi tạo video gốc trên hàng hình, thêm video/ảnh, cắt tại vạch phát, kéo mép để trim, di chuyển, nhân đôi hoặc xóa từng lớp. Cắt video không tự kéo các hàng phụ đề/âm thanh khác.
+- Tạo nhiều vùng mờ, chọn khoảng hiện trên timeline, bo góc, độ đục. Ảnh và vùng mờ có keyframe vị trí/kích thước/độ đục.
+- Bám chữ/vật thể: đặt vùng vừa đối tượng, đặt vạch phát trong video rồi bấm Bám theo. Kết quả là keyframe có thể chỉnh tay; dừng khi mất dấu. Kiểm tra lại nếu cảnh cắt hoặc vật bị che.
+- Tiếng gốc đã tách vẫn chỉnh âm lượng ở thanh preview hoặc chọn clip âm thanh trên timeline để chỉnh riêng.
+- Trạng thái tròn RGB hiển thị phần trăm, công việc hiện tại và các cột sóng hoạt động.
+- Lưu project giữ cả video thêm, ảnh và keyframe. MP4 dựng cùng hình học/chuyển động với preview.
+
 ## Cài đặt Windows
 
-**Đã cài bản đầy đủ:** lưu project rồi đóng ứng dụng, tải `HNVoice-Studio-5.6.1-Update-Setup.exe` ở [bản cập nhật 5.6.1](https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan/releases/tag/v5.6.1) rồi cài vào đúng thư mục hiện tại. Bản cập nhật giữ model đã cài; không phải tải lại model. 5.6.1 sửa đồng bộ giọng theo đúng mốc phụ đề, tự tăng tốc câu dài và giữ nguyên giờ câu sau; có logo HNstudio, hướng dẫn và giới thiệu Hoài Nguyễn Studio. Giao diện không hiện tên model hoặc các màn hình kỹ thuật.
+**Đã cài bản đầy đủ:** lưu project rồi đóng ứng dụng, tải `HNVoice-Studio-5.7.0-Update-Setup.exe` ở [bản cập nhật 5.7.0](https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan/releases/tag/v5.7.0) rồi cài vào đúng thư mục hiện tại. Bản cập nhật giữ model đã cài; không phải tải lại model. 5.7.0 sửa đồng bộ giọng theo đúng mốc phụ đề, tự tăng tốc câu dài và giữ nguyên giờ câu sau; có logo HNstudio, hướng dẫn và giới thiệu Hoài Nguyễn Studio. Giao diện không hiện tên model hoặc các màn hình kỹ thuật.
 
 - **Popup một câu / nhóm:** nhấp đúp hoặc chuột phải vào hàng phụ đề Việt; cũng có nút Chỉnh popup trong bảng bên phải. Chọn tất cả phụ đề Việt hoặc Ctrl+A khi timeline có tiêu điểm, rồi chuột phải để chỉnh nhóm. Popup kéo được, không che mờ hoặc khóa ứng dụng phía sau.
 - Popup sửa chữ, chọn giọng, cỡ chữ, đậm/thường, nghiêng/thường, phông, màu chữ/nền, độ đục và bo góc cho các câu đã chọn. Bôi đen ký tự trong ô văn bản, chọn màu rồi bấm Tô màu. Kiểu chữ áp dụng cả nhóm; nội dung và màu riêng sửa theo câu đang chọn.

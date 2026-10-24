@@ -84,7 +84,17 @@ class BrowserTranslator:
 
     def attachment_present(self,page,name):
         card=page.get_by_role('button',name=name,exact=True)
-        return card.count()>0 and card.first.is_visible()
+        if card.count() and card.first.is_visible():return True
+        # Gemini attaches files outside rich-textarea, next to the compose box.
+        if urlparse(page.url).hostname=='gemini.google.com':
+            for selector in ['.attachment-container','.file-preview','[class*="file-preview"]','[class*="upload-chip"]','[class*="attachment"]']:
+                for chip in page.locator(selector).all():
+                    if chip.is_visible() and name in (chip.text_content() or ''):return True
+            chip=page.locator('.gem-attachment-content').filter(has=page.get_by_text(Path(name).stem,exact=True))
+            if chip.count() and chip.first.is_visible() and chip.first.locator('button[aria-label^="close "]').count():return True
+            labels=page.get_by_text(name,exact=False)
+            if labels.count() and any(labels.nth(i).is_visible() for i in range(labels.count())):return True
+        return False
 
     @staticmethod
     def normalized(text):
@@ -189,24 +199,26 @@ class BrowserTranslator:
 
     def attach_srt(self,page,source,progress,cancelled):
         self.dismiss_overlays(page)
-        selectors='input[type="file"]:not([accept]),input[type="file"][accept=""]'
+        selectors='input[type="file"]:not([accept="image/*"])'
         inputs=page.locator(selectors)
         if not inputs.count():
-            menu=self.visible(page,['button[aria-label="Thêm tệp và nội dung khác"]','button[aria-label="Add files and more"]','button[aria-label="Attach files"]','button[aria-label="Add photos & files"]'])
+            menu=self.visible(page,['button[aria-label="Thêm tệp và nội dung khác"]','button[aria-label="Add files and more"]','button[aria-label="Attach files"]','button[aria-label="Add photos & files"]','button[aria-label="Nội dung tải lên và công cụ"]','button[aria-label="Uploads and tools"]','button[aria-label="Upload & tools"]','button[aria-label="Add files"]','button[aria-label="Thêm tệp"]','button[aria-label="Open upload file menu"]','button[aria-label="Mở trình đơn tải tệp lên"]'])
             if menu is not None:menu.click(timeout=120000)
+            local=self.visible(page,['[role="menuitem"]:has-text("Upload files")','[role="menuitem"]:has-text("Tải tệp lên")'])
+            if local is not None:local.click(timeout=120000)
             inputs.last.wait_for(state='attached',timeout=180000)
-        progress(4,'Đính kèm một file SRT chứa toàn bộ phụ đề lên ChatGPT...')
+        progress(4,'Đính kèm một file SRT chứa toàn bộ phụ đề lên dịch vụ...')
         metadata=attach_local_file(page,inputs.last,source,allow_cleared=True)
         page.keyboard.press('Escape')
         until=time.monotonic()+300
         while time.monotonic()<until:
             if cancelled():raise RuntimeError('Đã dừng tải SRT.')
             card=page.get_by_role('button',name=source.name,exact=True)
-            if card.count() and card.first.is_visible():
-                progress(5,'ChatGPT đã nhận thẻ tệp SRT; chờ xử lý xong trước khi gửi...')
+            if self.attachment_present(page,source.name):
+                progress(5,'Đã nhận thẻ tệp SRT; chờ xử lý xong trước khi gửi...')
                 return metadata
             self.pause(2,cancelled)
-        raise AttachmentNotReady('ChatGPT chưa xác nhận tệp SRT. Hãy kiểm tra hạn mức/thông báo tải tệp trên Chrome.')
+        raise AttachmentNotReady('Chưa xác nhận tệp SRT. Hãy kiểm tra hạn mức/thông báo tải tệp trên Chrome.')
 
     def wait_response(self,page,cfg,before,validate,cancelled,timeout=1800,progress=lambda *_:None,total_cues=0):
         deadline=time.monotonic()+timeout;last='';stable_since=time.monotonic();validation_error=None;reported_count=0
@@ -241,7 +253,7 @@ class BrowserTranslator:
             time.sleep(1)
         raise ValueError('Hết thời gian chờ phản hồi đầy đủ. '+(str(validation_error) if validation_error else '')+' Phản hồi vẫn ở Chrome.')
 
-    def translate(self,provider,cues,characters=None,progress=lambda *_:None,cancelled=lambda:False):
+    def translate(self,provider,cues,characters=None,progress=lambda *_:None,cancelled=lambda:False,input_mode='srt-file'):
         validate_cues(cues);cfg=self.config(provider)
         if not self.locks[provider].acquire(blocking=False):raise ValueError('Đã có một phiên dịch trên hồ sơ này. Hãy chờ phiên đó hoàn tất.')
         try:
@@ -252,7 +264,7 @@ class BrowserTranslator:
                 try:browser=pw.chromium.connect_over_cdp(f'http://127.0.0.1:{cfg["port"]}',timeout=30000)
                 except Exception as exc:raise ValueError('Chưa kết nối được Chrome. Bấm Mở Chrome và tự đăng nhập trước.') from exc
                 context=browser.contexts[0];results=[];accepted_submissions=0;attachments=[];retry_pages=[]
-                batches=[(0,cues)] if provider=='chatgpt' else [(start,cues[start:start+40]) for start in range(0,len(cues),40)]
+                batches=[(0,cues)]
                 for start,batch in batches:
                     retries=0
                     while True:
@@ -268,8 +280,8 @@ class BrowserTranslator:
                         page.goto(cfg['url'],wait_until='domcontentloaded',timeout=180000)
                         context_prompt='\nThông tin nhân vật (nếu có):\n'+json.dumps(characters or [],ensure_ascii=False)
                         if results:context_prompt+='\nBản dịch trước để giữ xưng hô:\n'+json.dumps(results[-8:],ensure_ascii=False)
-                        if provider=='chatgpt':
-                            source=Path(folder)/('phu-de-'+str(len(batch))+'-cau-'+uuid.uuid4().hex[:10]+'.srt')
+                        if input_mode=='srt-file':
+                            source=Path(folder)/('hn-'+uuid.uuid4().hex[:8]+'.srt')
                             source.write_text(to_srt(batch),encoding='utf-8')
                             try:attachments.append(self.attach_srt(page,source,progress,cancelled))
                             except AttachmentNotReady:
@@ -277,7 +289,7 @@ class BrowserTranslator:
                             prompt=INSTRUCTION+f' Toàn bộ {len(batch)} câu tiếng Trung nằm trong tệp {source.name} đính kèm. Hãy đọc toàn bộ tệp và dịch đủ từ câu 1 đến câu {len(batch)} trong một lần trả lời, không chỉ dịch một phần rồi hỏi có tiếp tục không.'+context_prompt
                         else:prompt=INSTRUCTION+context_prompt+'\n<SRT_CAN_DICH>\n'+to_srt(batch)+'\n</SRT_CAN_DICH>'
                         before={selector:page.locator(selector).count() for selector in cfg['answers']}
-                        try:self.send_prompt_once(page,cfg,prompt,before,progress,cancelled,attachment_name=source.name if provider=='chatgpt' else None)
+                        try:self.send_prompt_once(page,cfg,prompt,before,progress,cancelled,attachment_name=source.name if input_mode=='srt-file' else None)
                         except AttachmentNotReady:
                             retries+=1;progress(5,'Bản đính kèm thay đổi; chờ ổn định rồi tải lại toàn bộ SRT...');self.pause(15,cancelled);continue
                         accepted_submissions+=1
@@ -290,5 +302,5 @@ class BrowserTranslator:
                             retries+=1;delay=min(30*retries,180)
                             progress(15,f'Phản hồi chưa đủ/hợp lệ; đợi {delay} giây rồi gửi lại toàn bộ SRT (lần {retries+1}). Bấm Dừng để hủy.')
                             self.pause(delay,cancelled)
-                return {'translations':results,'modelUsed':provider+' qua Chrome CDP','conversationUrl':page.url,'submissions':accepted_submissions,'wholeSrt':provider=='chatgpt','inputMode':'srt-file' if provider=='chatgpt' else 'text','attachments':attachments}
+                return {'translations':results,'modelUsed':provider+' qua Chrome CDP','conversationUrl':page.url,'submissions':accepted_submissions,'wholeSrt':True,'inputMode':input_mode,'attachments':attachments}
         finally:self.locks[provider].release()

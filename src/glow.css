@@ -82,3 +82,61 @@
 .hn-studio[data-theme=glow] ::-webkit-scrollbar-thumb{background:#d0d7ff80;border-radius:8px;border:1px solid #eceeff33}
 .hn-studio[data-theme=glow] :is([role=dialog].bg-slate-900,[role=dialog].bg-zinc-900){background:linear-gradient(135deg,#aaa1efde,#7884e2de)!important;border-color:#e7e5ff80;color:white;backdrop-filter:blur(22px)}
 @media(prefers-reduced-motion:reduce){.hn-studio[data-theme=glow] button{transition:none!important}}
+
+/* Raised, readable glass revision approved from the second concept. */
+.hn-studio[data-theme=glow]{--ink:#202b65;--muted:#38477f;--panel:#e1e2ff70;--input:#e5eaff63;--line:#f0eeff9c;--soft-shadow:0 6px 10px #333a9b38,inset 0 2px 2px #ffffffa6,inset 0 -1px 1px #525baf33}
+.hn-studio[data-theme=glow] :is(.workspace-left,.inspector-dock,.preview-shell){background:linear-gradient(135deg,#efddff85,#b8caff68)!important;box-shadow:0 9px 0 -5px #4e51b34d,0 13px 24px #363da342,inset 0 2px 2px #ffffff9c,inset 0 -1px 2px #5f64b14d;border-color:#f2eeffb3!important}
+.hn-studio[data-theme=glow] :is(.workflow-card,.property-section,.media-card,.property-subgroup){background:linear-gradient(135deg,#f5eaff5c,#c1d1ff42)!important;box-shadow:0 6px 10px #41449e29,inset 0 2px 2px #ffffff80,inset 0 -1px 1px #6c75b84d;border-color:#efeaff99!important}
+.hn-studio[data-theme=glow] :is(.workflow-card h2,.workflow-card h3,.property-section>summary){color:#202b65!important;background:linear-gradient(120deg,#f6eaff59,#cbd5ff42)!important}
+.hn-studio[data-theme=glow] :is(header,.workspace-left,.inspector-dock,.floating-tool,.caption-popup,.preview-toolbar,.preview-controls,.timeline-toolbar) button:not([style]){color:#202b65!important;background:linear-gradient(150deg,#f4e9ff99,#c2cbff85)!important;box-shadow:0 3px 0 #7778bd66,0 7px 10px #3d429b33,inset 0 2px 2px #fff9,inset 0 -1px 1px #7982be80;border-color:#f5efffb3!important}
+.hn-studio[data-theme=glow] :is(header,.workspace-left,.inspector-dock,.floating-tool,.caption-popup,.preview-toolbar,.preview-controls,.timeline-toolbar) button:not([style]):hover:not(:disabled){background:linear-gradient(145deg,#fff1ffb3,#cedbffb3)!important;box-shadow:0 4px 0 #797ac466,0 9px 12px #373e9e3b,inset 0 2px 2px #fffc;transform:translateY(-1px)}
+.hn-studio[data-theme=glow] :is(header,.workspace-left,.inspector-dock,.floating-tool,.caption-popup,.preview-toolbar,.preview-controls,.timeline-toolbar) button:not([style]):active:not(:disabled){transform:translateY(2px);box-shadow:inset 0 2px 5px #5a61a54d,0 1px 2px #ffffff73}
+.hn-studio[data-theme=glow] :is(button[aria-pressed=true]:not([style]),.inspector-menu button.bg-cyan-800){background:linear-gradient(140deg,#5286ff,#3549f3)!important;color:white!important;border-color:#cbd9ffad!important;box-shadow:0 3px 0 #3c42b180,0 6px 12px #3b46bc66,inset 0 2px 2px #bedbff80}
+.hn-studio[data-theme=glow] :is(button.primary-action,header button:last-child,.workspace-left button.bg-rose-700){background:linear-gradient(135deg,#b4ffee,#68f0d9 65%,#51d1dc)!important;color:#172759!important;border-color:#c8fff4!important;box-shadow:0 3px 0 #49adb180,0 7px 12px #35459e4d,inset 0 2px 2px #e9fff9}
+.hn-studio[data-theme=glow] :is(.inspector-dock,.workspace-left,.floating-tool,.caption-popup,header,.preview-toolbar,.preview-controls,.timeline-toolbar) :is(input:not([type=range]):not([type=checkbox]):not([type=color]):not([type=file]),select,textarea){background:linear-gradient(135deg,#eff0ff9c,#d6dfff80)!important;color:#202b65!important;border-color:#f4f1ffd9!important;box-shadow:inset 0 2px 4px #6972b233,0 1px 2px #ffffff66;font-weight:700}
+.hn-studio[data-theme=glow] option{background:#e1e5ff;color:#202b65}
+.hn-studio[data-theme=glow] ::placeholder{color:#465388b3!important}
+.hn-studio[data-theme=glow] :is(header,.workspace-left,.inspector-dock,.floating-tool,.caption-popup,.preview-toolbar,.preview-controls) :is([class*=text-slate-],[class*=text-zinc-],[class*=text-cyan-]){color:#38477f!important}
+.hn-studio[data-theme=glow] :is(.property-body label,.property-body p,.property-body>p,.sticky-apply p,.media-library,.theme-picker,.empty-library,.floating-title){color:#202b65!important}
+.hn-studio[data-theme=glow]>header strong{color:#17265e}
+.hn-studio[data-theme=glow] :is(.preview-controls .text-white,.preview-controls [data-testid=playback-time]){color:#202b65!important}
+.hn-studio[data-theme=glow] :is(.floating-tool,.caption-popup){background:linear-gradient(135deg,#e8d9ffcf,#b6c7f2b8 65%,#a9b9f0d6)!important;color:#202b65!important;box-shadow:0 5px 0 -2px #6067b573,0 20px 40px #262e8a59,inset 0 2px 3px #fff;border-color:#fff0ffd9!important}
+.hn-studio[data-theme=glow] .floating-title{background:linear-gradient(120deg,#f7e4ff70,#d4ddff59)!important;font-size:15px}
+.hn-studio[data-theme=glow] .sticky-apply{background:#c9d3f4e6!important}
+.hn-studio[data-theme=glow] .range-field output{color:#253d9c;font-weight:800}
+.hn-studio[data-theme=glow] input[type=range]{background:linear-gradient(90deg,#3568ff,#5369f3 60%,#c5d5ff);box-shadow:inset 0 2px 3px #4654a780,0 1px 1px #fff9}
+.hn-studio[data-theme=glow] [data-testid=timeline]{background:linear-gradient(120deg,#e2d7ff80,#bdcfff70)!important;color:#202b65;box-shadow:0 10px 22px #373a9c3d,inset 0 2px 2px #ffffffb3}
+.hn-studio[data-theme=glow] [data-testid=timeline] .bg-zinc-900{background:#d4d7ff42!important;color:#202b65}
+.hn-studio[data-theme=glow] :is([data-testid=timeline-ruler],.timeline-section-label){color:#26376d;background:#d8e0ff42}
+.hn-studio[data-theme=glow] [data-testid=timeline] :is(.text-zinc-400,.text-zinc-500){color:#34457b!important}
+.hn-studio[data-theme=glow] .timeline-menu>summary{background:#d7dfff80;color:#202b65}
+.hn-studio[data-theme=glow] .timeline-menu>div{background:linear-gradient(135deg,#dfd7f5ed,#becff0eb)!important;color:#202b65}
+.hn-studio[data-theme=glow] :is([role=dialog].bg-slate-900,[role=dialog].bg-zinc-900){background:linear-gradient(135deg,#dfd7f5ed,#becff0eb)!important;color:#202b65}
+
+/* Compact top chrome across the three themes. */
+.hn-studio>header,.hn-studio[data-theme=glow]>header{height:76px;min-height:76px;gap:12px;padding-inline:14px}
+.hn-studio>header .status-orb{width:68px;height:68px}
+.hn-studio>header .orb-label{inset:18px 10px 14px}
+.hn-studio>header .orb-label img{width:15px;height:15px}
+.hn-studio>header .orb-label strong,.hn-studio[data-theme=glow]>header .orb-label strong{font-size:8px!important}
+.hn-studio>header .orb-label small{font-size:5px;line-height:6px;width:48px}
+.hn-studio[data-theme=glow]>header strong{font-size:23px}
+.hn-studio>header>div:nth-child(2){padding:8px 14px!important}
+.hn-studio[data-theme=glow]>header .orb-label strong{color:white}
+.hn-studio[data-theme=glow]>header .orb-label small{color:#edf1ff}
+
+/* Short entrance motion; no continuous panel animation during video playback. */
+@keyframes hn-panel-open{from{opacity:0;transform:translateY(8px) scale(.975)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes hn-content-open{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.hn-studio :is(.floating-tool,.caption-popup,.timeline-menu[open]>div){animation:hn-panel-open .22s cubic-bezier(.2,.75,.3,1);transform-origin:top right}
+.hn-studio :is(.floating-content,.inspector-content,.workflow-sidebar,.media-library){animation:hn-content-open .18s ease-out}
+.hn-studio .property-section[open]>.property-body{animation:hn-content-open .18s ease-out}
+.hn-studio :is(.workspace-menu,.inspector-menu,.workflow-menu,.segment-menu) button{transition:background .16s,color .16s,box-shadow .16s,transform .16s}
+.hn-studio .floating-tool{transition:height .18s ease}
+@media(prefers-reduced-motion:reduce){.hn-studio :is(.floating-tool,.caption-popup,.timeline-menu[open]>div,.floating-content,.inspector-content,.workflow-sidebar,.media-library,.property-body){animation:none!important}.hn-studio .floating-tool,.hn-studio button{transition:none!important}}
+.clip-context{position:fixed;z-index:100;width:210px;padding:8px;border-radius:14px;border:1px solid var(--line);background:var(--panel);color:var(--ink);box-shadow:0 10px 30px #0006;display:grid;gap:4px;animation:hn-panel-open .18s ease-out}
+.clip-context strong{font-size:11px;padding:5px 8px}.clip-context button{font-size:12px;text-align:left;border-radius:8px;padding:8px}.clip-context button:hover{background:#83bded33}
+.hn-studio[data-theme=glow] .clip-context{background:linear-gradient(135deg,#e5d9f5ed,#bdcdeeed);backdrop-filter:blur(18px);border-color:#fff9;box-shadow:0 4px 0 -1px #626cb566,0 14px 28px #2637864d,inset 0 2px 2px #fff}
+.hn-studio[data-theme=glow] .clip-context button{color:#202b65}
+.hn-studio .new-track-drop:hover{opacity:1;background:#88ccff22}
+@media(prefers-reduced-motion:reduce){.clip-context{animation:none}}

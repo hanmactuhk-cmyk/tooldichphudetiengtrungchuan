@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {snapVisualTime,moveVisualToTrack} from '../src/lib/visual-editing';
+const c:any={id:'base-test',kind:'video',trackId:'base-video',sourceStart:3,sourceDuration:20,startTime:2,endTime:6,keyframes:[{time:2,x:0,y:0,width:1,height:1,opacity:1}]};
+assert.equal(snapVisualTime(1.96,4,[2],45),2);
+assert.equal(snapVisualTime(1.96,4,[6],45),2);
+assert.equal(snapVisualTime(1.5,4,[2],45),1.5);
+const n=moveVisualToTrack([c],c.id,'new-row',5)[0];
+assert.equal(n.startTime,5);assert.equal(n.endTime,9);assert.equal(n.keyframes[0].time,5);assert.equal(n.sourceStart,3);assert.equal(n.trackId,'new-row');
+assert.deepEqual(moveVisualToTrack([c],c.id,'template-set'),[c]);
+assert.deepEqual(moveVisualToTrack([{...c,templateRole:'title'}],c.id,'new-row'),[{...c,templateRole:'title'}]);
+console.log('CLIP TRACK / TIMING / MAGNET PASSED');

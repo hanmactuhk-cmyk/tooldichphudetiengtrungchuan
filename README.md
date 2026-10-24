@@ -159,3 +159,14 @@ powershell -ExecutionPolicy Bypass -File scripts/build-installer.ps1 -AppDirecto
 Giữ toàn bộ file Setup-*.bin cạnh Setup.exe. Mã nguồn không chứa model GB, bộ cài hay thông tin đăng nhập; những file phát hành được tải ở Releases.
 
 Tạo bộ cài cập nhật giữ model: thêm `-UpdateOnly` khi gọi `scripts/build-installer.ps1`. Bộ cập nhật từ chối thư mục thiếu bộ model của bản đầy đủ.
+
+### Biên tập clip và giao diện kính
+
+Giao diện **Nổi bật** dùng chữ xanh đậm, khung kính nổi và thanh đầu gọn 76 px. Bảng nổi có hiệu ứng mở ngắn; chế độ Giảm chuyển động của Windows được tôn trọng.
+
+- Chọn video/ảnh/chữ trên timeline, nhấn C để cắt, Delete để xóa hoặc Ctrl+D để nhân đôi. Chuột phải mở menu clip.
+- Kéo giữa clip để đổi thời gian; kéo sang hàng hình khác để đổi lớp. Thả vào vùng **Hàng mới** cuối timeline để tạo hàng riêng. Video gốc đã cắt cũng có thể chuyển hàng.
+- Nút nam châm áp dụng cho clip hình, âm thanh và phụ đề. Giữ Shift khi kéo clip hình để tạm bỏ bắt dính; mép clip có thể bắt dính với vạch phát và mép các đoạn khác.
+- Kéo mép clip để cắt đầu/cuối trong giới hạn tệp nguồn. Bật Co giãn video hoặc giữ Alt khi kéo mép phải để đổi tốc độ. Các phần Khung kênh/Nền/Tiêu đề tiếp tục chung một hàng riêng.
+
+Đây là các thao tác biên tập đã bổ sung theo video tham khảo; không có nghĩa ứng dụng đã có toàn bộ tính năng của CapCut.

@@ -7,12 +7,13 @@ export function captionBox(text:string,w:number,layout:CaptionLayout){
  let size=w*layout.fontSize/100;const pad=w*.012,max=Math.max(1,w*layout.width/100-pad*2);
  const context=typeof document!=='undefined'?(canvas??=document.createElement('canvas')).getContext('2d'):null;
  const setFont=()=>{if(context)context.font=`${layout.italic?'italic ':''}${layout.bold===false?400:700} ${size}px "${layout.fontFamily||'Arial'}"`;};setFont();
+ if(context)(context as any).letterSpacing=(layout.letterSpacing||0)*w/1920+'px';
  const measure=(s:string)=>context?.measureText(s).width??[...s].length*size*.55;
  // A long unbroken word scales the box down instead of splitting that word.
  const longest=Math.max(1,...(text.match(/\S+/gu)||[]).map(measure));if(longest>max){size*=max/longest;setFont();}
  const lines:string[]=[];for(const paragraph of text.split('\n')){let line='';for(const token of paragraph.match(/\S+\s*|\s+/gu)||['']){if(measure(line+token.trimEnd())>max&&line.trim()){lines.push(line.trim());line='';}line+=token;}lines.push(line.trim());}
  let cursor=0;const lineStarts=lines.map(line=>{const at=line?text.indexOf(line,cursor):cursor;cursor=Math.max(cursor,at+line.length);return Math.max(0,at);});
- return {lines,lineStarts,size,pad,width:Math.min(w*layout.width/100,Math.max(...lines.map(measure),1)+2*pad),height:lines.length*size*1.28+2*pad,lineHeight:size*1.28};
+ return {lines,lineStarts,size,pad,width:Math.min(w*layout.width/100,Math.max(...lines.map(measure),1)+2*pad),height:lines.length*size*(layout.lineSpacing||1.28)+2*pad,lineHeight:size*(layout.lineSpacing||1.28)};
 }
 
 export function visibleCue(c:Subtitle,lang:'zh'|'vi',dub:boolean){return {text:lang==='zh'?(c.hiddenZh?'':c.textZh):(c.hiddenVi?'':c.textVi||''),start:lang==='zh'?c.zhStartTime??(dub?c.dubStartTime??c.startTime:c.startTime):c.viStartTime??(dub?c.dubStartTime??c.startTime:c.startTime),end:lang==='zh'?c.zhEndTime??(dub?c.dubEndTime??c.endTime:c.endTime):c.viEndTime??(dub?c.dubEndTime??c.endTime:c.endTime)};}

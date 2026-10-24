@@ -1,3 +1,50 @@
+# HN601 — HNstudio 6.0.1, bản cài độc lập
+
+HN601 cài vào thư mục riêng, dùng hồ sơ ứng dụng riêng và không ghi đè HNstudio 6.0.0. Giữ project gốc; dùng Lưu dự án để tạo bản sao khi mở trong HN601. Chrome đăng nhập được tái sử dụng theo thiết lập cũ; mật khẩu/cookie không được đưa vào bộ cài hoặc GitHub.
+
+## Quy trình 5 bước — giữ đầy đủ
+
+1. **Video / SRT:** nhập video hoặc phụ đề, mở bản sao project.
+2. **Nhận diện:** nghe lời nói offline, quét OCR hoặc gửi nguyên video qua Gemini. Chọn clip đã cắt trên timeline để nhận diện đúng đoạn; không chọn clip thì dùng timeline đã dựng.
+3. **Dịch:** offline, ChatGPT hoặc Gemini; gửi toàn bộ text hay toàn bộ file SRT. Có ô nhập SRT dịch bên ngoài. Chọn nhóm phụ đề để chỉ dịch nhóm đó.
+4. **Giọng đọc:** chọn giọng, clone giọng, tạo cho câu/nhóm/toàn bộ. Âm thanh đặt đúng thời gian phụ đề và căn để không chồng câu kế tiếp.
+5. **Xuất file:** MP4, SRT và lưu/mở project.
+
+### Auto đến khi xuất xong
+
+Bên dưới **Nghe lời nói → phụ đề**, bấm **Chạy Auto**. Popup cho chọn MP4 (hoặc video hiện tại), nhận diện, công cụ dịch, cách gửi SRT/text, giọng đọc và âm lượng, thư mục xuất, tên file và lưu kèm SRT/project. Bấm **Tạo thuyết minh tự động**: nhập → nhận diện → dịch → tạo giọng → xuất MP4. Chọn thư mục sẽ tạo thư mục con HN601 riêng để không ghi đè tệp có sẵn.
+
+Mỗi bước thành công mới chạy bước kế. Dừng/lỗi giữ checkpoint trong phiên làm việc, bấm Thử lại để tiếp tục; đổi thiết lập sẽ khởi tạo lượt mới. Project hiện tại luôn nhận kết quả của các bước hoàn tất để có thể lưu thủ công. Sau khi đóng app, mở project đã lưu để làm tiếp bằng các bước thủ công. Với Gemini/ChatGPT, mở Chrome từ popup và tự đăng nhập trước. Độ chính xác và giới hạn dịch online phụ thuộc tài khoản/dịch vụ.
+
+## Biên tập video / ảnh / âm thanh
+
+- Chuột phải vào bất kỳ clip video → **Trích xuất âm thanh** → chọn hàng âm thanh có sẵn hoặc hàng mới. Giữ đúng đoạn cắt, tốc độ và thời điểm; riêng clip nguồn được tắt tiếng để tránh nghe trùng. Có thể bật lại trong Thuộc tính.
+- Kéo/cắt/nhân đôi/xóa video, ảnh, chữ trên timeline. Kéo lên/xuống có bóng clip và hàng chờ thả. Có thể đưa nhiều media thư viện vào cùng hàng. Hàng trên che hàng dưới.
+- Thước thời gian cố định khi cuộn dọc và khớp clip khi cuộn ngang.
+- Thuộc tính video/ảnh: vị trí, kích thước, giữ tỷ lệ, xoay, lật, căn giữa, độ đục; keyframe cho vị trí/kích thước/độ đục.
+- **Xóa nền:** key màu bất kỳ, lấy màu màn hình, chỉnh độ nhạy/mềm viền; hoặc tách nền tự động offline. Bấm Xem trước/Áp dụng, kết quả ảnh PNG/video WebM trong suốt được giữ riêng. Bật/tắt kết quả để so nguồn; MP4 cuối ghép trên các lớp bên dưới. Xử lý video dài cần thời gian; tách tóc, vật mảnh và cảnh đổi nhanh có thể cần kiểm tra lại.
+- **Liên kết video với phụ đề/giọng** mặc định tắt. Khi bật, di chuyển/cắt video kéo theo các phần liên quan; giữ nguồn để hoàn tác. Khi thay tốc độ, phần giọng liên quan cần tạo lại. Xuất sẽ trộn lại các hàng âm thanh nếu cần.
+
+## Chữ và hiệu ứng
+
+Chọn clip chữ/phụ đề để mở đúng thuộc tính. Nhấp đúp trên preview để sửa nội dung. Có phông tiếng Việt offline, đậm/nghiêng/gạch chân, căn trái/giữa/phải, màu, nền bo góc/độ đục, viền, bóng, giãn chữ và dòng. Kiểu áp dụng cho câu, nhóm đang chọn hoặc toàn bộ phụ đề; sửa nội dung lời đọc sẽ đánh dấu cần tạo lại giọng.
+
+Hiệu ứng Vào / Ra / Vòng lặp: mờ dần, trượt bốn hướng, phóng to/thu nhỏ, bật nảy, tiết lộ gõ chữ/từng từ, rung, nhấp nháy, phát sáng; có thời lượng/cường độ. Hiệu ứng chạy theo thời gian timeline, áp dụng khi xuất MP4. SRT chỉ có chữ và thời gian, không chứa màu/phông/animation.
+
+## Giao diện
+
+Hai giao diện kính nổi **Nổi bật · Sáng** và **Nổi bật · Tối** giữ cùng bố cục. Quy trình / Thư viện ở trái, preview giữa, Thuộc tính bên phải, timeline bên dưới. Thanh đầu gọn; popup có chuyển động ngắn và tôn trọng cài đặt giảm chuyển động. Thanh Media / Âm thanh / Văn bản / Hiệu ứng chữ / Phụ đề / Mẫu chỉ mở chức năng có sẵn.
+
+## Kiểm thử và giấy phép
+
+Đã chạy Auto thật trên Electron với video tiếng Trung: nhận diện, dịch offline, tạo giọng và xuất MP4/SRT/project; kiểm tra chạy lại không nhân bản. Kiểm tra key nền ảnh/video, alpha VP9, tách nền tự động offline, trích âm thanh đã cắt/đổi tốc độ, thước cố định, hiệu ứng chữ, lưu/mở project và hồi quy chức năng 6.0.0. Đây không phải bản sao toàn bộ CapCut.
+
+Xem THIRD_PARTY.md và resources/models/background/LICENSE.txt về giấy phép bộ xóa nền. Các bộ xử lý và phông đã nằm trong bộ cài; chức năng offline không cần mạng.
+
+---
+
+## Tài liệu nền của 6.0.0
+
 # HNstudio 6.0.0 — Bộ cài Windows
 
 Đọc lời nói hoặc chữ phụ đề tiếng Trung từ video MP4, dịch sang tiếng Việt và tạo giọng VieNeu-TTS. Giao diện mở trong cửa sổ ứng dụng Windows; không phải mở trình duyệt để dùng các chức năng offline. Gemini và ChatGPT vẫn dùng Chrome riêng để đăng nhập và dịch theo lựa chọn của người dùng.

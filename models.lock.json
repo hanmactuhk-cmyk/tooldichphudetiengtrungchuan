@@ -36,6 +36,11 @@
       },
       "architecture": "MDX-Net ONNX",
       "upstream": "https://github.com/Anjok07/ultimatevocalremovergui"
+    },
+    "background": {
+      "source": "https://github.com/xuebinqin/U-2-Net",
+      "weights": "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx",
+      "license": "Apache-2.0"
     }
   },
   "files": [
@@ -178,6 +183,16 @@
       "path": "separation/config.json",
       "size": 125,
       "sha256": "2523f555c06189d77ed8034faaa8e877bd3acdab6e5a2fef388517a790d52f4c"
+    },
+    {
+      "path": "background/u2netp.onnx",
+      "size": 4574861,
+      "sha256": "309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8"
+    },
+    {
+      "path": "background/LICENSE.txt",
+      "size": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
     }
   ]
 }

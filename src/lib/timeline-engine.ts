@@ -17,7 +17,7 @@ export function validateTimeline(p:ProjectData){
  for(const s of p.subtitles)if(!Number.isFinite(s.startTime+s.endTime)||s.startTime<0||s.endTime-s.startTime<.039)throw Error('Phụ đề cần dài ít nhất 0,04 giây.');
  const clips=projectClips(p);const ids=new Set<string>();
  for(const c of clips){if(ids.has(c.id)||![c.startTime,c.trimStart,c.trimEnd,c.sourceDuration,c.volume].every(Number.isFinite)||c.startTime<0||c.trimStart<0||c.trimEnd>c.sourceDuration+.002||c.trimEnd-c.trimStart<.039)throw Error('Mốc âm thanh không hợp lệ.');ids.add(c.id);}
- for(const track of ['voice','audio']){const lane=clips.filter(c=>c.track===track&&!c.muted).sort((a,b)=>a.startTime-b.startTime);for(let i=1;i<lane.length;i++)if(lane[i].startTime<audioEnd(lane[i-1])-.00001)throw Error('Đoạn âm thanh trùng nhau trên cùng hàng. Hãy kéo vào khoảng trống hoặc bật nam châm.');}
+ for(const track of [...new Set(clips.map(c=>c.laneId||c.track))]){const lane=clips.filter(c=>(c.laneId||c.track)===track&&!c.muted).sort((a,b)=>a.startTime-b.startTime);for(let i=1;i<lane.length;i++)if(lane[i].startTime<audioEnd(lane[i-1])-.00001)throw Error('Đoạn âm thanh trùng nhau trên cùng hàng. Hãy kéo vào khoảng trống hoặc bật nam châm.');}
  if(timelineEnd(p)>86400)throw Error('Timeline tối đa 24 giờ.');return p;
 }
 export function editTimeline(original:ProjectData,e:TimelineEdit):ProjectData{

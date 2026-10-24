@@ -1,9 +1,9 @@
 name: Check source and build Windows
 on:
   push:
-    branches: [main]
+    branches: [main, release/hn601]
   pull_request:
-    branches: [main]
+    branches: [main, release/hn601]
   workflow_dispatch:
     inputs:
       full_build:
@@ -39,6 +39,8 @@ jobs:
       - run: pnpm exec tsx scripts/test-visual-engine.ts
       - run: pnpm exec tsx scripts/test-editor-library.ts
       - run: pnpm exec tsx scripts/test-template-bundle.ts
+      - run: pnpm exec tsx scripts/test-hn601.ts
+      - run: pnpm exec tsx scripts/test-visual-editing.ts
       - run: node --check electron-main.cjs
       - run: node scripts/test-project-storage.cjs
       - run: python -m pip install fonttools==4.67.0

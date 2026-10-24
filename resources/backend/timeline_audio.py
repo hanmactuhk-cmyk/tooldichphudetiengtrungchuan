@@ -14,8 +14,8 @@ def mix_timeline(clips,video_duration,cache,dubbing,progress=lambda *_:None,canc
   if info.samplerate!=SAMPLE_RATE or b>info.duration+.003:raise ValueError('Đoạn cắt nằm ngoài âm thanh nguồn.')
   if c.get('track') not in ('voice','audio'):raise ValueError('Hàng âm thanh không hợp lệ.')
   if not c.get('muted'):rows.append({**c,'startTime':start,'trimStart':a,'trimEnd':min(b,info.duration),'volume':volume,'source':source,'end':start+b-a})
- for track in ('voice','audio'):
-  lane=sorted([r for r in rows if r['track']==track],key=lambda r:r['startTime'])
+ for track in {r.get('laneId') or r['track'] for r in rows}:
+  lane=sorted([r for r in rows if (r.get('laneId') or r['track'])==track],key=lambda r:r['startTime'])
   for left,right in zip(lane,lane[1:]):
    if right['startTime']<left['end']-.00001:raise ValueError('Các đoạn âm thanh trùng nhau trên cùng hàng. Chưa áp dụng thay đổi.')
  duration=max(float(video_duration),*(r['end'] for r in rows),0)

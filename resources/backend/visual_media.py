@@ -6,7 +6,7 @@ import cv2,numpy as np,imageio_ffmpeg
 
 def media_path(cache,url):
  name=str(url).removeprefix('/cache/')
- if not str(url).startswith('/cache/') or Path(name).name!=name or Path(name).suffix.lower() not in ['.mp4','.png','.jpg','.webp']:raise ValueError('Media không hợp lệ.')
+ if not str(url).startswith('/cache/') or Path(name).name!=name or Path(name).suffix.lower() not in ['.mp4','.webm','.png','.jpg','.webp']:raise ValueError('Media không hợp lệ.')
  p=Path(cache)/name
  if not p.is_file():raise ValueError('Thiếu media. Hãy tải lại video hoặc ảnh.')
  return p
@@ -46,6 +46,9 @@ def round_mask(w,h,r):
  return m
 
 def flipped(image,c):
+ angle=float(c.get('rotation') or 0)
+ if angle:
+  h,w=image.shape[:2];image=cv2.warpAffine(image,cv2.getRotationMatrix2D((w/2,h/2),-angle,1),(w,h),borderMode=cv2.BORDER_CONSTANT)
  if c.get('flipX') and c.get('flipY'):return cv2.flip(image,-1)
  if c.get('flipX'):return cv2.flip(image,1)
  if c.get('flipY'):return cv2.flip(image,0)
@@ -68,7 +71,9 @@ def compose(source,options,cache,folder,progress,cancelled):
  clips.sort(key=lambda c:c.get('layer',{'video':0,'image':1,'text':1,'blur':2}[c['kind']]))
  video=[c for c in clips if c['kind']=='video'];edited=options.get('videoEdited',bool(video));caps={};images={}
  for c in clips:
-  if c['kind']=='video':caps[c['id']]=cv2.VideoCapture(str(media_path(cache,c['url'])))
+  if c['kind']=='video':
+   from media_tools import AlphaCapture
+   caps[c['id']]=AlphaCapture(media_path(cache,c['url'])) if str(c['url']).endswith('.webm') else cv2.VideoCapture(str(media_path(cache,c['url'])))
   elif c['kind'] in ['image','text']:
    image=cv2.imdecode(np.fromfile(str(media_path(cache,c['url'])),np.uint8),cv2.IMREAD_UNCHANGED)
    if image is None:raise ValueError('Ảnh không đọc được.')
@@ -94,7 +99,16 @@ def compose(source,options,cache,folder,progress,cancelled):
      if abs(v.get(cv2.CAP_PROP_POS_FRAMES)-target)>1:v.set(cv2.CAP_PROP_POS_FRAMES,target)
      ok,img=v.read()
      if ok:paste(frame,flipped(img,c),g,c.get('fit','contain'))
-    elif kind in ['image','text']:paste(frame,flipped(images[c['id']],c),g,c.get('fit','contain'))
+    elif kind in ['image','text']:
+     im=images[c['id']]
+     if kind=='text' and (c.get('textStyle') or {}).get('motion'):
+      from media_tools import text_motion
+      m=text_motion(c['textStyle']['motion'],t,c['startTime'],c['endTime'],len(c.get('text') or ''),len((c.get('text') or '').split()))
+      g={**g,'x':g['x']+m['x']+g['width']*(1-m['scale'])/2,'y':g['y']+m['y']+g['height']*(1-m['scale'])/2,'width':g['width']*m['scale'],'height':g['height']*m['scale'],'opacity':g['opacity']*m['opacity']}
+      if m['reveal']<1:im=im.copy();im[:,round(im.shape[1]*m['reveal']):]=0
+      if m['glow'] and im.shape[2]==4:
+       glow=cv2.GaussianBlur(im,(0,0),max(.1,m['glow']*8));im=np.maximum(im,glow)
+     paste(frame,flipped(im,c),g,c.get('fit','contain'))
     else:
      x,y=max(0,min(w-1,round(g['x']*w))),max(0,min(h-1,round(g['y']*h)));bw,bh=max(1,min(w-x,round(g['width']*w))),max(1,min(h-y,round(g['height']*h)));roi=frame[y:y+bh,x:x+bw];sigma=max(1,min(40,float(c.get('strength',16))));blurred=cv2.GaussianBlur(roi,(0,0),sigma);alpha=round_mask(bw,bh,max(0,min(.5,float(c.get('radius',.22)))))[:,:,None]/255*max(0,min(1,g['opacity']));frame[y:y+bh,x:x+bw]=(roi*(1-alpha)+blurred*alpha).astype(np.uint8)
    writer.write(frame)
@@ -106,7 +120,7 @@ def compose(source,options,cache,folder,progress,cancelled):
  if video:
   args=[imageio_ffmpeg.get_ffmpeg_exe(),'-v','error','-y','-i',str(raw)];filters=[];labels=[];idx=1
   for c in video:
-   if not c.get('enabled',True):continue
+   if not c.get('enabled',True) or c.get('audioMuted'):continue
    p=media_path(cache,c['url']);probe=subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(),'-hide_banner','-i',str(p)],capture_output=True,creationflags=0x08000000 if os.name=='nt' else 0)
    if b'Audio:' not in probe.stderr:continue
    args+=['-i',str(p)];from dubbing import tempo_filters

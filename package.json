@@ -1,7 +1,7 @@
 {
   "name": "tooldichphudetiengtrungchuan",
   "private": true,
-  "version": "6.0.0",
+  "version": "6.0.1",
   "type": "module",
   "main": "electron-main.cjs",
   "scripts": {
@@ -43,8 +43,8 @@
     "vite": "^5.4.14"
   },
   "build": {
-    "appId": "com.hanmactuhk.hnvoicestudio",
-    "productName": "HN Voice Studio",
+    "appId": "com.hoainguyen.hnstudio601",
+    "productName": "HN601",
     "directories": {
       "output": "release"
     },
@@ -71,7 +71,8 @@
     ],
     "asar": true,
     "npmRebuild": false,
-    "artifactName": "HNVoice-Studio-${version}-${arch}.${ext}"
+    "artifactName": "HNVoice-Studio-${version}-${arch}.${ext}",
+    "executableName": "HN Voice Studio"
   },
   "packageManager": "pnpm@11.25.0",
   "description": "Ứng dụng Windows đọc phụ đề Trung, dịch Việt và tạo giọng VieNeu",

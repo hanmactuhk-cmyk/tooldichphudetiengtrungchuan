@@ -22,7 +22,7 @@ from translation import OfflineTranslator
 from browser_translation import BrowserTranslator
 from subtitle_contract import validate_cues,from_srt,parse_srt
 from jobs import JOBS
-app = FastAPI(title='HN Voice Studio', version='6.0.0')
+app = FastAPI(title='HN Voice Studio', version='6.0.1')
 DUBBING=DubbingService(MODELS,CACHE,lambda *args:ffmpeg(*args))
 TRANSLATOR=OfflineTranslator(MODELS)
 BROWSER_HOME=Path(os.environ.get('HN_BROWSER_HOME',APP_DIR/'data/chrome-profiles'))
@@ -51,7 +51,7 @@ def ffmpeg(*args):
 @app.get('/health')
 @app.get('/api/health')
 def health():
-    return {'status':'ok','device':'cpu','models':{n:(MODELS/n).is_dir() for n in ['whisper-small','qwen3','vieneu','ocr-zh']},'modelDirectory':str(MODELS),'version':'6.0.0','instanceId':os.environ.get('HN_INSTANCE_ID'),'activeModel':POOL.name,'modelLoads':POOL.loads}
+    return {'status':'ok','device':'cpu','models':{n:(MODELS/n).is_dir() for n in ['whisper-small','qwen3','vieneu','ocr-zh']},'modelDirectory':str(MODELS),'version':'6.0.1','instanceId':os.environ.get('HN_INSTANCE_ID'),'activeModel':POOL.name,'modelLoads':POOL.loads}
 @app.post('/api/transcribe')
 def transcribe(file: UploadFile=File(...)):
     from faster_whisper import WhisperModel
@@ -401,10 +401,52 @@ def audio_peaks(filename:str):
 
 @app.get('/cache/{filename}')
 def audio(filename:str):
-    if Path(filename).name!=filename or not filename.endswith(('.wav','.mp4','.png','.jpg','.webp')): raise HTTPException(404)
+    if Path(filename).name!=filename or not filename.endswith(('.wav','.mp4','.webm','.png','.jpg','.webp')): raise HTTPException(404)
     path=CACHE/filename
     if not path.is_file(): raise HTTPException(404)
-    return FileResponse(path,media_type='video/mp4' if filename.endswith('.mp4') else 'audio/wav' if filename.endswith('.wav') else 'image/png')
+    return FileResponse(path,media_type='video/webm' if filename.endswith('.webm') else 'video/mp4' if filename.endswith('.mp4') else 'audio/wav' if filename.endswith('.wav') else 'image/png')
+@app.post('/api/media/cutout')
+def media_cutout(body:dict):
+    from media_tools import cutout,source_path
+    if body.get('kind') not in ('video','image') or body.get('mode') not in ('auto','chroma'):raise HTTPException(422,'Tùy chọn xóa nền không hợp lệ.')
+    source=source_path(CACHE,body.get('url'))
+    return JOBS.submit('cutout',body,lambda progress,cancelled:cutout(source,body,CACHE,MODELS,progress,cancelled))
+
+@app.post('/api/media/extract')
+def extract_clip(body:dict):
+    from media_tools import source_path
+    from dubbing import tempo_filters
+    import soundfile,math
+    source=source_path(CACHE,body.get('url'));a=float(body.get('sourceStart',0));duration=float(body.get('duration',0));rate=float(body.get('rate',1))
+    if not all(math.isfinite(v) for v in (a,duration,rate)) or a<0 or not .04<=duration<=86400 or not .1<=rate<=8:raise HTTPException(422,'Khoảng trích không hợp lệ.')
+    target=CACHE/(uuid.uuid4().hex+'.wav')
+    ffmpeg('-ss',a,'-t',duration*rate,'-i',source,'-vn','-af',tempo_filters(rate),'-ar','48000','-ac','1','-c:a','pcm_s16le',target)
+    return {'audioUrl':'/cache/'+target.name,'duration':soundfile.info(str(target)).duration}
+
+@app.post('/api/asr-job')
+def asr_cached(body:dict):
+    from media_tools import source_path
+    source=source_path(CACHE,body.get('url'))
+    def run(progress,cancelled):
+        progress(5,'Đang nhận diện trên máy…')
+        with source.open('rb') as handle:
+            upload=UploadFile(file=handle,filename=source.name)
+            result=ocr_video(upload,crop_top=float(body.get('cropTop',.55)),sample_interval=.5) if body.get('mode')=='ocr' else transcribe(upload)
+        if not result.get('subtitles'):raise ValueError('Không nhận diện được phụ đề. Hãy đổi cách nhận diện hoặc kiểm tra video.')
+        return result
+    return JOBS.submit('asr',body,run)
+
+
+@app.post('/api/media/segment')
+def media_segment(body:dict):
+    from media_tools import source_path
+    from dubbing import tempo_filters
+    import math
+    source=source_path(CACHE,body.get('url'));a=float(body.get('sourceStart',0));duration=float(body.get('duration',0));rate=float(body.get('rate',1))
+    if not all(math.isfinite(v) for v in (a,duration,rate)) or a<0 or not .04<=duration<=86400 or not .1<=rate<=8:raise HTTPException(422,'Khoảng nhận diện không hợp lệ.')
+    target=CACHE/(uuid.uuid4().hex+'.mp4');ffmpeg('-ss',a,'-t',duration*rate,'-i',source,'-vf',f'setpts=PTS/{rate}','-af',tempo_filters(rate),'-c:v','libx264','-preset','superfast','-crf','20','-c:a','aac','-t',duration,target)
+    return {'url':'/cache/'+target.name}
+
 if (ROOT/'dist').is_dir(): app.mount('/',StaticFiles(directory=ROOT/'dist',html=True),name='frontend')
 if __name__=='__main__':
     import uvicorn

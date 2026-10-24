@@ -1,14 +1,15 @@
+import type {TextMotion} from '../lib/text-motion';
 export interface MotionKeyframe {time:number;x:number;y:number;width:number;height:number;opacity:number;}
 export interface VisualTrack {id:string;name:string;enabled:boolean;}
-export interface TextStyle {backgroundOpacity?:number;align?:"left"|"center"|"right";verticalAlign?:"top"|"middle";condensed?:boolean;uppercase?:boolean;badge?:"pill"|"glass"|"outline"|"solid";badgeMark?:string;fontFamily:string;fontSize:number;color:string;bold:boolean;italic:boolean;background:string;radius:number;autoFit:boolean;}
+export interface TextStyle {motion?:TextMotion;underline?:boolean;letterSpacing?:number;lineSpacing?:number;strokeWidth?:number;strokeColor?:string;shadow?:number;backgroundOpacity?:number;align?:"left"|"center"|"right";verticalAlign?:"top"|"middle";condensed?:boolean;uppercase?:boolean;badge?:"pill"|"glass"|"outline"|"solid";badgeMark?:string;fontFamily:string;fontSize:number;color:string;bold:boolean;italic:boolean;background:string;radius:number;autoFit:boolean;}
 export type TemplateRole = "top"|"bottom"|"blur"|"channel"|"title"|"date"|"source";
 export interface MediaAsset {id:string;name:string;kind:"video"|"image";url:string;width:number;height:number;duration:number;}
-export interface VisualClip {templateGroup?:string;assetId?:string;templateRole?:TemplateRole;templateLayout?:"bands"|"news";templateBandHeight?:number;templateDesign?:string;nativeWidth?:number;nativeHeight?:number;trackId?:string;layer?:number;flipX?:boolean;flipY?:boolean;rate?:number;text?:string;textStyle?:TextStyle;template?:{pattern:string;color:string;secondary:string;fade:boolean;radius:number;surface?:"news-top"|"news-bottom";};renderKey?:string;id:string;kind:'video'|'image'|'blur'|'text';name:string;url?:string;startTime:number;endTime:number;sourceStart:number;sourceDuration:number;x:number;y:number;width:number;height:number;opacity:number;enabled:boolean;keyframes:MotionKeyframe[];strength?:number;radius?:number;fit?:'contain'|'cover';}
-export interface TimelineAudioClip { id:string; subtitleId?:string; origin?:'video'|'file'; track:'voice'|'audio'; name:string; audioUrl:string; startTime:number; trimStart:number; trimEnd:number; sourceDuration:number; volume:number; muted?:boolean; }
+export interface VisualClip {rotation?:number;audioMuted?:boolean;processedUrl?:string;processingEnabled?:boolean;templateGroup?:string;assetId?:string;templateRole?:TemplateRole;templateLayout?:"bands"|"news";templateBandHeight?:number;templateDesign?:string;nativeWidth?:number;nativeHeight?:number;trackId?:string;layer?:number;flipX?:boolean;flipY?:boolean;rate?:number;text?:string;textStyle?:TextStyle;template?:{pattern:string;color:string;secondary:string;fade:boolean;radius:number;surface?:"news-top"|"news-bottom";};renderKey?:string;id:string;kind:'video'|'image'|'blur'|'text';name:string;url?:string;startTime:number;endTime:number;sourceStart:number;sourceDuration:number;x:number;y:number;width:number;height:number;opacity:number;enabled:boolean;keyframes:MotionKeyframe[];strength?:number;radius?:number;fit?:'contain'|'cover';}
+export interface TimelineAudioClip {laneId?:string;sourceClipId?:string; id:string; subtitleId?:string; origin?:'video'|'file'; track:'voice'|'audio'; name:string; audioUrl:string; startTime:number; trimStart:number; trimEnd:number; sourceDuration:number; volume:number; muted?:boolean; }
 export interface BlurRegion { enabled:boolean; x:number; y:number; width:number; height:number; strength:number; radius?:number; }
 export interface CaptionPosition { x:number; y:number; }
 export type TextTarget={kind:"visual"|"caption"|"banner"|"legacy";id:string;lang?:"vi"|"zh"};
-export interface CaptionLayout {align?:"left"|"center"|"right"; aspect:'auto'|'16:9'|'9:16'; position:CaptionPosition; width:number; fontSize:number; bold?:boolean; italic?:boolean; cornerRadius?:number; characterColors?:Record<number,string>; fontFamily?:string; textColor?:string; backgroundColor?:string; backgroundOpacity?:number; language?:'vi'|'zh'|'bilingual'|'off'; }
+export interface CaptionLayout {motion?:TextMotion;underline?:boolean;letterSpacing?:number;lineSpacing?:number;strokeWidth?:number;strokeColor?:string;shadow?:number;align?:"left"|"center"|"right"; aspect:'auto'|'16:9'|'9:16'; position:CaptionPosition; width:number; fontSize:number; bold?:boolean; italic?:boolean; cornerRadius?:number; characterColors?:Record<number,string>; fontFamily?:string; textColor?:string; backgroundColor?:string; backgroundOpacity?:number; language?:'vi'|'zh'|'bilingual'|'off'; }
 export type TranslationProvider = 'offline' | 'gemini' | 'chatgpt';
 export type SubtitleStatus =
   | 'raw'
@@ -18,7 +19,7 @@ export type SubtitleStatus =
   | 'synced'
   | 'warning_overflow';
 
-export interface Subtitle {
+export interface Subtitle {sourceClipId?:string;
   id: string;
   startTime: number; // in seconds
   endTime: number;   // in seconds

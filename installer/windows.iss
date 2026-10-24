@@ -11,26 +11,26 @@
 [Setup]
 SetupIconFile=..\public\hnstudio.ico
 UninstallDisplayIcon={app}\hnstudio.ico
-AppId={{768FC19A-91B4-47F8-A8C4-1F35DB6D5001}
-AppName=HN Voice Studio
+AppId={{96D36F4A-B0F6-4FE5-A19F-0304E9B10601}
+AppName=HN601
 AppVersion={#AppVersion}
 AppPublisher=Hoài Nguyễn Studio
 AppPublisherURL=https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan
 AppSupportURL=https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan/issues
 AppUpdatesURL=https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan/releases
-DefaultDirName={localappdata}\Programs\HN Voice Studio
-DefaultGroupName=HN Voice Studio
+DefaultDirName={localappdata}\Programs\HN601
+DefaultGroupName=HN601
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.17763
-UninstallDisplayName=HN Voice Studio {#AppVersion}
+UninstallDisplayName=HN601 {#AppVersion}
 OutputDir={#OutputDir}
 #ifdef UpdateOnly
-OutputBaseFilename=HNVoice-Studio-{#AppVersion}-Update-Setup
+OutputBaseFilename=HN601-{#AppVersion}-Update-Setup
 Compression=zip/1
 #else
-OutputBaseFilename=HNVoice-Studio-{#AppVersion}-Setup
+OutputBaseFilename=HN601-{#AppVersion}-Setup
 Compression=lzma2/fast
 #endif
 SolidCompression=no
@@ -44,7 +44,7 @@ SlicesPerDisk=1
 WizardStyle=modern
 DisableProgramGroupPage=yes
 DisableDirPage=no
-UsePreviousAppDir=yes
+UsePreviousAppDir=no
 CloseApplications=no
 RestartApplications=no
 SetupLogging=yes
@@ -69,12 +69,12 @@ Source: "..\README.md"; DestDir: "{app}"; DestName: "HUONG-DAN.md"; Flags: ignor
 Source: "installed-mode"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\HN Voice Studio"; Filename: "{app}\HN Voice Studio.exe"; WorkingDir: "{app}"; IconFilename: "{app}\hnstudio.ico"
-Name: "{autodesktop}\HN Voice Studio"; Filename: "{app}\HN Voice Studio.exe"; WorkingDir: "{app}"; Tasks: desktopicon; IconFilename: "{app}\hnstudio.ico"
-Name: "{autoprograms}\Uninstall HN Voice Studio"; Filename: "{uninstallexe}"
+Name: "{autoprograms}\HN601"; Filename: "{app}\HN Voice Studio.exe"; WorkingDir: "{app}"; IconFilename: "{app}\hnstudio.ico"
+Name: "{autodesktop}\HN601"; Filename: "{app}\HN Voice Studio.exe"; WorkingDir: "{app}"; Tasks: desktopicon; IconFilename: "{app}\hnstudio.ico"
+Name: "{autoprograms}\Uninstall HN601"; Filename: "{uninstallexe}"
 
 [Run]
-Filename: "{app}\HN Voice Studio.exe"; Description: "Launch HN Voice Studio"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\HN Voice Studio.exe"; Description: "Launch HN601"; Flags: nowait postinstall skipifsilent
 
 #ifdef UpdateOnly
 [Code]
@@ -86,6 +86,6 @@ begin
      not DirExists(ExpandConstant('{app}\resources\models\ocr-zh')) or
      not DirExists(ExpandConstant('{app}\resources\models\qwen3')) or
      not DirExists(ExpandConstant('{app}\resources\models\vieneu')) then
-    Result := 'This update requires the complete HN Voice Studio 5.4 installation. Choose its existing installation folder, or install the complete version first.';
+    Result := 'This update requires the complete HN601 5.4 installation. Choose its existing installation folder, or install the complete version first.';
 end;
 #endif

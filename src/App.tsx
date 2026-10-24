@@ -1,3 +1,7 @@
+import {linkedVideoEdit} from './lib/linked-video';
+import {AutoDialog} from './components/AutoDialog';
+import {AutoSettings,continueAuto,AUTO_STEPS} from './lib/auto-pipeline';
+import {exportProjectVideo,uploadJob} from './lib/export-project';
 import {TextProperties} from './components/TextProperties';
 import {TemplateParts} from './components/TemplateParts';
 import {TextTarget} from './types';
@@ -47,7 +51,7 @@ import { bufferToWavBlob, synthesizeVieNeuTTS, VIENEU_VOICES, loadVieNeuVoices, 
 import { generateSrt, triggerDownload } from './lib/export-engine';
 
 export default function App() {
-  const [theme,setTheme]=useState(()=>{const saved=localStorage.getItem('hnstudio-theme');return ['simple','modern','glow'].includes(saved||'')?saved!:'glow'});
+  const [theme,setTheme]=useState(()=>{const saved=localStorage.getItem('hnstudio-theme');return ['simple','modern','glow','glow-dark'].includes(saved||'')?saved!:'glow'});
   const [themeReady,setThemeReady]=useState(!(window as any).hnDesktop?.getTheme);
   useEffect(()=>{const api=(window as any).hnDesktop;if(api?.getTheme)api.getTheme().then((saved:string)=>{setTheme(saved);setThemeReady(true)}).catch(()=>setThemeReady(true))},[]);
   useEffect(()=>{if(themeReady){localStorage.setItem('hnstudio-theme',theme);(window as any).hnDesktop?.setTheme?.(theme).catch(console.error)}},[theme,themeReady]);
@@ -69,7 +73,7 @@ export default function App() {
     currentTime: 0,
   }));
 
-  const [voices,setVoices]=useState<any[]>([]);
+  const [voices,setVoices]=useState<any[]>([]);const [captionSelection,setCaptionSelection]=useState<string[]>([]);const [linkMedia,setLinkMedia]=useState(false);
   const [jobId,setJobId]=useState<string|null>(null);
   useEffect(()=>{loadVieNeuVoices().then(data=>setVoices(data.voices)).catch(console.error);},[]);
   useEffect(()=>{const handler=(e:Event)=>setJobId((e as CustomEvent).detail);window.addEventListener('hn-job',handler);return()=>window.removeEventListener('hn-job',handler);},[]);
@@ -90,7 +94,7 @@ export default function App() {
   const handleExportMp4=async(captions:boolean)=>{
     if(!project.videoUrl)return;const desktop=(window as any).hnDesktop;if(desktop&&!await desktop.chooseExport(project.title.replace(/[<>:\x22/\\|?*]/g,'_')+'_HNVoice.mp4'))return;stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,progressPercent:0,currentTaskName:'Chuẩn bị xuất MP4...'}));
     try{await ensureProjectFonts(project);let exportProject=project;if(project.manualTimeline&&!project.dubAudioUrl){const mixed=await runJob('/api/timeline/mix',{clips:projectClips(project),duration:timelineEnd(project)},(v,t)=>setHardwareStatus(h=>({...h,progressPercent:v,currentTaskName:t})));exportProject={...project,dubAudioUrl:mixed.audioUrl,dubDuration:mixed.duration};setProject(exportProject);}
-      const form=new FormData();form.append('file',await readVideo(exportProject.videoUrl!),exportProject.videoFileName||'video.mp4');form.append('options',JSON.stringify({rendererRevision:'6.0.0',timelineDuration:timelineEnd(exportProject),visuals:orderedVisuals(await prepareProjectVisuals(exportProject),exportProject.visualTracks),videoEdited:exportProject.videoEdited,ass:generateAss(captions?exportProject:{...exportProject,captionLayout:{...DEFAULT_CAPTION_LAYOUT,...exportProject.captionLayout,language:'off'}}),blur:exportProject.blurRegion,aspect:exportProject.captionLayout?.aspect||'auto',dubAudioUrl:exportProject.dubAudioUrl,originalMuted:exportProject.originalAudioMuted,originalVolume:exportProject.originalAudioVolume}));
+      const form=new FormData();form.append('file',await readVideo(exportProject.videoUrl!),exportProject.videoFileName||'video.mp4');form.append('options',JSON.stringify({rendererRevision:'6.0.1',timelineDuration:timelineEnd(exportProject),visuals:orderedVisuals(await prepareProjectVisuals(exportProject),exportProject.visualTracks),videoEdited:exportProject.videoEdited,ass:generateAss(captions?exportProject:{...exportProject,captionLayout:{...DEFAULT_CAPTION_LAYOUT,...exportProject.captionLayout,language:'off'}}),blur:exportProject.blurRegion,aspect:exportProject.captionLayout?.aspect||'auto',dubAudioUrl:exportProject.dubAudioUrl,originalMuted:exportProject.originalAudioMuted,originalVolume:exportProject.originalAudioVolume}));
       const body=await apiJson('/api/video/export',{method:'POST',body:form});window.dispatchEvent(new CustomEvent('hn-job',{detail:body.jobId}));
       for(;;){const job=await apiJson('/api/jobs/'+body.jobId);setHardwareStatus(h=>({...h,progressPercent:job.percent,currentTaskName:job.message}));if(job.state==='done'){if(desktop){setLastExport(await desktop.saveExport(job.result.url));break;}const a=document.createElement('a');a.href=job.result.url;a.download=project.title+'_HNVoice.mp4';a.click();break;}if(['error','cancelled'].includes(job.state))throw new Error(job.message);await new Promise(r=>setTimeout(r,750));}
     }catch(e){alert(String(e));}finally{window.dispatchEvent(new CustomEvent('hn-job',{detail:null}));setHardwareStatus(h=>({...h,isProcessing:false,progressPercent:0,currentTaskName:''}));}
@@ -98,12 +102,12 @@ export default function App() {
   const handleGeminiVideo=async()=>{
     if(!project.videoUrl)return;
     stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,progressPercent:1,currentTaskName:'Gemini: chuẩn bị tải video...'}));
-    try{const blob=await readVideo(project.videoUrl);const form=new FormData();form.append('file',blob,project.videoFileName||'video.mp4');form.append('duration',String(project.duration));
+    try{const selected=project.visuals?.find(c=>c.id===selectedVisual&&c.kind==='video');let input=project.videoUrl;if(selected?.url){const segment=await apiJson('/api/media/segment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:selected.url,sourceStart:selected.sourceStart,duration:selected.endTime-selected.startTime,rate:selected.rate||1})});input=segment.url;}else if(project.videoEdited){input=(await exportProjectVideo({...project,dubAudioUrl:undefined,originalAudioMuted:false},()=>{},false)).url;}const blob=await readVideo(input!);const form=new FormData();form.append('file',blob,project.videoFileName||'video.mp4');form.append('duration',String(selected?selected.endTime-selected.startTime:timelineEnd(project)));
       const body=await apiJson('/api/gemini/video-subtitles',{method:'POST',body:form});
       window.dispatchEvent(new CustomEvent('hn-job',{detail:body.jobId}));
       let result:any;
       for(;;){const job=await apiJson('/api/jobs/'+body.jobId);setHardwareStatus(h=>({...h,progressPercent:job.percent,currentTaskName:job.message}));if(job.state==='done'){result=job.result;break;}if(job.state==='error'||job.state==='cancelled')throw new Error(job.error||job.message);await new Promise(r=>setTimeout(r,750));}
-      pushHistory(project);setProject(p=>({...p,subtitles:result.subtitles,audioClips:p.audioClips?.filter(c=>c.track==='audio'),dubAudioUrl:undefined,dubDuration:undefined}));triggerDownload(result.srt,project.title+'_Gemini_Trung.srt','text/plain');setActiveSidebarTab('translation');
+      const recognized=result.subtitles.map((c:Subtitle)=>({...c,startTime:c.startTime+(selected?.startTime||0),endTime:c.endTime+(selected?.startTime||0),sourceClipId:selected?.id}));pushHistory(project);setProject(p=>({...p,subtitles:selected?[...p.subtitles.filter(c=>c.sourceClipId!==selected.id),...recognized]:recognized,audioClips:p.audioClips?.filter(c=>c.track==='audio'),dubAudioUrl:undefined,dubDuration:undefined}));triggerDownload(result.srt,project.title+'_Gemini_Trung.srt','text/plain');setActiveSidebarTab('translation');
     }catch(e){alert(String(e));}finally{window.dispatchEvent(new CustomEvent('hn-job',{detail:null}));setHardwareStatus(h=>({...h,isProcessing:false,progressPercent:0,currentTaskName:''}));}
   };
 
@@ -262,8 +266,9 @@ export default function App() {
     }));
 
     try {
-      const recognized = await runOfflineASR(
-        project.videoUrl || '',
+      const selected=project.visuals?.find(c=>c.id===selectedVisual&&c.kind==='video');let input=project.videoUrl||'';if(selected?.url){const result=await apiJson('/api/media/segment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:selected.url,sourceStart:selected.sourceStart,duration:selected.endTime-selected.startTime,rate:selected.rate||1})});input=result.url;}else if(project.videoEdited){const rendered=await exportProjectVideo({...project,dubAudioUrl:undefined,originalAudioMuted:false},()=>{},false);input=rendered.url;}
+      const raw = await runOfflineASR(
+        input,
         {
           model,
           cropTop,
@@ -280,9 +285,10 @@ export default function App() {
         }
       );
 
+      const recognized=raw.map(c=>({...c,startTime:c.startTime+(selected?.startTime||0),endTime:c.endTime+(selected?.startTime||0),sourceClipId:selected?.id||project.visuals?.find(v=>v.kind==='video'&&c.startTime>=v.startTime&&c.startTime<v.endTime)?.id}));
       setProject((p) => ({
         ...p,
-        subtitles: recognized,
+        subtitles: selected?[...p.subtitles.filter(c=>c.sourceClipId!==selected.id),...recognized]:recognized,
       }));
 
       // Automatically switch to translation tab
@@ -314,8 +320,9 @@ export default function App() {
     }));
 
     try {
+      const selectedIds=new Set(captionSelection);const source=selectedIds.size?project.subtitles.filter(c=>selectedIds.has(c.id)):project.subtitles;
       const translated = await runQwenTranslation(
-        project.subtitles,
+        source,
         project.characters,
         mode,
         (percent, log) => {
@@ -329,7 +336,7 @@ export default function App() {
 
       setProject((p) => ({
         ...p,
-        subtitles: translated,audioClips:p.audioClips?.filter(c=>c.track==='audio'),
+        subtitles:p.subtitles.map(c=>translated.find(t=>t.id===c.id)||c),audioClips:p.audioClips?.filter(c=>!translated.some(t=>t.id===c.subtitleId)),
         translationMode: mode,
         dubAudioUrl:undefined,
         dubDuration:undefined,
@@ -353,6 +360,30 @@ export default function App() {
   };
 
   // 4. Batch VieNeu-TTS v3 Turbo synthesis
+  const [showAuto,setShowAuto]=useState(false);const autoCheckpoint=useRef<any>(null),autoStop=useRef(false);
+  const runAutomatic=async(options:AutoSettings,report:(step:number,p:number,text:string)=>void)=>{
+    const desktop=(window as any).hnDesktop;if(!desktop)throw Error('Auto xuất file cần ứng dụng Windows HN601.');
+    const services=[...new Set([...(options.provider==='offline'?[]:[options.provider]),...(options.recognition==='gemini'?['gemini']:[])])];if(services.length){const status=await apiJson('/api/browser/status');for(const service of services)if(!status[service]?.connected||!status[service]?.serviceOpen)throw Error('Hãy mở Chrome và đăng nhập '+service+' trong popup trước khi chạy Auto.');}
+    const signature=JSON.stringify({...options,file:options.file?[options.file.name,options.file.size,options.file.lastModified]:project.id});
+    if(autoCheckpoint.current?.signature!==signature)autoCheckpoint.current={signature,next:0,value:{...project}};
+    const state=autoCheckpoint.current;autoStop.current=false;stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true}));let stage=state.next;
+    const progress=(p:number,t:string)=>{report(stage,p,t);setHardwareStatus(h=>({...h,isProcessing:true,progressPercent:(stage*100+p)/5,currentTaskName:'Auto '+(stage+1)+'/5 · '+t}))};
+    const commit=(p:ProjectData)=>{setProject(p);return p};
+    let destination='';
+    try{
+      await continueAuto<ProjectData>(state,[
+        async old=>{let p=old;if(options.file||!p.videoUrl?.startsWith('/cache/')){const file=options.file||await readVideo(p.videoUrl!);const form=new FormData();form.append('file',file,options.file?.name||p.videoFileName||'video.mp4');const media=await apiJson('/api/media/import',{method:'POST',body:form});const visual:VisualClip={id:crypto.randomUUID(),kind:'video',trackId:'base-video',name:options.file?.name||p.videoFileName,url:media.url,nativeWidth:media.width,nativeHeight:media.height,startTime:0,endTime:media.duration,sourceStart:0,sourceDuration:media.duration,x:0,y:0,width:1,height:1,opacity:1,enabled:true,keyframes:[]};p={...p,id:options.file?crypto.randomUUID():p.id,videoUrl:media.url,videoFileName:visual.name,videoWidth:media.width,videoHeight:media.height,duration:media.duration,...(options.file?{title:options.file.name.replace(/\.[^.]+$/,''),visuals:[visual],visualTracks:[{id:'base-video',name:'Video gốc',enabled:true}],videoEdited:true,subtitles:[],audioClips:[],dubAudioUrl:undefined}:{} )};if(!p.visuals?.some(c=>c.kind==='video'))p={...p,visuals:[visual],visualTracks:[{id:'base-video',name:'Video gốc',enabled:true}],videoEdited:true};}if(!p.videoUrl)throw Error('Chọn video MP4 trước.');progress(100,'Đã chuẩn bị video');return commit(p)},
+        async p=>{let url=p.videoUrl!;if(p.videoEdited&&p.visuals?.length){const rendered=await exportProjectVideo({...p,dubAudioUrl:undefined,originalAudioMuted:false},progress,false);url=rendered.url;}
+          let result;if(options.recognition==='gemini'){const form=new FormData();form.append('file',await readVideo(url),'video.mp4');form.append('duration',String(timelineEnd(p)));result=await uploadJob('/api/gemini/video-subtitles',form,progress)}else result=await runJob('/api/asr-job',{url,mode:options.recognition},progress);
+          if(!result.subtitles?.length)throw Error('Không có phụ đề; Auto dừng tại nhận diện.');return commit({...p,subtitles:result.subtitles,audioClips:projectClips(p).filter(c=>c.track!=='voice'),dubAudioUrl:undefined,dubDuration:undefined,manualTimeline:true})},
+        async p=>{const subtitles=await runQwenTranslation(p.subtitles,p.characters,options.provider,progress,options.inputMode);if(subtitles.some(c=>!c.textVi?.trim()))throw Error('Bản dịch chưa đầy đủ.');return commit({...p,subtitles,translationMode:options.provider})},
+        async p=>{const subtitles=p.subtitles.map(c=>({...c,voiceId:options.voiceId,volume:options.volume}));const cues=captionSpeechCues(subtitles,new Set(subtitles.map(c=>c.id)),p.characters);const speech=await runJob('/api/timeline/speech',{cues},progress);if(speech.clips.length!==cues.length)throw Error('Thiếu âm thanh thuyết minh.');const updates=new Map<string,any>(speech.subtitles.map((c:any)=>[c.id,c]));const clips=[...projectClips(p).filter(c=>c.track!=='voice'),...speech.clips];let next={...p,subtitles:subtitles.map(c=>({...c,...updates.get(c.id),status:'synced' as const})),audioClips:clips,manualTimeline:true,originalAudioMuted:true};validateTimeline(next);const mixed=await runJob('/api/timeline/mix',{clips,duration:timelineEnd(next)},progress);return commit({...next,dubAudioUrl:mixed.audioUrl,dubDuration:mixed.duration})},
+        async p=>{const exported=await exportProjectVideo(p,progress);if(autoStop.current)throw Error('Đã dừng Auto trước khi lưu.');destination=await desktop.saveAutoOutput({token:options.folder.token,url:exported.url,name:options.name,srt:options.saveSrt?generateSrt(p.subtitles,'vi'):undefined});if(options.saveProject)await desktop.saveProject({project:{...p,visuals:await prepareVisuals(p.visuals||[],p.videoWidth||1920,p.videoHeight||1080)},autoToken:options.folder.token});setLastExport(destination);progress(100,'Đã xuất xong MP4');return p}
+      ],i=>{stage=i;report(i,0,AUTO_STEPS[i]);setActiveSidebarTab((['project','asr','translation','characters','export'] as const)[i])},()=>autoStop.current);
+      return destination||lastExport;
+    }finally{setHardwareStatus(h=>({...h,isProcessing:false,progressPercent:0,currentTaskName:''}));}
+  };
+
   const handleRunBatchTts = async () => {
     const cues=timelineSubtitles(project).filter(s=>!s.hiddenVi&&s.textVi?.trim());
     if(!cues.length){alert('Hãy nhập hoặc dịch phụ đề Việt trước.');return;}
@@ -455,7 +486,7 @@ export default function App() {
     const d=p.decoration||DEFAULT_DECORATION;return {...p,decoration:target.kind==='banner'?{...d,[target.id==='top'?'topText':'bottomText']:text}:{...d,overlays:d.overlays.map(c=>c.id===target.id?{...c,text}:c)}};
   });
   const [inspectorTab,setInspectorTab]=useState('media'),[audioPopup,setAudioPopup]=useState<string|null>(null),[showSubtitleList,setShowSubtitleList]=useState(false);
-  const changeVisuals=(visuals:VisualClip[])=>{setIsPlaying(false);pushHistory(project);setProject(p=>{const normalized=visuals.map(c=>({...c,trackId:c.trackId||'track-'+c.id}));return {...p,visuals:normalized,visualTracks:visualTracks(normalized,visualTracks(p.visuals||[],p.visualTracks||[])),videoEdited:p.videoEdited||visuals.some(c=>c.kind==='video')}});};
+  const changeVisuals=(visuals:VisualClip[])=>{setIsPlaying(false);pushHistory(project);setProject(p=>{const normalized=visuals.map(c=>({...c,trackId:c.trackId||'track-'+c.id}));return {...(linkMedia?linkedVideoEdit(p,normalized):p),visuals:normalized,visualTracks:visualTracks(normalized,visualTracks(p.visuals||[],p.visualTracks||[])),videoEdited:p.videoEdited||visuals.some(c=>c.kind==='video')}});};
   const importLibrary=async(files:File[])=>{
     if(libraryBusy||hardwareStatus.isProcessing)return;setLibraryBusy(true);
     try{const imported:MediaAsset[]=[];for(const file of files){const form=new FormData();form.append('file',file,file.name);const data=await apiJson('/api/media/import',{method:'POST',body:form});imported.push({id:crypto.randomUUID(),name:file.name,kind:data.kind,url:data.url,width:data.width,height:data.height,duration:data.duration||5});}pushHistory(project);setProject(p=>({...p,mediaLibrary:[...(p.mediaLibrary||[]),...imported]}));}
@@ -468,11 +499,13 @@ export default function App() {
     try{const next=insertLibraryAsset(project,asset,time,trackId);pushHistory(project);setIsPlaying(false);setProject(next.project);setSelectedVisual(next.clip.id);setInspectorTab('media');setCurrentTime(next.clip.startTime);}catch(e){alert(String(e))}
   };
   const prepareProjectVisuals=async(p:ProjectData)=>{const w=p.videoWidth||1920,h=p.videoHeight||1080,ready=await prepareVisuals(p.visuals||[],w,h);setProject(current=>({...current,visuals:current.visuals?.map(c=>{const next=ready.find(x=>x.id===c.id);return next&&rasterKey(c,w,h)===rasterKey(next,w,h)?{...c,url:next.url,renderKey:next.renderKey}:c})}));return ready;};
-  const selectVisual=(id:string|null)=>{setSelectedVisual(id);if(id)setInspectorTab(id.startsWith('bundle:')?'templates':'media');};
+  const selectVisual=(id:string|null)=>{setSelectedVisual(id);if(id){const c=project.visuals?.find(c=>c.id===id);if(c?.kind==='text')selectText({kind:'visual',id});else setInspectorTab(id.startsWith('bundle:')?'templates':'media');}};
   useEffect(()=>{const f=()=>setShowSubtitleList(x=>!x);window.addEventListener('hn-subtitle-list',f);return()=>window.removeEventListener('hn-subtitle-list',f)},[]);
-  const originalClips=projectClips(project).filter(c=>c.origin==='video');
+  const originalClips=projectClips(project).filter(c=>c.origin==='video'&&!c.sourceClipId);
   const changeOriginalVolume=(volume:number)=>{if(originalClips.length)applyTimeline({...project,manualTimeline:true,audioClips:projectClips(project).map(c=>c.origin==='video'?{...c,volume}:c)});else setProject(p=>({...p,originalAudioVolume:volume}));};
   const toggleOriginalMute=()=>{if(originalClips.length){const muted=!originalClips.every(c=>c.muted);applyTimeline({...project,manualTimeline:true,audioClips:projectClips(project).map(c=>c.origin==='video'?{...c,muted}:c)});}else setProject(p=>({...p,originalAudioMuted:!p.originalAudioMuted}));};
+  const [extractId,setExtractId]=useState<string|null>(null),[extractLane,setExtractLane]=useState('new');
+  const extractClipAudio=async()=>{const c=project.visuals?.find(c=>c.id===extractId);if(!c?.url)return;setHardwareStatus(h=>({...h,isProcessing:true,currentTaskName:'Đang trích âm thanh clip…',progressPercent:1}));try{const result=await apiJson('/api/media/extract',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:c.url,sourceStart:c.sourceStart,duration:c.endTime-c.startTime,rate:c.rate||1})});const clip={id:crypto.randomUUID(),sourceClipId:c.id,origin:'video' as const,laneId:extractLane==='new'?'audio-'+crypto.randomUUID():extractLane,track:'audio' as const,name:'Âm thanh · '+c.name,audioUrl:result.audioUrl,startTime:c.startTime,trimStart:0,trimEnd:result.duration,sourceDuration:result.duration,volume:1};const clips=[...projectClips(project),clip];const next={...project,manualTimeline:true,audioClips:clips,visuals:project.visuals!.map(v=>v.id===c.id?{...v,audioMuted:true}:v)};validateTimeline(next);const mix=await runJob('/api/timeline/mix',{clips,duration:timelineEnd(next)},(p,t)=>setHardwareStatus(h=>({...h,progressPercent:p,currentTaskName:t})));pushHistory(project);setProject({...next,dubAudioUrl:mix.audioUrl,dubDuration:mix.duration});setExtractId(null)}catch(e){alert(String(e))}finally{setHardwareStatus(h=>({...h,isProcessing:false,currentTaskName:'',progressPercent:0}))}};
   const [popupIds,setPopupIds]=useState<string[]>([]);
   const applyCaptionChanges=(changes:CaptionChange[])=>{const map=new Map(changes.map(c=>[c.id,c]));pushHistory(project);setProject(p=>({...p,subtitles:p.subtitles.map(s=>map.has(s.id)?{...s,...map.get(s.id),status:'translated'}:s)}));};
   const generatePopupSpeech=async(changes:CaptionChange[])=>{
@@ -500,6 +533,8 @@ export default function App() {
   ),[project,hardwareStatus.isProcessing,previewExpanded,voices]);
   return (
     <div data-theme={theme} className="hn-studio flex flex-col h-screen min-w-[1100px] w-full bg-[#101014] text-zinc-100 overflow-hidden font-sans select-none">
+      {extractId&&<FloatingPanel title="Trích xuất âm thanh clip" onClose={()=>setExtractId(null)}><label>Đưa âm thanh vào hàng<select aria-label="Hàng âm thanh trích xuất" value={extractLane} onChange={e=>setExtractLane(e.target.value)}><option value="new">＋ Hàng âm thanh mới</option><option value="audio">Âm thanh thêm / gốc</option>{[...new Set(projectClips(project).map(c=>c.laneId).filter(Boolean))].map(id=><option key={id} value={id}>{projectClips(project).find(c=>c.laneId===id)?.name}</option>)}</select></label><p>Giữ đúng phần đã cắt, tốc độ và vị trí timeline. Tiếng clip gốc sẽ tắt để tránh trùng.</p><button className="primary-action" disabled={hardwareStatus.isProcessing} onClick={extractClipAudio}>Trích xuất âm thanh</button></FloatingPanel>}
+      {showAuto&&<AutoDialog voices={voices} videoName={project.videoFileName} defaultVoice={project.characters[0]?.voiceId||voices[0]?.id} onClose={()=>setShowAuto(false)} onRun={runAutomatic} onStop={()=>{autoStop.current=true;handleCancel()}}/>}
       {/* 1. Header Toolbar */}
       <Header theme={theme} onThemeChange={(value:string)=>{setTheme(value);setThemeReady(true)}}
         hardwareStatus={hardwareStatus}
@@ -516,6 +551,7 @@ export default function App() {
         onRedo={handleRedo}
       />
 
+      <nav className="edit-menu"><button onClick={()=>setLeftPanel('library')}>▧ Media</button><button onClick={()=>window.dispatchEvent(new Event('hn-import-audio'))}>♫ Âm thanh</button><button onClick={()=>insertAsset(TEXT_ASSET,currentTime)}>T Văn bản</button><button onClick={()=>{if(textTarget)setInspectorTab('text');else insertAsset(TEXT_ASSET,currentTime)}}>✧ Hiệu ứng chữ</button><button onClick={()=>{setLeftPanel('workflow');setActiveSidebarTab('asr')}}>▤ Phụ đề / Auto</button><button onClick={()=>setInspectorTab('templates')}>▨ Nền / Mẫu</button></nav>
       {/* 2. Middle Workspace: Left Sidebar + Center Video + Right Subtitle Editor */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Sidebar Steps / Controls */}
@@ -524,7 +560,7 @@ export default function App() {
           setActiveTab={setActiveSidebarTab}
           project={project}
           hardwareStatus={hardwareStatus}
-          onUploadVideo={handleUploadVideo}
+          onOpenAuto={()=>setShowAuto(true)} onUploadVideo={handleUploadVideo}
           onImportSrt={handleImportSrt}
           onImportTranslation={handleImportTranslation}
           onCloneProcessing={(isProcessing,progressPercent,currentTaskName)=>setHardwareStatus(h=>({...h,isProcessing,progressPercent,currentTaskName}))}
@@ -547,7 +583,7 @@ export default function App() {
 
         {/* Center: Video Player Preview */}
         <VideoPlayer
-          textEditor={textTarget?<TextProperties project={project} target={textTarget} onText={updateText} onProject={editProject}/>:null} onEditText={selectText} onTextChange={updateText} externalInspector={!previewExpanded} videoEdited={project.videoEdited} visuals={orderedVisuals(project.visuals||[],project.visualTracks)} selectedVisual={selectedVisual} onSelectVisual={selectVisual} onVisualChange={changeVisuals} baseWidth={project.videoWidth} baseHeight={project.videoHeight}
+          textEditor={textTarget?<TextProperties selectedIds={captionSelection} project={project} target={textTarget} onText={updateText} onProject={editProject}/>:null} onEditText={selectText} onTextChange={updateText} externalInspector={!previewExpanded} videoEdited={project.videoEdited} visuals={orderedVisuals(project.visuals||[],project.visualTracks)} selectedVisual={selectedVisual} onSelectVisual={selectVisual} onVisualChange={changeVisuals} baseWidth={project.videoWidth} baseHeight={project.videoHeight}
           mediaEditor={<MediaEditor project={project} time={currentTime} selected={selectedVisual} onSelect={setSelectedVisual} onChange={changeVisuals} onProcess={(isProcessing,progressPercent,currentTaskName)=>setHardwareStatus(h=>({...h,isProcessing,progressPercent,currentTaskName}))}/>}
           originalDetachedMuted={originalClips.length>0&&originalClips.every(c=>c.muted)}
           manualTimeline={project.manualTimeline} originalDetached={projectClips(project).some(c=>c.origin==='video')}
@@ -576,7 +612,7 @@ export default function App() {
         />
 
         {/* Right: Subtitle & Dubbing Editor */}
-        {!previewExpanded&&<InspectorDock tab={inspectorTab} onTab={setInspectorTab}>{inspectorTab==='text'&&textTarget?<TextProperties project={project} target={textTarget} onText={updateText} onProject={editProject} onAdvanced={()=>setInspectorTab('media')}/>:inspectorTab==='design'?<><VideoDesignPanel layout={project.captionLayout||DEFAULT_CAPTION_LAYOUT} onLayoutChange={captionLayout=>setProject(p=>({...p,captionLayout}))} decoration={project.decoration||DEFAULT_DECORATION} onDecorationChange={decoration=>setProject(p=>({...p,decoration}))}/><LegacyBlurEditor value={project.blurRegion||{enabled:false,x:.1,y:.78,width:.8,height:.15,strength:16}} onChange={blurRegion=>setProject(p=>({...p,blurRegion}))} onConvert={()=>{const blur=project.blurRegion!;const id=crypto.randomUUID();changeVisuals([...(project.visuals||[]),{...blur,id,kind:'blur',name:'Vùng mờ từ dự án',startTime:0,endTime:project.duration,sourceStart:0,sourceDuration:project.duration,opacity:1,keyframes:[]}]);setProject(p=>({...p,blurRegion:{...p.blurRegion!,enabled:false}}));selectVisual(id);}}/></>:inspectorTab==='templates'?<><TemplateParts project={project} onProject={editProject} onSelect={(id,isText)=>{setSelectedVisual(id);if(isText)selectText({kind:'visual',id});else setInspectorTab('media')}}/><TemplatePanel project={project} onApply={clips=>{pushHistory(project);setIsPlaying(false);setProject(p=>normalizeTemplateBundle(replaceTemplate(p,clips)));}}/></>:<MediaEditor project={project} time={currentTime} selected={selectedVisual} onSelect={selectVisual} onChange={changeVisuals} onProcess={(isProcessing,progressPercent,currentTaskName)=>setHardwareStatus(h=>({...h,isProcessing,progressPercent,currentTaskName}))}/>}</InspectorDock>}
+        {!previewExpanded&&<InspectorDock tab={inspectorTab} onTab={setInspectorTab}>{inspectorTab==='text'&&textTarget?<TextProperties selectedIds={captionSelection} project={project} target={textTarget} onText={updateText} onProject={editProject} onAdvanced={()=>setInspectorTab('media')}/>:inspectorTab==='design'?<><VideoDesignPanel layout={project.captionLayout||DEFAULT_CAPTION_LAYOUT} onLayoutChange={captionLayout=>setProject(p=>({...p,captionLayout}))} decoration={project.decoration||DEFAULT_DECORATION} onDecorationChange={decoration=>setProject(p=>({...p,decoration}))}/><LegacyBlurEditor value={project.blurRegion||{enabled:false,x:.1,y:.78,width:.8,height:.15,strength:16}} onChange={blurRegion=>setProject(p=>({...p,blurRegion}))} onConvert={()=>{const blur=project.blurRegion!;const id=crypto.randomUUID();changeVisuals([...(project.visuals||[]),{...blur,id,kind:'blur',name:'Vùng mờ từ dự án',startTime:0,endTime:project.duration,sourceStart:0,sourceDuration:project.duration,opacity:1,keyframes:[]}]);setProject(p=>({...p,blurRegion:{...p.blurRegion!,enabled:false}}));selectVisual(id);}}/></>:inspectorTab==='templates'?<><TemplateParts project={project} onProject={editProject} onSelect={(id,isText)=>{setSelectedVisual(id);if(isText)selectText({kind:'visual',id});else setInspectorTab('media')}}/><TemplatePanel project={project} onApply={clips=>{pushHistory(project);setIsPlaying(false);setProject(p=>normalizeTemplateBundle(replaceTemplate(p,clips)));}}/></>:<MediaEditor project={project} time={currentTime} selected={selectedVisual} onSelect={selectVisual} onChange={changeVisuals} onProcess={(isProcessing,progressPercent,currentTaskName)=>setHardwareStatus(h=>({...h,isProcessing,progressPercent,currentTaskName}))}/>}</InspectorDock>}
 
 
       </div>
@@ -584,16 +620,16 @@ export default function App() {
       {lastExport&&<div className="px-3 py-2 text-xs bg-emerald-950 text-emerald-100 flex gap-3 items-center"><span>Đã lưu MP4: {lastExport}</span><button className="underline" onClick={()=>(window as any).hnDesktop?.revealExport()}>Mở thư mục chứa video</button></div>}
       {popupIds.length>0&&project.subtitles.some(s=>popupIds.includes(s.id))&&<CaptionPopup key={popupIds.join(',')} cues={timelineSubtitles(project).filter(s=>popupIds.includes(s.id)).map(s=>({...s,voiceId:s.voiceId||project.characters.find(c=>c.id===s.characterId)?.voiceId}))} layout={project.captionLayout||DEFAULT_CAPTION_LAYOUT} voices={voices} busy={hardwareStatus.isProcessing} onClose={()=>{stopAudioPreview();setPopupIds([]);}} onApply={applyCaptionChanges} onGenerate={generatePopupSpeech} onEditAudio={id=>{const clip=projectClips(project).find(c=>c.subtitleId===id);if(clip){stopAudioPreview();setPopupIds([]);setAudioPopup(clip.id)}}}/>}
       {showSubtitleList&&<FloatingPanel title="Danh sách phụ đề" width={500} onClose={()=>setShowSubtitleList(false)}><div className="floating-subtitle-list">{editorPanel}</div></FloatingPanel>}
-      {textPopup&&textTarget&&<FloatingPanel title="Chỉnh chữ" onClose={()=>setTextPopup(false)}><TextProperties project={project} target={textTarget} onText={updateText} onProject={editProject}/></FloatingPanel>}
+      {textPopup&&textTarget&&<FloatingPanel title="Chỉnh chữ" onClose={()=>setTextPopup(false)}><TextProperties selectedIds={captionSelection} project={project} target={textTarget} onText={updateText} onProject={editProject}/></FloatingPanel>}
       {audioPopup&&projectClips(project).some(c=>c.id===audioPopup)&&<AudioPopup key={audioPopup} clip={projectClips(project).find(c=>c.id===audioPopup)!} onClose={()=>setAudioPopup(null)} onSeek={setCurrentTime} onApply={async clip=>{if(!await applyTimeline({...project,manualTimeline:true,audioClips:projectClips(project).map(c=>c.id===clip.id?clip:c)}))throw Error("Chưa áp dụng: kiểm tra khoảng trống trên hàng âm thanh trước khi kéo dài đoạn.");}}/>}
 
       {/* 3. Bottom: CapCut-Style Multi-Track Timeline */}
       <div className={previewExpanded?'hidden':'contents'}><Timeline
-        onVisualLayoutChange={(visuals,visualTracks)=>{pushHistory(project);setIsPlaying(false);setProject(p=>({...p,visuals,visualTracks,videoEdited:true}))}} onVisualPopup={id=>{const c=project.visuals?.find(c=>c.id===id);if(c?.kind==='text'){selectText({kind:'visual',id});setTextPopup(true)}else if(id.startsWith('bundle:')){setInspectorTab('templates')}}} onDropAsset={insertAsset} selectedVisual={selectedVisual} onVisualSelect={selectVisual} onVisualsChange={changeVisuals} onVisualTracksChange={tracks=>{pushHistory(project);const removed=visualTracks(project.visuals||[],project.visualTracks).filter(t=>!tracks.some(x=>x.id===t.id)).map(t=>t.id);setProject(p=>({...p,visualTracks:tracks,visuals:p.visuals?.filter(c=>!removed.includes(c.trackId||'track-'+c.id))}))}} onAudioPopup={id=>{setIsPlaying(false);stopAudioPreview();setAudioPopup(id)}}
+        linkedMedia={linkMedia} onLinkedMedia={setLinkMedia} onExtractClip={id=>{setExtractLane('new');setExtractId(id)}} onVisualLayoutChange={(visuals,visualTracks)=>{pushHistory(project);setIsPlaying(false);setProject(p=>({...((linkMedia?linkedVideoEdit(p,visuals):p)),visuals,visualTracks,videoEdited:true}))}} onVisualPopup={id=>{const c=project.visuals?.find(c=>c.id===id);if(c?.kind==='text'){selectText({kind:'visual',id});setTextPopup(true)}else if(id.startsWith('bundle:')){setInspectorTab('templates')}}} onDropAsset={insertAsset} selectedVisual={selectedVisual} onVisualSelect={selectVisual} onVisualsChange={changeVisuals} onVisualTracksChange={tracks=>{pushHistory(project);const removed=visualTracks(project.visuals||[],project.visualTracks).filter(t=>!tracks.some(x=>x.id===t.id)).map(t=>t.id);setProject(p=>({...p,visualTracks:tracks,visuals:p.visuals?.filter(c=>!removed.includes(c.trackId||'track-'+c.id))}))}} onAudioPopup={id=>{setIsPlaying(false);stopAudioPreview();setAudioPopup(id)}}
         project={project} currentTime={currentTime} busy={hardwareStatus.isProcessing}
         canUndo={historyPast.length>0} canRedo={historyFuture.length>0} onUndo={handleUndo} onRedo={handleRedo}
         onSeek={setCurrentTime} onPause={()=>{stopAudioPreview();setIsPlaying(false);}}
-        onSelectSubtitle={id=>setProject(p=>({...p,selectedSubtitleId:id}))}
+        onCaptionSelection={setCaptionSelection} onSelectSubtitle={(id,lang)=>{setProject(p=>({...p,selectedSubtitleId:id}));if(id)selectText({kind:'caption',id,lang:lang||'vi'})}}
         onCaptionPopup={ids=>{stopAudioPreview();setIsPlaying(false);setPopupIds(ids);}}
         onDeleteMany={(items,linked)=>{try{applyTimeline(deleteTimelineSelection(project,items,linked));}catch(e){alert(String(e));}}} onRemix={()=>applyTimeline({...project,manualTimeline:true})} onEdit={handleTimelineEdit} onImportAudio={file=>handleTimelineAudio(file)} onExtractOriginal={mode=>handleTimelineAudio(undefined,mode)}
       /></div>

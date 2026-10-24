@@ -1,0 +1,7 @@
+import assert from 'node:assert/strict';
+import {continueAuto} from '../src/lib/auto-pipeline';
+import {motionAt} from '../src/lib/text-motion';
+import {linkedVideoEdit} from '../src/lib/linked-video';
+(async()=>{const state={next:0,value:0},calls:number[]=[];let fail=true;const ops=[async(n:number)=>{calls.push(0);return n+1},async(n:number)=>{calls.push(1);if(fail)throw Error('test');return n+1},async(n:number)=>{calls.push(2);return n+1}];await assert.rejects(continueAuto(state,ops,()=>{},()=>false));assert.equal(state.next,1);assert.equal(state.value,1);fail=false;await continueAuto(state,ops,()=>{},()=>false);assert.deepEqual(calls,[0,1,1,2]);assert.equal(state.value,3);const stopped={next:0,value:0};await assert.rejects(continueAuto(stopped,ops,()=>{},()=>true));assert.equal(stopped.next,0);
+const fade={enter:{effect:'fade',duration:1,intensity:1}};assert.equal(motionAt(fade,0,0,4).opacity,0);assert.equal(motionAt(fade,1,0,4).opacity,1);
+const v:any={id:'v',kind:'video',url:'/cache/v.mp4',startTime:0,endTime:4,sourceStart:0,sourceDuration:4,rate:1,keyframes:[]};const p:any={visuals:[v],subtitles:[{id:'s',sourceClipId:'v',startTime:1,endTime:2,textZh:'中',textVi:'Việt'}],audioClips:[{id:'a',track:'voice',subtitleId:'s',audioUrl:'/cache/a.wav',startTime:1,trimStart:0,trimEnd:1,sourceDuration:1,volume:1}]};const moved=linkedVideoEdit(p,[{...v,startTime:3,endTime:7}]);assert.equal(moved.subtitles[0].startTime,4);assert.equal(moved.audioClips![0].startTime,4);console.log('AUTO RESUME / NO DUPLICATES / CANCEL / MOTION / LINKED MEDIA PASSED');})();

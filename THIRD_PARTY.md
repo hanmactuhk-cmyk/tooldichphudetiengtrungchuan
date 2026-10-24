@@ -22,3 +22,7 @@ The decorative world map uses Natural Earth 1:110m land outlines (public domain)
 
 ## Vietnamese caption font pack
 33 families sourced from Google Fonts, distributed under the SIL Open Font License. Each family license and the exact file hashes are included in public/fonts/ (manifest.json and *-OFL.txt). Regular/bold/italic static instances are generated from the upstream fonts where supported. scripts/fetch-caption-fonts.py records upstream locations; scripts/test-font-pack.py checks Vietnamese coverage, hashes and licenses. Fonts load locally without network access and are also passed to the MP4 subtitle renderer.
+
+## Background removal in HN601
+
+U-2-Net (U2NetP), Apache-2.0: https://github.com/xuebinqin/U-2-Net . ONNX weights distributed through https://github.com/danielgatis/rembg/releases/tag/v0.0.0 . Model and original license are bundled in resources/models/background; hashes are in models.lock.json.

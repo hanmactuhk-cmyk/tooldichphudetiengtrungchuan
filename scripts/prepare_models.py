@@ -20,6 +20,9 @@ def prepare(verify_only=False):
     else:
      import urllib.request
      urllib.request.urlretrieve(source['source'],path)
+   elif name=='background':
+    import urllib.request
+    urllib.request.urlretrieve(source['weights'] if relative.name.endswith('.onnx') else 'https://raw.githubusercontent.com/xuebinqin/U-2-Net/master/LICENSE',path)
    elif name=='ocr-zh':
     import rapidocr_onnxruntime
     shutil.copy2(Path(rapidocr_onnxruntime.__file__).parent/'models'/relative.name,path)

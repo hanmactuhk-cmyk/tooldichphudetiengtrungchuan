@@ -1,0 +1,4 @@
+import {VisualClip,SourceCrop} from '../types';
+export function cropBox(c:Pick<VisualClip,'crop'>):SourceCrop{const v=c.crop||{x:0,y:0,width:1,height:1};const x=Math.max(0,Math.min(.95,v.x)),y=Math.max(0,Math.min(.95,v.y));return {x,y,width:Math.max(.05,Math.min(1-x,v.width)),height:Math.max(.05,Math.min(1-y,v.height))};}
+export function cropPlacement(c:VisualClip,bw:number,bh:number){const crop=cropBox(c),sw=(c.nativeWidth||bw)*crop.width,sh=(c.nativeHeight||bh)*crop.height,k=c.fit==='cover'?Math.max(bw/sw,bh/sh):Math.min(bw/sw,bh/sh),width=sw*k,height=sh*k;return {crop,x:(bw-width)/2,y:(bh-height)/2,width,height};}
+export function zoomGeometry(g:{x:number;y:number;width:number;height:number},width:number){width=Math.max(.05,Math.min(4,width));const height=Math.max(.05,Math.min(4,g.height*width/g.width));return {width,height,x:g.x+(g.width-width)/2,y:g.y+(g.height-height)/2};}

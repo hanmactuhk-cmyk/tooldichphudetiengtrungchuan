@@ -1,4 +1,8 @@
-# HN601 — HNstudio 6.0.4, bản cài độc lập
+# HN601 — HNstudio 6.0.5, bản cài độc lập
+
+### Sửa trong 6.0.5
+Video gốc kéo giữa các hàng timeline, phóng to/thu nhỏ 5–400%, kéo trực tiếp trong preview, kể cả khuất ra ngoài khung. Có Crop video với khung kéo và bốn thanh cắt cạnh; nguồn gốc giữ nguyên, crop lưu theo clip và áp dụng khi xuất MP4. Cấu hình xuất được gửi dưới dạng tệp JSON, khắc phục lỗi “Part exceeded maximum size of 1024KB” khi phụ đề/hiệu ứng lớn. Giới hạn cấu hình là 64 MB và kịch bản ASS 48 MB, có thông báo rõ khi vượt.
+
 
 ### Sửa trong 6.0.4
 Nhận diện lời nói, OCR và Auto offline đọc trực tiếp video nguồn, không dựng các lớp ảnh/chữ/hiệu ứng trước khi nhận diện. Các đoạn cắt/di chuyển/tốc độ được nhận diện theo từng phần và đưa kết quả về đúng mốc timeline; lớp trang trí không kéo dài khoảng nhận diện. Hiện tiến độ quét và hỗ trợ dừng tác vụ; báo rõ khi không có lời nói hoặc không thấy chữ. Video vừa chọn được đưa vào bộ nhớ tạm trước khi nhận diện để tránh dùng URL phát tạm không hợp lệ.

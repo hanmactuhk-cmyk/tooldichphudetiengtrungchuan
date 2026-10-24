@@ -43,6 +43,7 @@ jobs:
       - run: pnpm exec tsx scripts/test-hn602.ts
       - run: pnpm exec tsx scripts/test-recognition-source.ts
       - run: pnpm exec tsx scripts/test-visual-editing.ts
+      - run: pnpm exec tsx scripts/test-video-transform.ts
       - run: node --check electron-main.cjs
       - run: node scripts/test-project-storage.cjs
       - run: python -m pip install fonttools==4.67.0

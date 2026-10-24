@@ -40,7 +40,7 @@ def _render_video(source,options,cache,dubbing,progress,cancelled):
    cv2.imwrite(str(folder/'rounded-mask.png'),cv2.resize(mask,(bw,bh),interpolation=cv2.INTER_AREA))
   ass=str(options.get('ass') or '')
   if ass:
-   if len(ass)>4*1024*1024:raise ValueError('Phụ đề xuất quá lớn.')
+   if len(ass.encode('utf-8'))>48*1024*1024:raise ValueError('Phụ đề xuất vượt 48 MB. Hãy chia đoạn xuất.')
    (folder/'captions.ass').write_text(ass,encoding='utf-8')
   aspect=options.get('aspect','auto');ratio=16/9 if aspect=='16:9' else 9/16 if aspect=='9:16' else w/h
   ow=math.ceil(max(w,h*ratio)/2)*2;oh=math.ceil(max(h,w/ratio)/2)*2

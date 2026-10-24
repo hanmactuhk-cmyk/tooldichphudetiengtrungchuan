@@ -22,7 +22,7 @@ from translation import OfflineTranslator
 from browser_translation import BrowserTranslator
 from subtitle_contract import validate_cues,from_srt,parse_srt
 from jobs import JOBS
-app = FastAPI(title='HN Voice Studio', version='6.0.4')
+app = FastAPI(title='HN Voice Studio', version='6.0.5')
 DUBBING=DubbingService(MODELS,CACHE,lambda *args:ffmpeg(*args))
 TRANSLATOR=OfflineTranslator(MODELS)
 BROWSER_HOME=Path(os.environ.get('HN_BROWSER_HOME',APP_DIR/'data/chrome-profiles'))
@@ -51,7 +51,7 @@ def ffmpeg(*args):
 @app.get('/health')
 @app.get('/api/health')
 def health():
-    return {'status':'ok','device':'cpu','models':{n:(MODELS/n).is_dir() for n in ['whisper-small','qwen3','vieneu','ocr-zh']},'modelDirectory':str(MODELS),'version':'6.0.4','instanceId':os.environ.get('HN_INSTANCE_ID'),'activeModel':POOL.name,'modelLoads':POOL.loads}
+    return {'status':'ok','device':'cpu','models':{n:(MODELS/n).is_dir() for n in ['whisper-small','qwen3','vieneu','ocr-zh']},'modelDirectory':str(MODELS),'version':'6.0.5','instanceId':os.environ.get('HN_INSTANCE_ID'),'activeModel':POOL.name,'modelLoads':POOL.loads}
 _ASR_CONTEXT=threading.local()
 def asr_progress(percent,message):
     if getattr(_ASR_CONTEXT,'cancelled',lambda:False)():raise RuntimeError('Đã dừng nhận diện.')
@@ -178,11 +178,15 @@ def separate_original(file:UploadFile=File(...)):
         source.unlink(missing_ok=True);raise HTTPException(422,str(exc))
 
 @app.post('/api/video/export')
-def export_video(file:UploadFile=File(...),options:str=Form(...)):
+def export_video(file:UploadFile=File(...),options:str=Form('{}'),options_data:UploadFile|None=File(default=None)):
     import json
     from video_export import render_video
     source=CACHE/(uuid.uuid4().hex+'.mp4')
     try:
+        if options_data is not None:
+            payload=options_data.file.read(64*1024*1024+1)
+            if len(payload)>64*1024*1024:raise ValueError('Cấu hình xuất vượt 64 MB. Hãy giảm số hiệu ứng hoặc chia đoạn xuất.')
+            options=payload.decode('utf-8')
         config=json.loads(options)
         if not isinstance(config,dict):raise ValueError('Tùy chọn xuất không hợp lệ.')
         with source.open('wb') as handle:

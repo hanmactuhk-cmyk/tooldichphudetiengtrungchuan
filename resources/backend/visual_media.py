@@ -29,6 +29,10 @@ def validate_visuals(clips,cache):
   if not math.isfinite(a+b) or a<0 or b<=a or b>86400:raise ValueError('Thời gian lớp không hợp lệ.')
   if len(c.get('keyframes',[]))>20000:raise ValueError('Quá nhiều keyframe.')
   geo(c,a)
+  crop=c.get('crop')
+  if crop:
+   vals=[float(crop[k]) for k in ('x','y','width','height')]
+   if not all(math.isfinite(v) for v in vals) or min(vals)<0 or min(vals[2:])<.05 or vals[0]+vals[2]>1.001 or vals[1]+vals[3]>1.001:raise ValueError('Khung crop không hợp lệ.')
   if c['kind']!='blur':media_path(cache,c.get('url'))
   if c['kind']=='video':
    start=float(c.get('sourceStart',0));source=cv2.VideoCapture(str(media_path(cache,c['url'])))
@@ -46,6 +50,9 @@ def round_mask(w,h,r):
  return m
 
 def flipped(image,c):
+ crop=c.get('crop')
+ if crop:
+  h,w=image.shape[:2];x=max(0,min(w-1,round(float(crop['x'])*w)));y=max(0,min(h-1,round(float(crop['y'])*h)));cw=max(1,min(w-x,round(float(crop['width'])*w)));ch=max(1,min(h-y,round(float(crop['height'])*h)));image=image[y:y+ch,x:x+cw]
  angle=float(c.get('rotation') or 0)
  if angle:
   h,w=image.shape[:2];image=cv2.warpAffine(image,cv2.getRotationMatrix2D((w/2,h/2),-angle,1),(w,h),borderMode=cv2.BORDER_CONSTANT)
@@ -55,7 +62,7 @@ def flipped(image,c):
  return image
 
 def paste(frame,image,g,fit):
- h,w=frame.shape[:2];x,y=round(g['x']*w),round(g['y']*h);bw,bh=max(1,round(g['width']*w)),max(1,round(g['height']*h));bw=min(w*2,bw);bh=min(h*2,bh)
+ h,w=frame.shape[:2];x,y=round(g['x']*w),round(g['y']*h);bw,bh=max(1,round(g['width']*w)),max(1,round(g['height']*h));bw=min(w*4,bw);bh=min(h*4,bh)
  ih,iw=image.shape[:2];scale=max(bw/iw,bh/ih) if fit=='cover' else min(bw/iw,bh/ih);nw,nh=max(1,round(iw*scale)),max(1,round(ih*scale));im=cv2.resize(image,(nw,nh))
  if fit=='cover':im=im[max(0,(nh-bh)//2):max(0,(nh-bh)//2)+bh,max(0,(nw-bw)//2):max(0,(nw-bw)//2)+bw];nh,nw=im.shape[:2]
  else:x+=(bw-nw)//2;y+=(bh-nh)//2

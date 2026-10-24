@@ -22,7 +22,7 @@ from translation import OfflineTranslator
 from browser_translation import BrowserTranslator
 from subtitle_contract import validate_cues,from_srt,parse_srt
 from jobs import JOBS
-app = FastAPI(title='HN Voice Studio', version='6.0.3')
+app = FastAPI(title='HN Voice Studio', version='6.0.4')
 DUBBING=DubbingService(MODELS,CACHE,lambda *args:ffmpeg(*args))
 TRANSLATOR=OfflineTranslator(MODELS)
 BROWSER_HOME=Path(os.environ.get('HN_BROWSER_HOME',APP_DIR/'data/chrome-profiles'))
@@ -51,7 +51,12 @@ def ffmpeg(*args):
 @app.get('/health')
 @app.get('/api/health')
 def health():
-    return {'status':'ok','device':'cpu','models':{n:(MODELS/n).is_dir() for n in ['whisper-small','qwen3','vieneu','ocr-zh']},'modelDirectory':str(MODELS),'version':'6.0.3','instanceId':os.environ.get('HN_INSTANCE_ID'),'activeModel':POOL.name,'modelLoads':POOL.loads}
+    return {'status':'ok','device':'cpu','models':{n:(MODELS/n).is_dir() for n in ['whisper-small','qwen3','vieneu','ocr-zh']},'modelDirectory':str(MODELS),'version':'6.0.4','instanceId':os.environ.get('HN_INSTANCE_ID'),'activeModel':POOL.name,'modelLoads':POOL.loads}
+_ASR_CONTEXT=threading.local()
+def asr_progress(percent,message):
+    if getattr(_ASR_CONTEXT,'cancelled',lambda:False)():raise RuntimeError('Đã dừng nhận diện.')
+    getattr(_ASR_CONTEXT,'progress',lambda *_:None)(percent,message)
+
 @app.post('/api/transcribe')
 def transcribe(file: UploadFile=File(...)):
     from faster_whisper import WhisperModel
@@ -63,13 +68,18 @@ def transcribe(file: UploadFile=File(...)):
             while chunk:=file.file.read(1024*1024):
                 out.write(chunk)
                 if out.tell()>2*1024**3: raise HTTPException(413,'Video vượt quá 2 GB. Hãy cắt thành đoạn nhỏ.')
+        asr_progress(10,'Đang đọc âm thanh nguồn…')
         ffmpeg('-i',source,'-vn','-ac',1,'-ar',16000,pcm)
+        asr_progress(20,'Đang nạp Whisper Small và nhận diện lời nói…')
         with POOL.use('whisper',lambda:WhisperModel(str(directory),device='cpu',compute_type='int8',cpu_threads=min(4,os.cpu_count() or 2),local_files_only=True)) as model:
             try:
                 import soundfile as sf
                 samples,_=sf.read(str(pcm),dtype='float32')
                 segments,info=model.transcribe(samples,language='zh',beam_size=5,vad_filter=True,word_timestamps=True,condition_on_previous_text=False)
-                subtitles=[{'id':f'sub-{i+1:04}','startTime':s.start,'endTime':s.end,'textZh':s.text.strip(),'characterId':'speaker-1','speed':1,'pitch':0,'volume':1,'status':'raw','modelUsedZh':'Whisper-small'} for i,s in enumerate(segments) if s.text.strip()]
+                subtitles=[]
+                for i,segment in enumerate(segments):
+                    asr_progress(min(96,20+int(segment.end/max(.01,len(samples)/16000)*76)),f'Đã nghe đến {segment.end:.1f}s')
+                    if segment.text.strip():subtitles.append({'id':f'sub-{i+1:04}','startTime':segment.start,'endTime':segment.end,'textZh':segment.text.strip(),'characterId':'speaker-1','speed':1,'pitch':0,'volume':1,'status':'raw','modelUsedZh':'Whisper-small'})
             finally:
                 pass
         return {'status':'success','modelUsed':'Whisper-small CPU INT8','subtitles':subtitles}
@@ -93,10 +103,12 @@ def ocr_video(file:UploadFile=File(...),crop_top:float=Form(default=0.55,ge=0,lt
         fps=cap.get(cv2.CAP_PROP_FPS);count=cap.get(cv2.CAP_PROP_FRAME_COUNT)
         if not cap.isOpened() or fps<=0 or count<=0:raise HTTPException(422,'Không đọc được video để OCR. Hãy đổi sang MP4 H.264.')
         duration=count/fps;subtitles=[]
+        asr_progress(15,'Đang nạp bộ quét chữ OCR…')
         with POOL.use('ocr',lambda:RapidOCR(det_model_path=str(directory/'ch_PP-OCRv4_det_infer.onnx'),rec_model_path=str(directory/'ch_PP-OCRv4_rec_infer.onnx'),cls_model_path=str(directory/'ch_ppocr_mobile_v2.0_cls_infer.onnx'),intra_op_num_threads=2,inter_op_num_threads=1)) as engine:
             try:
                 t=0.0;last_gray=None;last_result=None;ocr_calls=0
                 while t<duration:
+                    asr_progress(min(96,20+int(t/max(.01,duration)*76)),f'Quét chữ {t:.1f}/{duration:.1f}s')
                     cap.set(cv2.CAP_PROP_POS_MSEC,t*1000)
                     ok,frame=cap.read()
                     if not ok:break
@@ -445,12 +457,30 @@ def asr_cached(body:dict):
     from media_tools import source_path
     source=source_path(CACHE,body.get('url'))
     def run(progress,cancelled):
-        progress(5,'Đang nhận diện trên máy…')
-        with source.open('rb') as handle:
-            upload=UploadFile(file=handle,filename=source.name)
-            result=ocr_video(upload,crop_top=float(body.get('cropTop',.55)),sample_interval=.5) if body.get('mode')=='ocr' else transcribe(upload)
-        if not result.get('subtitles'):raise ValueError('Không nhận diện được phụ đề. Hãy đổi cách nhận diện hoặc kiểm tra video.')
-        return result
+        import math,tempfile,cv2
+        from dubbing import tempo_filters
+        a=float(body.get('sourceStart',0));rate=float(body.get('rate',1));duration=body.get('duration');mode=body.get('mode','speech')
+        if not math.isfinite(a+rate) or a<0 or not .1<=rate<=8 or mode not in ('speech','ocr'):raise ValueError('Khoảng nhận diện không hợp lệ.')
+        _ASR_CONTEXT.progress=progress;_ASR_CONTEXT.cancelled=cancelled
+        try:
+            with tempfile.TemporaryDirectory(dir=CACHE,prefix='recognition-') as temp:
+                input=source
+                cap=cv2.VideoCapture(str(source));fps=cap.get(5) or 25;source_duration=cap.get(7)/fps;cap.release()
+                duration=float(duration) if duration is not None else source_duration/rate
+                if not math.isfinite(duration) or not .04<=duration<=86400 or a>=source_duration:raise ValueError('Đoạn video nhận diện không hợp lệ.')
+                if a>.001 or abs(rate-1)>.001 or duration<source_duration-.05:
+                    asr_progress(3,'Đang lấy đúng phần video đã cắt…')
+                    input=Path(temp)/('selected.mp4' if mode=='ocr' else 'selected.wav')
+                    if mode=='ocr':ffmpeg('-ss',a,'-t',duration*rate,'-i',source,'-an','-vf',f'setpts=PTS/{rate}','-r',min(10,fps/rate),'-c:v','libx264','-preset','ultrafast','-crf',20,'-t',duration,input)
+                    else:ffmpeg('-ss',a,'-t',duration*rate,'-i',source,'-vn','-af',tempo_filters(rate),'-ar',16000,'-ac',1,'-t',duration,input)
+                asr_progress(5,'Đang đọc trực tiếp video nguồn…')
+                with input.open('rb') as handle:
+                    upload=UploadFile(file=handle,filename=input.name)
+                    result=ocr_video(upload,crop_top=float(body.get('cropTop',.55)),sample_interval=.5) if mode=='ocr' else transcribe(upload)
+                if not result.get('subtitles') and not body.get('allowEmpty'):raise ValueError('Không nhận diện được phụ đề. Hãy đổi cách nhận diện hoặc kiểm tra video.')
+                progress(100,'Đã nhận diện xong đoạn video.');return result
+        finally:
+            _ASR_CONTEXT.__dict__.clear()
     return JOBS.submit('asr',body,run)
 
 

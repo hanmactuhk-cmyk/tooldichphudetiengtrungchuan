@@ -1,3 +1,4 @@
+import {recognizeProject,recognitionParts} from './lib/recognition-source';
 import type {TimelineAudioClip} from './types';
 import {placeAudioEdit} from './lib/timeline-engine';
 import {linkedVideoEdit} from './lib/linked-video';
@@ -268,26 +269,8 @@ export default function App() {
     }));
 
     try {
-      const selected=project.visuals?.find(c=>c.id===selectedVisual&&c.kind==='video');let input=project.videoUrl||'';if(selected?.url){const result=await apiJson('/api/media/segment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:selected.url,sourceStart:selected.sourceStart,duration:selected.endTime-selected.startTime,rate:selected.rate||1})});input=result.url;}else if(project.videoEdited){const rendered=await exportProjectVideo({...project,dubAudioUrl:undefined,originalAudioMuted:false},()=>{},false);input=rendered.url;}
-      const raw = await runOfflineASR(
-        input,
-        {
-          model,
-          cropTop,
-          useVad: true,
-          usePunc: true,
-          confidenceThreshold: 0.9,
-        },
-        (percent, stepText) => {
-          setHardwareStatus((h) => ({
-            ...h,
-            progressPercent: percent,
-            currentTaskName: stepText,
-          }));
-        }
-      );
-
-      const recognized=raw.map(c=>({...c,startTime:c.startTime+(selected?.startTime||0),endTime:c.endTime+(selected?.startTime||0),sourceClipId:selected?.id||project.visuals?.find(v=>v.kind==='video'&&c.startTime>=v.startTime&&c.startTime<v.endTime)?.id}));
+      const selected=project.visuals?.find(c=>c.id===selectedVisual&&c.kind==='video');
+      const recognized=await recognizeProject(project,model==='OCR-ZH'?'ocr':'speech',cropTop,(percent,stepText)=>setHardwareStatus(h=>({...h,progressPercent:percent,currentTaskName:stepText})),selected?.id);
       setProject((p) => ({
         ...p,
         subtitles: selected?[...p.subtitles.filter(c=>c.sourceClipId!==selected.id),...recognized]:recognized,
@@ -375,8 +358,7 @@ export default function App() {
     try{
       await continueAuto<ProjectData>(state,[
         async old=>{let p=old;if(options.file||!p.videoUrl?.startsWith('/cache/')){const file=options.file||await readVideo(p.videoUrl!);const form=new FormData();form.append('file',file,options.file?.name||p.videoFileName||'video.mp4');const media=await apiJson('/api/media/import',{method:'POST',body:form});const visual:VisualClip={id:crypto.randomUUID(),kind:'video',trackId:'base-video',name:options.file?.name||p.videoFileName,url:media.url,nativeWidth:media.width,nativeHeight:media.height,startTime:0,endTime:media.duration,sourceStart:0,sourceDuration:media.duration,x:0,y:0,width:1,height:1,opacity:1,enabled:true,keyframes:[]};p={...p,id:options.file?crypto.randomUUID():p.id,videoUrl:media.url,videoFileName:visual.name,videoWidth:media.width,videoHeight:media.height,duration:media.duration,...(options.file?{title:options.file.name.replace(/\.[^.]+$/,''),visuals:[visual],visualTracks:[{id:'base-video',name:'Video gốc',enabled:true}],videoEdited:true,subtitles:[],audioClips:[],dubAudioUrl:undefined}:{} )};if(!p.visuals?.some(c=>c.kind==='video'))p={...p,visuals:[visual],visualTracks:[{id:'base-video',name:'Video gốc',enabled:true}],videoEdited:true};}if(!p.videoUrl)throw Error('Chọn video MP4 trước.');progress(100,'Đã chuẩn bị video');return commit(p)},
-        async p=>{let url=p.videoUrl!;if(p.videoEdited&&p.visuals?.length){const rendered=await exportProjectVideo({...p,dubAudioUrl:undefined,originalAudioMuted:false},progress,false);url=rendered.url;}
-          let result;if(options.recognition==='gemini'){const form=new FormData();form.append('file',await readVideo(url),'video.mp4');form.append('duration',String(timelineEnd(p)));result=await uploadJob('/api/gemini/video-subtitles',form,progress)}else result=await runJob('/api/asr-job',{url,mode:options.recognition},progress);
+        async p=>{let result;if(options.recognition==='gemini'){let url=p.videoUrl!;const parts=recognitionParts(p);if(parts.length!==1||parts[0].sourceStart!==0||parts[0].rate!==1||parts[0].offset!==0||Math.abs(parts[0].duration-p.duration)>.05){const rendered=await exportProjectVideo({...p,dubAudioUrl:undefined,originalAudioMuted:false},progress,false);url=rendered.url;}const form=new FormData();form.append('file',await readVideo(url),'video.mp4');form.append('duration',String(timelineEnd(p)));result=await uploadJob('/api/gemini/video-subtitles',form,progress)}else result={subtitles:await recognizeProject(p,options.recognition,.55,progress)};
           if(!result.subtitles?.length)throw Error('Không có phụ đề; Auto dừng tại nhận diện.');return commit({...p,subtitles:result.subtitles,audioClips:projectClips(p).filter(c=>c.track!=='voice'),dubAudioUrl:undefined,dubDuration:undefined,manualTimeline:true})},
         async p=>{const subtitles=await runQwenTranslation(p.subtitles,p.characters,options.provider,progress,options.inputMode);if(subtitles.some(c=>!c.textVi?.trim()))throw Error('Bản dịch chưa đầy đủ.');return commit({...p,subtitles,translationMode:options.provider})},
         async p=>{const subtitles=p.subtitles.map(c=>({...c,voiceId:options.voiceId,volume:options.volume}));const cues=captionSpeechCues(subtitles,new Set(subtitles.map(c=>c.id)),p.characters);const speech=await runJob('/api/timeline/speech',{cues},progress);if(speech.clips.length!==cues.length)throw Error('Thiếu âm thanh thuyết minh.');const updates=new Map<string,any>(speech.subtitles.map((c:any)=>[c.id,c]));const clips=[...projectClips(p).filter(c=>c.track!=='voice'),...speech.clips];let next={...p,subtitles:subtitles.map(c=>({...c,...updates.get(c.id),status:'synced' as const})),audioClips:clips,manualTimeline:true,originalAudioMuted:true};validateTimeline(next);const mixed=await runJob('/api/timeline/mix',{clips,duration:timelineEnd(next)},progress);return commit({...next,dubAudioUrl:mixed.audioUrl,dubDuration:mixed.duration})},

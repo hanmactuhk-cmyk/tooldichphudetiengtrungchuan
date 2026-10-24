@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {recognitionParts} from '../src/lib/recognition-source';
+const video:any={id:'v',kind:'video',trackId:'base-video',url:'/cache/original.mp4',sourceStart:0,sourceDuration:10,startTime:0,endTime:10,rate:1,enabled:true,keyframes:[]};
+const p:any={videoUrl:video.url,duration:10,videoEdited:true,visuals:[video,{id:'text',kind:'text',trackId:'title',startTime:0,endTime:100,enabled:true,keyframes:[]}],visualTracks:[]};
+assert.deepEqual(recognitionParts(p),[{url:video.url,sourceStart:0,duration:10,rate:1,offset:0,sourceClipId:'v'}]);
+const trimmed={...video,sourceStart:2,startTime:7,endTime:10,rate:2};assert.deepEqual(recognitionParts({...p,visuals:[trimmed]}),[{url:video.url,sourceStart:2,duration:3,rate:2,offset:7,sourceClipId:'v'}]);
+const split={...video,id:'v2',sourceStart:6,startTime:9,endTime:13};const edited={...p,visuals:[{...video,endTime:4},split]};assert.deepEqual(recognitionParts(edited).map(c=>[c.offset,c.duration,c.sourceStart]),[[0,4,0],[9,4,6]]);
+const hidden={...p,visualTracks:[{id:'base-video',enabled:false,name:'Hidden'}]};assert.equal(recognitionParts(hidden).length,0);
+const masked={...video,processingEnabled:true,processedUrl:'/cache/mask.webm'};assert.equal(recognitionParts({...p,visuals:[masked]})[0].url,video.url);
+assert.deepEqual(recognitionParts(edited,'v2').map(c=>c.offset),[9]);
+console.log('RECOGNITION SOURCE / NO OVERLAY RENDER / CUTS / RATE / GAPS / HIDDEN TRACKS PASSED');

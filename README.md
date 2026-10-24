@@ -1,4 +1,8 @@
-# HN601 — HNstudio 6.0.3, bản cài độc lập
+# HN601 — HNstudio 6.0.4, bản cài độc lập
+
+### Sửa trong 6.0.4
+Nhận diện lời nói, OCR và Auto offline đọc trực tiếp video nguồn, không dựng các lớp ảnh/chữ/hiệu ứng trước khi nhận diện. Các đoạn cắt/di chuyển/tốc độ được nhận diện theo từng phần và đưa kết quả về đúng mốc timeline; lớp trang trí không kéo dài khoảng nhận diện. Hiện tiến độ quét và hỗ trợ dừng tác vụ; báo rõ khi không có lời nói hoặc không thấy chữ. Video vừa chọn được đưa vào bộ nhớ tạm trước khi nhận diện để tránh dùng URL phát tạm không hợp lệ.
+
 
 ### Sửa trong 6.0.3
 Menu Âm thanh và Phụ đề trên thanh timeline dùng lớp nổi bên ngoài khung cuộn, tự căn trong màn hình. Menu Âm thanh có Trích xuất âm thanh từ video và Tách video → Giọng nói + Nhạc nền (2 hàng). Kết quả là hai WAV riêng trên hai hàng riêng, giữ thời điểm và có âm lượng độc lập. Menu chuột phải âm thanh cũng có Tách giọng nói + nhạc nền cùng lúc. Bản cập nhật có thể chép trực tiếp vào thư mục HN601 đang có, không cần chạy bộ cài; giữ hồ sơ và project ngoài các tệp chương trình.

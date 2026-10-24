@@ -1,3 +1,11 @@
+## HN601 6.0.6 — Xuất video và mở lại project
+
+- Full HD ngang 1920×1080 hoặc dọc 1080×1920, giữ tỷ lệ hình.
+- Chọn thư mục lưu sẵn; xuất tiếp tự đặt A.mp4, B.mp4… AA.mp4, bỏ qua tên đã có.
+- Dựng chữ và ảnh ở kích thước xuất, giảm mất nét qua nén trung gian.
+- Video nguyên hình được xuất trực tiếp để giảm thời gian dựng.
+- Project mở lại khôi phục media từ thư mục đi kèm, kể cả khi bản trong bộ nhớ tạm đã mất. Giữ file .hnproject cùng thư mục .media của nó.
+
 # HN601 — HNstudio 6.0.5, bản cài độc lập
 
 ### Sửa trong 6.0.5

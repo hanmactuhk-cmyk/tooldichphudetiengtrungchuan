@@ -63,7 +63,7 @@ def flipped(image,c):
 
 def paste(frame,image,g,fit):
  h,w=frame.shape[:2];x,y=round(g['x']*w),round(g['y']*h);bw,bh=max(1,round(g['width']*w)),max(1,round(g['height']*h));bw=min(w*4,bw);bh=min(h*4,bh)
- ih,iw=image.shape[:2];scale=max(bw/iw,bh/ih) if fit=='cover' else min(bw/iw,bh/ih);nw,nh=max(1,round(iw*scale)),max(1,round(ih*scale));im=cv2.resize(image,(nw,nh))
+ ih,iw=image.shape[:2];scale=max(bw/iw,bh/ih) if fit=='cover' else min(bw/iw,bh/ih);nw,nh=max(1,round(iw*scale)),max(1,round(ih*scale));im=cv2.resize(image,(nw,nh),interpolation=cv2.INTER_AREA if scale<1 else cv2.INTER_LANCZOS4)
  if fit=='cover':im=im[max(0,(nh-bh)//2):max(0,(nh-bh)//2)+bh,max(0,(nw-bw)//2):max(0,(nw-bw)//2)+bw];nh,nw=im.shape[:2]
  else:x+=(bw-nw)//2;y+=(bh-nh)//2
  x0,y0=max(0,x),max(0,y);x1,y1=min(w,x+nw),min(h,y+nh)
@@ -74,6 +74,8 @@ def compose(source,options,cache,folder,progress,cancelled):
  clips=[dict(c) for c in validate_visuals(options.get('visuals') or [],cache)]
  for c in clips:c['_keys']=sorted(c.get('keyframes') or [],key=lambda k:k['time']);c['_times']=[k['time'] for k in c['_keys']]
  cap=cv2.VideoCapture(str(source));w,h=int(cap.get(3)),int(cap.get(4));source_fps=cap.get(5) or 25;fps=min(60,source_fps);source_duration=cap.get(7)/source_fps;cap.release()
+ w,h=int(options.get('renderWidth') or w),int(options.get('renderHeight') or h)
+ if not 2<=w<=3840 or not 2<=h<=3840 or w%2 or h%2:raise ValueError('Kích thước xuất không hợp lệ.')
  duration=max(float(options.get('timelineDuration') or source_duration),max((c['endTime'] for c in clips),default=0));frames=math.ceil(duration*fps)
  clips.sort(key=lambda c:c.get('layer',{'video':0,'image':1,'text':1,'blur':2}[c['kind']]))
  video=[c for c in clips if c['kind']=='video'];edited=options.get('videoEdited',bool(video));caps={};images={}
@@ -86,7 +88,7 @@ def compose(source,options,cache,folder,progress,cancelled):
    if image is None:raise ValueError('Ảnh không đọc được.')
    images[c['id']]=image
  if not edited:caps['_base']=cv2.VideoCapture(str(source))
- raw=Path(folder)/'scene-silent.mp4';writer=cv2.VideoWriter(str(raw),cv2.VideoWriter_fourcc(*'mp4v'),fps,(w,h))
+ raw=Path(folder)/'scene-silent.mp4';writer=FrameWriter(raw,w,h,fps)
  if not writer.isOpened():raise ValueError('Không tạo được khung dựng video.')
  try:
   for n in range(frames):
@@ -96,7 +98,7 @@ def compose(source,options,cache,folder,progress,cancelled):
     c=caps['_base'];target=round(min(t,max(0,source_duration-1/fps))*(c.get(5) or fps))
     if abs(c.get(cv2.CAP_PROP_POS_FRAMES)-target)>1:c.set(cv2.CAP_PROP_POS_FRAMES,target)
     ok,img=c.read()
-    if ok:frame=img
+    if ok:frame=cv2.resize(img,(w,h),interpolation=cv2.INTER_LANCZOS4)
    for c in clips:
     kind=c['kind']
     if not c.get('enabled',True) or not c['startTime']<=t<c['endTime']:continue
@@ -164,3 +166,13 @@ def track(source,start,end,region,progress,cancelled):
  finally:cap.release()
  if not keys:raise ValueError('Không tìm được đối tượng ổn định. Hãy chọn vùng nhỏ và rõ hơn.')
  progress(100,'Đã tạo chuyển động bám đối tượng.');return {'keyframes':keys,'lost':lost}
+
+class FrameWriter:
+ def __init__(self,target,w,h,fps):
+  self.errors=open(str(target)+'.log','w+b')
+  self.process=subprocess.Popen([imageio_ffmpeg.get_ffmpeg_exe(),'-v','error','-y','-f','rawvideo','-pix_fmt','bgr24','-s',f'{w}x{h}','-r',str(fps),'-i','pipe:0','-an','-c:v','libx264','-preset','ultrafast','-crf','12','-pix_fmt','yuv420p',str(target)],stdin=subprocess.PIPE,stderr=self.errors,creationflags=0x08000000 if os.name=='nt' else 0)
+ def isOpened(self):return self.process.poll() is None
+ def write(self,frame):self.process.stdin.write(frame.tobytes())
+ def release(self):
+  self.process.stdin.close();code=self.process.wait();self.errors.seek(0);message=self.errors.read().decode(errors='replace');self.errors.close()
+  if code:raise ValueError('Không dựng được video: '+message[-1200:])

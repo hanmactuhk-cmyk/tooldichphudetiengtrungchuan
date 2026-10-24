@@ -1,5 +1,7 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 module.exports=function({ipcMain,dialog,mainWindow,trusted,cacheHome,origin,voiceHome,autoProjectPath}){
+ const restoredMedia=new Map();
+ ipcMain.handle('hn-repair-project-media',async event=>{if(!trusted(event))throw Error('Nguồn không hợp lệ.');for(const [target,source] of restoredMedia){if(!fs.existsSync(target)){const info=await fs.promises.lstat(source);if(info.isSymbolicLink()||!info.isFile())throw Error('Media dự án không hợp lệ.');await fs.promises.copyFile(source,target);}}return true;});
  const cacheFile=url=>{if(typeof url!=='string'||!/^\/cache\/[a-zA-Z0-9_.-]+\.(wav|mp4|webm|png|jpg|webp)$/.test(url))throw Error('Media dự án không hợp lệ.');return path.join(cacheHome,path.basename(url));};
  ipcMain.handle('hn-save-project',async(event,payload)=>{
   if(!trusted(event))throw Error('Nguồn không hợp lệ.');
@@ -19,12 +21,13 @@ module.exports=function({ipcMain,dialog,mainWindow,trusted,cacheHome,origin,voic
   if(document.format!=='HNstudio'||document.version!==1||!Array.isArray(document.project?.subtitles)||document.project.subtitles.length>20000||Object.keys(document.media||{}).length>4000)throw Error('Không đúng định dạng dự án HNstudio.');
   const basename=name=>{if(typeof name!=='string'||!name||name!==path.basename(name)||name==='.'||name==='..')throw Error('Đường dẫn media không hợp lệ.');return name;};const folder=path.join(path.dirname(file),basename(document.assets));
   if((await fs.promises.lstat(folder)).isSymbolicLink())throw Error('Thư mục media không hợp lệ.');
-  const copy=async(name,extension)=>{const source=path.join(folder,basename(name));if((await fs.promises.lstat(source)).isSymbolicLink())throw Error('Media không hợp lệ.');const target=crypto.randomUUID()+extension;await fs.promises.copyFile(source,path.join(cacheHome,target));return '/cache/'+target;};
+  restoredMedia.clear();
+  const copy=async(name,extension)=>{const source=path.join(folder,basename(name));if((await fs.promises.lstat(source)).isSymbolicLink())throw Error('Media không hợp lệ.');const target=crypto.randomUUID()+extension;await fs.promises.copyFile(source,path.join(cacheHome,target));restoredMedia.set(path.join(cacheHome,target),source);return '/cache/'+target;};
   if(voiceHome){await fs.promises.mkdir(voiceHome,{recursive:true});for(const [id,files] of Object.entries(document.voices||{})){if(!/^clone-[a-f0-9]{32}$/.test(id)||files.json!==id+'.json'||files.npz!==id+'.npz')throw Error('Giọng dự án không hợp lệ.');const voiceJson=path.join(folder,basename(files.json)),jsonInfo=await fs.promises.lstat(voiceJson);if(jsonInfo.isSymbolicLink()||jsonInfo.size>128*1024)throw Error('Thông tin giọng không hợp lệ.');const record=JSON.parse(await fs.promises.readFile(voiceJson,'utf8'));if(record.id!==id||typeof record.name!=='string'||record.name.length>80)throw Error('Thông tin giọng không hợp lệ.');for(const name of [files.json,files.npz]){const source=path.join(folder,basename(name));const info=await fs.promises.lstat(source);if(info.isSymbolicLink()||info.size>50*1024*1024)throw Error('Tệp giọng không hợp lệ.');if(!fs.existsSync(path.join(voiceHome,name)))await fs.promises.copyFile(source,path.join(voiceHome,name));}}}
   const media={};for(const [url,name] of Object.entries(document.media||{}))media[url]=await copy(name,path.extname(name));const p=document.project;
   if(p.dubAudioUrl&&!media[p.dubAudioUrl])throw Error('Thiếu bản âm thanh đã ghép.');p.dubAudioUrl=media[p.dubAudioUrl];for(const c of p.audioClips||[]){if(!media[c.audioUrl])throw Error('Thiếu media âm thanh.');c.audioUrl=media[c.audioUrl];}for(const s of p.subtitles)if(s.ttsAudioUrl)s.ttsAudioUrl=media[s.ttsAudioUrl];
   for(const c of p.visuals||[]){if(c.processedUrl){if(!media[c.processedUrl])throw Error('Thiếu media xóa nền.');c.processedUrl=media[c.processedUrl];}if(c.url){if(!media[c.url])throw Error('Thiếu media hình ảnh.');c.url=media[c.url];}}
   for(const c of p.mediaLibrary||[]){if(!media[c.url])throw Error('Thiếu media thư viện.');c.url=media[c.url];}
-  p.videoUrl=document.video?await copy(document.video,'.mp4'):null;p.currentTime=0;return {project:p,path:file};
+  p.videoUrl=document.video?await copy(document.video,'.mp4'):(media[p.videoUrl]||(p.visuals||[]).find(c=>c.kind==='video'&&c.url)?.url||null);p.currentTime=0;return {project:p,path:file};
  });
 };

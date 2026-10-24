@@ -1,3 +1,4 @@
+import {exportGeometry} from './export-geometry';
 import bundledFonts from './bundled-fonts.json';
 import {CaptionLayout,ProjectData,Subtitle,VideoDecoration} from '../types';
 export const FONTS=[...bundledFonts,'Arial','Segoe UI','Segoe UI Semibold','Segoe UI Black','Segoe UI Light','Segoe UI Semilight','Tahoma','Calibri','Calibri Light','Cambria','Candara','Candara Light','Constantia','Corbel','Corbel Light','Consolas','Courier New','Times New Roman','Verdana','Palatino Linotype'];
@@ -17,7 +18,7 @@ export function captionBox(text:string,w:number,layout:CaptionLayout){
 }
 
 export function visibleCue(c:Subtitle,lang:'zh'|'vi',dub:boolean){return {text:lang==='zh'?(c.hiddenZh?'':c.textZh):(c.hiddenVi?'':c.textVi||''),start:lang==='zh'?c.zhStartTime??(dub?c.dubStartTime??c.startTime:c.startTime):c.viStartTime??(dub?c.dubStartTime??c.startTime:c.startTime),end:lang==='zh'?c.zhEndTime??(dub?c.dubEndTime??c.endTime:c.endTime):c.viEndTime??(dub?c.dubEndTime??c.endTime:c.endTime)};}
-export function outputFrame(p:ProjectData){const w=p.videoWidth||1920,h=p.videoHeight||1080,a=p.captionLayout?.aspect||'auto',ratio=a==='16:9'?16/9:a==='9:16'?9/16:w/h;return {w,h,ow:Math.ceil(Math.max(w,h*ratio)/2)*2,oh:Math.ceil(Math.max(h,w/ratio)/2)*2};}
+export function outputFrame(p:ProjectData){return exportGeometry(p); }
 export function rgba(hex:string,opacity:number){const v=/^#[0-9a-f]{6}$/i.test(hex)?hex:'#000000';return `rgba(${parseInt(v.slice(1,3),16)},${parseInt(v.slice(3,5),16)},${parseInt(v.slice(5,7),16)},${opacity})`;}
 
 export function placeCaptions(items:{cue:Subtitle;lang:'vi'|'zh';text:string}[],w:number,h:number,layout:CaptionLayout,bounds={top:0,bottom:h}){

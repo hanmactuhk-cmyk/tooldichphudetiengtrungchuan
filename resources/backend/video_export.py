@@ -10,7 +10,7 @@ def _render_video(source,options,cache,dubbing,progress,cancelled):
  if dub:
   import soundfile
   duration=max(duration,soundfile.info(str(dub)).duration)
- fingerprint=hashlib.sha256(('export-v560:'+json.dumps(options,sort_keys=True)).encode());
+ fingerprint=hashlib.sha256(('export-v606:'+json.dumps(options,sort_keys=True)).encode());
  with Path(source).open('rb') as handle:
   for chunk in iter(lambda:handle.read(8*1024*1024),b''):
    if cancelled():raise RuntimeError('Đã hủy xuất MP4.')
@@ -19,11 +19,15 @@ def _render_video(source,options,cache,dubbing,progress,cancelled):
   stat=dub.stat();fingerprint.update(f'{dub.name}:{stat.st_size}:{stat.st_mtime_ns}'.encode())
  output=cache/('export-'+fingerprint.hexdigest()+'.mp4')
  rounded_mask=None;filters=[];label='0:v';blur=options.get('blur') or {}
+ rw=int(options.get('renderWidth') or w);rh=int(options.get('renderHeight') or h)
+ if not 2<=rw<=3840 or not 2<=rh<=3840 or rw%2 or rh%2:raise ValueError('Kích thước xuất không hợp lệ.')
+ resized=(rw,rh)!=(w,h)
+ if resized:filters.append(f'[0:v]scale={rw}:{rh}:flags=lanczos[scaled]');label='scaled';w,h=rw,rh
  if blur.get('enabled'):
   vals=[float(blur.get(k,v)) for k,v in [('x',.1),('y',.78),('width',.8),('height',.15),('strength',16)]]
   if not all(math.isfinite(v) for v in vals):raise ValueError('Vùng mờ không hợp lệ.')
   x=max(0,min(w-2,int(vals[0]*w)));y=max(0,min(h-2,int(vals[1]*h)));bw=max(2,min(w-x,int(vals[2]*w)));bh=max(2,min(h-y,int(vals[3]*h)));radius=max(1,min(30,int(vals[4]),bw//4,bh//4))
-  filters.extend([f'[0:v]split[base][region]',f'[region]crop={bw}:{bh}:{x}:{y}:exact=1,boxblur=luma_radius={radius}:luma_power=2:chroma_radius=0[blurred]'])
+  filters.extend([f'[{label}]split[base][region]',f'[region]crop={bw}:{bh}:{x}:{y}:exact=1,boxblur=luma_radius={radius}:luma_power=2:chroma_radius=0[blurred]'])
   rounding=float(blur.get('radius',.22))
   if not math.isfinite(rounding):raise ValueError('Bo góc vùng mờ không hợp lệ.')
   if rounding>0:
@@ -44,7 +48,10 @@ def _render_video(source,options,cache,dubbing,progress,cancelled):
    (folder/'captions.ass').write_text(ass,encoding='utf-8')
   aspect=options.get('aspect','auto');ratio=16/9 if aspect=='16:9' else 9/16 if aspect=='9:16' else w/h
   ow=math.ceil(max(w,h*ratio)/2)*2;oh=math.ceil(max(h,w/ratio)/2)*2
-  copy_video=not ass and not blur.get('enabled') and ow==w and oh==h and duration<=frames/fps+.001
+  if options.get('outputWidth') and options.get('outputHeight'):
+   ow,oh=int(options['outputWidth']),int(options['outputHeight'])
+   if not w<=ow<=3840 or not h<=oh<=3840 or ow%2 or oh%2:raise ValueError('Khung xuất không hợp lệ.')
+  copy_video=not resized and not ass and not blur.get('enabled') and ow==w and oh==h and duration<=frames/fps+.001
   if output.is_file():
    progress(100,'MP4 đã sẵn sàng từ lần xuất trước.');return {'url':'/cache/'+output.name,'duration':duration,'cached':True,'width':ow,'height':oh,'videoCopied':copy_video}
   completed_output=output;output=cache/(uuid.uuid4().hex+'.mp4')
@@ -68,7 +75,7 @@ def _render_video(source,options,cache,dubbing,progress,cancelled):
   args+=['-map','0:v:0' if copy_video else '[outv]']
   if audio:args+=['-map',audio,'-c:a','aac','-b:a','192k']
   else:args+=['-an']
-  args+=['-c:v','copy'] if copy_video else ['-c:v','libx264','-preset','superfast','-crf','21']
+  args+=['-c:v','copy'] if copy_video else ['-c:v','libx264','-preset','veryfast' if options.get('quality')=='quality' else 'superfast','-crf','16' if options.get('quality')=='quality' else '18']
   args+=['-t',str(duration),'-movflags','+faststart','-progress','pipe:1','-nostats',str(output)]
   progress(2,'Đang ghép MP4: vùng mờ, phụ đề và âm thanh...')
   with (folder/'ffmpeg-error.txt').open('w+',encoding='utf-8') as errors:
@@ -93,7 +100,15 @@ def render_video(source,options,cache,dubbing,progress,cancelled):
  if not options.get('visuals') and not options.get('videoEdited'):return _render_video(source,options,cache,dubbing,progress,cancelled)
  from visual_media import compose,media_path,validate_visuals
  validate_visuals(options.get('visuals') or [],cache)
- fingerprint=hashlib.sha256(('scene-v570:'+json.dumps(options,sort_keys=True)).encode())
+ active=[c for c in options.get('visuals',[]) if c.get('enabled',True)]
+ if len(active)==1 and active[0]['kind']=='video':
+  c=active[0];direct=media_path(cache,c['url']);cap=cv2.VideoCapture(str(direct));length=cap.get(7)/(cap.get(5) or 25);cap.release()
+  defaults={'x':0,'y':0,'width':1,'height':1,'opacity':1,'rate':1,'sourceStart':0,'startTime':0,'rotation':0}
+  if all(abs(float(c.get(k,v))-v)<.00001 for k,v in defaults.items()) and not any(c.get(k) for k in ['crop','keyframes','flipX','flipY','processedUrl']) and abs(float(c['endTime'])-length)<.06:
+   clean={k:v for k,v in options.items() if k not in ['visuals','videoEdited']};clean['originalMuted']=bool(options.get('originalMuted') or c.get('audioMuted'))
+   result=_render_video(direct,clean,cache,dubbing,progress,cancelled);result['directSource']=True;return result
+
+ fingerprint=hashlib.sha256(('scene-v606:'+json.dumps(options,sort_keys=True)).encode())
  with Path(source).open('rb') as handle:
   for chunk in iter(lambda:handle.read(8*1024*1024),b''):
    if cancelled():raise RuntimeError('Đã hủy xuất MP4.')

@@ -62,19 +62,22 @@ async function start(){
  mainWindow.webContents.setWindowOpenHandler(()=>({action:'deny'}));
  mainWindow.webContents.on('will-navigate',(event,url)=>{if(new URL(url).origin!==origin)event.preventDefault();});
  mainWindow.webContents.on('will-attach-webview',event=>event.preventDefault());
- let chosenExport=null,lastExport=null;
+ let chosenExport=null,lastExport=null,alphabetExport=false;
+ const nextAlphabet=folder=>{for(let i=0;i<100000;i++){let n=i+1,name='';while(n){n--;name=String.fromCharCode(65+n%26)+name;n=Math.floor(n/26);}const file=path.join(folder,name+'.mp4');if(!fs.existsSync(file))return file;}throw Error('Thư mục xuất có quá nhiều tệp.');};
+ ipcMain.handle('hn-export-folder',async(event,choose)=>{if(!trusted(event))throw Error('Nguồn không hợp lệ.');if(choose){const result=await dialog.showOpenDialog(mainWindow,{title:'Chọn thư mục lưu video',properties:['openDirectory','createDirectory']});if(!result.canceled){settings.exportHome=result.filePaths[0];fs.writeFileSync(settingsPath,JSON.stringify(settings,null,2));}}return settings.exportHome||'';});
  const trusted=event=>event.sender===mainWindow?.webContents&&new URL(event.senderFrame.url).origin===origin;
  ipcMain.handle('hn-get-theme',event=>{if(!trusted(event))throw Error('Nguồn không hợp lệ.');return ['simple','modern','glow','glow-dark'].includes(settings.theme)?settings.theme:'glow'});
  ipcMain.handle('hn-set-theme',(event,theme)=>{if(!trusted(event)||!['simple','modern','glow','glow-dark'].includes(theme))throw Error('Giao diện không hợp lệ.');settings.theme=theme;fs.writeFileSync(settingsPath,JSON.stringify(settings,null,2));return theme});
  ipcMain.handle('hn-choose-export',async(event,name)=>{
   if(!trusted(event))throw Error('Nguồn không hợp lệ.');
-  const result=await dialog.showSaveDialog(mainWindow,{title:'Chọn nơi lưu video MP4',defaultPath:path.join(settings.exportHome||app.getPath('videos'),path.basename(String(name))),filters:[{name:'Video MP4',extensions:['mp4']}]});
+  alphabetExport=!!name?.alphabet;if(alphabetExport&&settings.exportHome&&fs.existsSync(settings.exportHome)){chosenExport=nextAlphabet(settings.exportHome);return chosenExport;}
+  const result=await dialog.showSaveDialog(mainWindow,{title:'Chọn nơi lưu video MP4',defaultPath:alphabetExport?nextAlphabet(settings.exportHome||app.getPath('videos')):path.join(settings.exportHome||app.getPath('videos'),path.basename(String(name))),filters:[{name:'Video MP4',extensions:['mp4']}]});
   chosenExport=result.canceled?null:result.filePath;return chosenExport;
  });
  ipcMain.handle('hn-save-export',async(event,url)=>{
   if(!trusted(event)||!chosenExport||!/^\/cache\/export-[a-f0-9]{64}\.mp4$/.test(String(url)))throw Error('Tệp xuất không hợp lệ.');
-  const source=path.join(cacheHome,path.basename(url)),destination=chosenExport;chosenExport=null;
-  await fs.promises.copyFile(source,destination);lastExport=destination;settings.exportHome=path.dirname(destination);fs.writeFileSync(settingsPath,JSON.stringify(settings,null,2));return destination;
+  const source=path.join(cacheHome,path.basename(url));let destination=chosenExport;chosenExport=null;if(alphabetExport&&fs.existsSync(destination))destination=nextAlphabet(path.dirname(destination));
+  await fs.promises.copyFile(source,destination,alphabetExport?fs.constants.COPYFILE_EXCL:0);lastExport=destination;settings.exportHome=path.dirname(destination);fs.writeFileSync(settingsPath,JSON.stringify(settings,null,2));return destination;
  });
  const autoFolders=new Map();
  ipcMain.handle('hn-auto-folder',async event=>{if(!trusted(event))throw Error('Nguồn không hợp lệ.');const result=await dialog.showOpenDialog(mainWindow,{title:'Chọn thư mục lưu Auto HN601',properties:['openDirectory','createDirectory']});if(result.canceled)return null;const token=crypto.randomUUID(),folder=path.join(result.filePaths[0],'HN601-'+new Date().toISOString().replace(/[:.]/g,'-'));await fs.promises.mkdir(folder,{recursive:true});autoFolders.set(token,folder);return {token,path:folder};});

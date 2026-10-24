@@ -96,11 +96,11 @@ export default function App() {
   const handleSplitCue=(id:string)=>{try{const cue=project.subtitles.find(s=>s.id===id);if(!cue)return;const parts=splitCue(cue);if(project.manualTimeline){handleTimelineEdit({track:'subtitle',id,kind:'split',time:parts[0].endTime,linked:true});return;}stopAudioPreview();setIsPlaying(false);pushHistory(project);setProject(p=>({...p,subtitles:p.subtitles.flatMap(s=>s.id===id?parts:[s]),dubAudioUrl:undefined,dubDuration:undefined,selectedSubtitleId:parts[0].id}));}catch(e){alert(String(e));}};
   const [lastExport,setLastExport]=useState('');
   const handleExportMp4=async(captions:boolean)=>{
-    if(!project.videoUrl)return;const desktop=(window as any).hnDesktop;if(desktop&&!await desktop.chooseExport(project.title.replace(/[<>:\x22/\\|?*]/g,'_')+'_HNVoice.mp4'))return;stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,progressPercent:0,currentTaskName:'Chuẩn bị xuất MP4...'}));
+    if(!project.videoUrl&&!project.visuals?.some(c=>c.kind==='video'))return;const desktop=(window as any).hnDesktop;if(desktop&&!await desktop.chooseExport({alphabet:true,title:project.title}))return;stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,progressPercent:0,currentTaskName:'Chuẩn bị xuất MP4...'}));
     try{await ensureProjectFonts(project);let exportProject=project;if(project.manualTimeline&&!project.dubAudioUrl){const mixed=await runJob('/api/timeline/mix',{clips:projectClips(project),duration:timelineEnd(project)},(v,t)=>setHardwareStatus(h=>({...h,progressPercent:v,currentTaskName:t})));exportProject={...project,dubAudioUrl:mixed.audioUrl,dubDuration:mixed.duration};setProject(exportProject);}
-      const form=new FormData();form.append('file',await readVideo(exportProject.videoUrl!),exportProject.videoFileName||'video.mp4');appendExportOptions(form,{rendererRevision:'6.0.1',timelineDuration:timelineEnd(exportProject),visuals:orderedVisuals(await prepareProjectVisuals(exportProject),exportProject.visualTracks),videoEdited:exportProject.videoEdited,ass:generateAss(captions?exportProject:{...exportProject,captionLayout:{...DEFAULT_CAPTION_LAYOUT,...exportProject.captionLayout,language:'off'}}),blur:exportProject.blurRegion,aspect:exportProject.captionLayout?.aspect||'auto',dubAudioUrl:exportProject.dubAudioUrl,originalMuted:exportProject.originalAudioMuted,originalVolume:exportProject.originalAudioVolume});
-      const body=await apiJson('/api/video/export',{method:'POST',body:form});window.dispatchEvent(new CustomEvent('hn-job',{detail:body.jobId}));
-      for(;;){const job=await apiJson('/api/jobs/'+body.jobId);setHardwareStatus(h=>({...h,progressPercent:job.percent,currentTaskName:job.message}));if(job.state==='done'){if(desktop){setLastExport(await desktop.saveExport(job.result.url));break;}const a=document.createElement('a');a.href=job.result.url;a.download=project.title+'_HNVoice.mp4';a.click();break;}if(['error','cancelled'].includes(job.state))throw new Error(job.message);await new Promise(r=>setTimeout(r,750));}
+      const exported=await exportProjectVideo(exportProject,(percent,text)=>setHardwareStatus(h=>({...h,progressPercent:percent,currentTaskName:text})),captions);
+      if(desktop)setLastExport(await desktop.saveExport(exported.url));else{const a=document.createElement('a');a.href=exported.url;a.download='A.mp4';a.click();}
+
     }catch(e){alert(String(e));}finally{window.dispatchEvent(new CustomEvent('hn-job',{detail:null}));setHardwareStatus(h=>({...h,isProcessing:false,progressPercent:0,currentTaskName:''}));}
   };
   const handleGeminiVideo=async()=>{
@@ -574,7 +574,7 @@ export default function App() {
           voices={voices}
           onRunAsr={handleRunAsr}
           onOpenProject={handleOpenProject}
-          onExportMp4={handleExportMp4}
+          onExportSettings={settings=>setProject(p=>({...p,exportSettings:settings}))} onExportMp4={handleExportMp4}
           onGeminiVideo={handleGeminiVideo}
           onExportAss={()=>triggerDownload(generateAss(project),project.title+'.ass','text/plain')}
           onRunTranslation={handleRunTranslation}

@@ -4,7 +4,7 @@ import React,{useEffect,useRef} from 'react';import {VisualClip,TextStyle} from 
 export const DEFAULT_TEXT:TextStyle={fontFamily:'Arial',fontSize:4,color:'#ffffff',bold:true,italic:false,background:'#00000000',radius:.12,autoFit:true};
 export const PATTERNS=[['world','Bản đồ'],['waves','Sóng mềm'],['dots','Chấm bi'],['diagonal','Sọc chéo'],['grid','Lưới'],['chevron','Chữ V'],['mesh','Tam giác'],['hex','Tổ ong'],['bubbles','Bong bóng'],['stars','Ngôi sao'],['stripes','Đường ngang'],['rays','Tia sáng'],['leaves','Lá'],['particles','Hạt sáng'],['grain','Vân hạt']].map(([id,label])=>({id,label}));
 export const THEMES=Array.from({length:15},(_,i)=>({name:['Ngọc lục bảo','Đại dương','Tím đêm','Đỏ ruby','Hổ phách','Xanh bạc hà','Lam điện','Hồng phấn','Cam hoàng hôn','Đen vàng','Xanh rêu','Tím hồng','Bạc xanh','Đỏ rượu','Xanh trời'][i],color:['#08734d','#073d76','#39216d','#881e3e','#845408','#126b66','#123a85','#813a70','#a13b21','#29251b','#294f32','#682771','#304859','#641d2d','#075972'][i],secondary:['#4ccb9b','#3f9fe5','#a78ae9','#ed6a93','#f2cd68'][i%5],pattern:PATTERNS[i].id}));
-export function rasterKey(c:VisualClip,w:number,h:number){return JSON.stringify(['raster-v601',c.kind,c.text,c.textStyle,c.template,c.width,c.height,w,h]);}
+export function rasterKey(c:VisualClip,w:number,h:number){return JSON.stringify(['raster-v606',c.kind,c.text,c.textStyle,c.template,c.width,c.height,w,h]);}
 export function textLayout(c:VisualClip,w:number,h:number){
  const d={...DEFAULT_TEXT,...c.textStyle},cw=Math.max(2,c.width*w),ch=Math.max(2,c.height*h),ctx=document.createElement('canvas').getContext('2d')!;
  let left=cw*.04,right=cw*.04,top=ch*.05,bottom=ch*.05;

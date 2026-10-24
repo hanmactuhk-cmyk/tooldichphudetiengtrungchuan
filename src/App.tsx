@@ -1,3 +1,6 @@
+import {MediaLibrary} from './components/MediaLibrary';
+import {insertLibraryAsset} from './lib/media-library';
+import {replaceTemplate} from './lib/template-slots';
 import {LegacyBlurEditor} from './components/LegacyBlurEditor';
 import {InspectorDock} from './components/InspectorDock';
 import {VideoDesignPanel} from './components/VideoDesignPanel';
@@ -7,7 +10,7 @@ import {FloatingPanel} from './components/FloatingPanel';
 import {visualTracks,orderedVisuals} from './lib/visual-engine';
 import {prepareVisuals,rasterKey} from './lib/raster-visual';
 import {MediaEditor,VisualTimeline} from './components/MediaEditor';
-import {VisualClip} from './types';
+import {VisualClip,MediaAsset} from './types';
 import {captionSpeechCues} from './lib/speech-cues';
 import {CaptionPopup,CaptionChange} from './components/CaptionPopup';
 import {DEFAULT_DECORATION} from './lib/styled-caption';
@@ -150,6 +153,9 @@ export default function App() {
   });
 
   // UI state
+  const [leftPanel,setLeftPanel]=useState<'workflow'|'library'>('workflow');
+  useEffect(()=>{const open=()=>setLeftPanel('library');window.addEventListener('hn-open-library',open);return()=>window.removeEventListener('hn-open-library',open)},[]);
+  const [libraryBusy,setLibraryBusy]=useState(false);
   const [activeSidebarTab, setActiveSidebarTab] = useState<'project' | 'asr' | 'translation' | 'characters' | 'export'>('project');
   const [previewExpanded,setPreviewExpanded]=useState(false);
   useEffect(()=>{const exit=(e:KeyboardEvent)=>{if(e.key==='Escape')setPreviewExpanded(false);};window.addEventListener('keydown',exit);return()=>window.removeEventListener('keydown',exit);},[]);
@@ -228,7 +234,7 @@ export default function App() {
         title: file.name.replace(/\.[^/.]+$/, ''),
       }));
       setActiveSidebarTab('asr');
-      const form=new FormData();form.append('file',file,file.name);apiJson('/api/media/import',{method:'POST',body:form}).then(data=>setProject(p=>p.videoUrl!==videoUrl||p.visuals?.some(c=>c.kind==='video')?p:{...p,videoEdited:true,visuals:[...(p.visuals||[]),{id:'base-'+p.id,trackId:'base-video',kind:'video',nativeWidth:data.width,nativeHeight:data.height,name:file.name,url:data.url,startTime:0,endTime:Math.min(dur,data.duration),sourceStart:0,sourceDuration:data.duration,x:0,y:0,width:1,height:1,opacity:1,enabled:true,keyframes:[]}],visualTracks:[{id:'base-video',name:'Video gốc',enabled:true},...(p.visualTracks||[])]})).catch(()=>{});
+      const form=new FormData();form.append('file',file,file.name);apiJson('/api/media/import',{method:'POST',body:form}).then(data=>setProject(p=>p.videoUrl!==videoUrl||p.visuals?.some(c=>c.kind==='video')?p:{...p,mediaLibrary:[...(p.mediaLibrary||[]),{id:crypto.randomUUID(),name:file.name,kind:'video',url:data.url,width:data.width,height:data.height,duration:data.duration}],videoEdited:true,visuals:[...(p.visuals||[]),{id:'base-'+p.id,trackId:'base-video',kind:'video',nativeWidth:data.width,nativeHeight:data.height,name:file.name,url:data.url,startTime:0,endTime:Math.min(dur,data.duration),sourceStart:0,sourceDuration:data.duration,x:0,y:0,width:1,height:1,opacity:1,enabled:true,keyframes:[]}],visualTracks:[{id:'base-video',name:'Video gốc',enabled:true},...(p.visualTracks||[])]})).catch(()=>{});
     };
   };
 
@@ -430,6 +436,16 @@ export default function App() {
   const [selectedVisual,setSelectedVisual]=useState<string|null>(null);
   const [inspectorTab,setInspectorTab]=useState('media'),[audioPopup,setAudioPopup]=useState<string|null>(null),[showSubtitleList,setShowSubtitleList]=useState(false);
   const changeVisuals=(visuals:VisualClip[])=>{setIsPlaying(false);pushHistory(project);setProject(p=>{const normalized=visuals.map(c=>({...c,trackId:c.trackId||'track-'+c.id}));return {...p,visuals:normalized,visualTracks:visualTracks(normalized,visualTracks(p.visuals||[],p.visualTracks||[])),videoEdited:p.videoEdited||visuals.some(c=>c.kind==='video')}});};
+  const importLibrary=async(files:File[])=>{
+    if(libraryBusy||hardwareStatus.isProcessing)return;setLibraryBusy(true);
+    try{const imported:MediaAsset[]=[];for(const file of files){const form=new FormData();form.append('file',file,file.name);const data=await apiJson('/api/media/import',{method:'POST',body:form});imported.push({id:crypto.randomUUID(),name:file.name,kind:data.kind,url:data.url,width:data.width,height:data.height,duration:data.duration||5});}pushHistory(project);setProject(p=>({...p,mediaLibrary:[...(p.mediaLibrary||[]),...imported]}));}
+    finally{setLibraryBusy(false)}
+  };
+  const insertAsset=(id:string,time=currentTime,trackId?:string)=>{
+    if(hardwareStatus.isProcessing||libraryBusy)return;
+    const asset=project.mediaLibrary?.find(a=>a.id===id);if(!asset)return;
+    try{const next=insertLibraryAsset(project,asset,time,trackId);pushHistory(project);setIsPlaying(false);setProject(next.project);setSelectedVisual(next.clip.id);setInspectorTab('media');setCurrentTime(next.clip.startTime);}catch(e){alert(String(e))}
+  };
   const prepareProjectVisuals=async(p:ProjectData)=>{const w=p.videoWidth||1920,h=p.videoHeight||1080,ready=await prepareVisuals(p.visuals||[],w,h);setProject(current=>({...current,visuals:current.visuals?.map(c=>{const next=ready.find(x=>x.id===c.id);return next&&rasterKey(c,w,h)===rasterKey(next,w,h)?{...c,url:next.url,renderKey:next.renderKey}:c})}));return ready;};
   const selectVisual=(id:string|null)=>{setSelectedVisual(id);if(id)setInspectorTab('media');};
   useEffect(()=>{const f=()=>setShowSubtitleList(x=>!x);window.addEventListener('hn-subtitle-list',f);return()=>window.removeEventListener('hn-subtitle-list',f)},[]);
@@ -471,7 +487,7 @@ export default function App() {
         onOpenModelAnalysis={() => setIsModelAnalysisOpen(true)}
         onOpenModelLoader={() => setIsModelLoaderOpen(true)}
         onCancel={jobId?handleCancel:undefined}
-        onOpenExport={() => setActiveSidebarTab('export')}
+        onOpenExport={() => {setLeftPanel('workflow');setActiveSidebarTab('export')}}
         onSaveProject={handleExportProjectJson}
         canUndo={historyPast.length > 0}
         canRedo={historyFuture.length > 0}
@@ -482,7 +498,7 @@ export default function App() {
       {/* 2. Middle Workspace: Left Sidebar + Center Video + Right Subtitle Editor */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Sidebar Steps / Controls */}
-        <div className={previewExpanded?'hidden':'contents'}><SidebarTabs
+        <div className={previewExpanded?'hidden':'workspace-left'}><nav className="workspace-menu"><button aria-pressed={leftPanel==='library'} onClick={()=>setLeftPanel('library')}>▧ Thư viện</button><button aria-pressed={leftPanel==='workflow'} onClick={()=>setLeftPanel('workflow')}>☷ Quy trình</button></nav>{leftPanel==='library'?<MediaLibrary items={project.mediaLibrary||[]} busy={libraryBusy||hardwareStatus.isProcessing} onImport={importLibrary} onInsert={insertAsset} onRemove={id=>{pushHistory(project);setProject(p=>({...p,mediaLibrary:p.mediaLibrary?.filter(a=>a.id!==id)}))}}/>:<SidebarTabs
           activeTab={activeSidebarTab}
           setActiveTab={setActiveSidebarTab}
           project={project}
@@ -506,7 +522,7 @@ export default function App() {
           onExportProjectJson={handleExportProjectJson}
           onUpdateCharacter={handleUpdateCharacter}
           onAddCharacter={handleAddCharacter}
-        /></div>
+        />}</div>
 
         {/* Center: Video Player Preview */}
         <VideoPlayer
@@ -539,7 +555,7 @@ export default function App() {
         />
 
         {/* Right: Subtitle & Dubbing Editor */}
-        {!previewExpanded&&<InspectorDock tab={inspectorTab} onTab={setInspectorTab}>{inspectorTab==='design'?<><VideoDesignPanel layout={project.captionLayout||DEFAULT_CAPTION_LAYOUT} onLayoutChange={captionLayout=>setProject(p=>({...p,captionLayout}))} decoration={project.decoration||DEFAULT_DECORATION} onDecorationChange={decoration=>setProject(p=>({...p,decoration}))}/><LegacyBlurEditor value={project.blurRegion||{enabled:false,x:.1,y:.78,width:.8,height:.15,strength:16}} onChange={blurRegion=>setProject(p=>({...p,blurRegion}))} onConvert={()=>{const blur=project.blurRegion!;const id=crypto.randomUUID();changeVisuals([...(project.visuals||[]),{...blur,id,kind:'blur',name:'Vùng mờ từ dự án',startTime:0,endTime:project.duration,sourceStart:0,sourceDuration:project.duration,opacity:1,keyframes:[]}]);setProject(p=>({...p,blurRegion:{...p.blurRegion!,enabled:false}}));selectVisual(id);}}/></>:inspectorTab==='templates'?<TemplatePanel project={project} onApply={clips=>{changeVisuals([...(project.visuals||[]),...clips]);setProject(p=>({...p,decoration:{...(p.decoration||DEFAULT_DECORATION),enabled:false}}));}}/>:<MediaEditor project={project} time={currentTime} selected={selectedVisual} onSelect={selectVisual} onChange={changeVisuals} onProcess={(isProcessing,progressPercent,currentTaskName)=>setHardwareStatus(h=>({...h,isProcessing,progressPercent,currentTaskName}))}/>}</InspectorDock>}
+        {!previewExpanded&&<InspectorDock tab={inspectorTab} onTab={setInspectorTab}>{inspectorTab==='design'?<><VideoDesignPanel layout={project.captionLayout||DEFAULT_CAPTION_LAYOUT} onLayoutChange={captionLayout=>setProject(p=>({...p,captionLayout}))} decoration={project.decoration||DEFAULT_DECORATION} onDecorationChange={decoration=>setProject(p=>({...p,decoration}))}/><LegacyBlurEditor value={project.blurRegion||{enabled:false,x:.1,y:.78,width:.8,height:.15,strength:16}} onChange={blurRegion=>setProject(p=>({...p,blurRegion}))} onConvert={()=>{const blur=project.blurRegion!;const id=crypto.randomUUID();changeVisuals([...(project.visuals||[]),{...blur,id,kind:'blur',name:'Vùng mờ từ dự án',startTime:0,endTime:project.duration,sourceStart:0,sourceDuration:project.duration,opacity:1,keyframes:[]}]);setProject(p=>({...p,blurRegion:{...p.blurRegion!,enabled:false}}));selectVisual(id);}}/></>:inspectorTab==='templates'?<TemplatePanel project={project} onApply={clips=>{pushHistory(project);setIsPlaying(false);setProject(p=>replaceTemplate(p,clips));}}/>:<MediaEditor project={project} time={currentTime} selected={selectedVisual} onSelect={selectVisual} onChange={changeVisuals} onProcess={(isProcessing,progressPercent,currentTaskName)=>setHardwareStatus(h=>({...h,isProcessing,progressPercent,currentTaskName}))}/>}</InspectorDock>}
 
 
       </div>
@@ -551,7 +567,7 @@ export default function App() {
 
       {/* 3. Bottom: CapCut-Style Multi-Track Timeline */}
       <div className={previewExpanded?'hidden':'contents'}><Timeline
-        selectedVisual={selectedVisual} onVisualSelect={selectVisual} onVisualsChange={changeVisuals} onVisualTracksChange={tracks=>{pushHistory(project);const removed=visualTracks(project.visuals||[],project.visualTracks).filter(t=>!tracks.some(x=>x.id===t.id)).map(t=>t.id);setProject(p=>({...p,visualTracks:tracks,visuals:p.visuals?.filter(c=>!removed.includes(c.trackId||'track-'+c.id))}))}} onAudioPopup={id=>{setIsPlaying(false);stopAudioPreview();setAudioPopup(id)}}
+        onDropAsset={insertAsset} selectedVisual={selectedVisual} onVisualSelect={selectVisual} onVisualsChange={changeVisuals} onVisualTracksChange={tracks=>{pushHistory(project);const removed=visualTracks(project.visuals||[],project.visualTracks).filter(t=>!tracks.some(x=>x.id===t.id)).map(t=>t.id);setProject(p=>({...p,visualTracks:tracks,visuals:p.visuals?.filter(c=>!removed.includes(c.trackId||'track-'+c.id))}))}} onAudioPopup={id=>{setIsPlaying(false);stopAudioPreview();setAudioPopup(id)}}
         project={project} currentTime={currentTime} busy={hardwareStatus.isProcessing}
         canUndo={historyPast.length>0} canRedo={historyFuture.length>0} onUndo={handleUndo} onRedo={handleRedo}
         onSeek={setCurrentTime} onPause={()=>{stopAudioPreview();setIsPlaying(false);}}

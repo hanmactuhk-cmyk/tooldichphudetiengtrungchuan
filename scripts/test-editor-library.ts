@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {replaceTemplate} from '../src/lib/template-slots';
+import {insertLibraryAsset} from '../src/lib/media-library';
+import {splitVisual} from '../src/lib/visual-engine';
+import {ProjectData,VisualClip,TemplateRole} from '../src/types';
+const roles:TemplateRole[]=['blur','top','bottom','channel','title'];
+const c:VisualClip={id:'v',kind:'video',name:'Source',url:'/cache/video.mp4',trackId:'base',startTime:0,endTime:10,sourceStart:0,sourceDuration:10,x:0,y:0,width:1,height:1,opacity:1,enabled:true,keyframes:[]};
+const p={id:"test",title:"Test",videoFileName:"video.mp4",originalAudioVolume:1,originalAudioMuted:false,bgmDucking:false,characters:[],translationMode:"offline",selectedSubtitleId:null,currentTime:0,videoUrl:c.url!,subtitles:[],visuals:[c],visualTracks:[{id:'base',name:'Video',enabled:true},{id:'empty',name:'My empty row',enabled:true}],duration:10} as ProjectData;
+const preset=roles.map((role,i)=>({...c,id:'new-'+i,trackId:undefined,templateRole:role,templateLayout:'bands' as const,templateBandHeight:.1,kind:role==='blur'?'blur':role==='top'||role==='bottom'?'image':'text',name:role,url:undefined,text:role} as VisualClip));
+let a=replaceTemplate(p,preset),ids=a.visuals.map(c=>c.id),tracks=a.visualTracks.map(c=>c.id);let b=replaceTemplate(a,preset.map(v=>({...v,id:crypto.randomUUID(),text:'New style'})));
+assert.deepEqual(b.visuals.map(c=>c.id),ids);assert.deepEqual(b.visualTracks.map(c=>c.id),tracks);assert.equal(b.visuals.length,6);
+const title=b.visuals.find(v=>v.templateRole==='title')!;b={...b,visuals:b.visuals.flatMap(v=>v.id===title.id?splitVisual({...v,x:.25},4):[v])};const changed=replaceTemplate(b,preset);assert.equal(changed.visuals.length,7);assert.deepEqual(changed.visuals.filter(v=>v.templateRole==='title').map(v=>[v.startTime,v.endTime,v.x]),[[0,4,.25],[4,10,.25]]);
+const legacy1={...preset[1],id:'old1',templateRole:undefined,template: {pattern:'world',color:'#008800',secondary:'#000000',fade:false,radius:0},name:'Nền trên · Green',trackId:'old1'};
+const legacy2={...legacy1,id:'old2',trackId:'old2'};const migrated=replaceTemplate({...p,visuals:[c,legacy1,legacy2]},preset);assert.equal(migrated.visuals.filter(v=>v.templateRole==='top').length,1);assert(!migrated.visualTracks.some(t=>t.id==='old1'));assert(migrated.visualTracks.some(t=>t.id==='empty'));
+const asset={id:'a',name:'Overlay',kind:'image' as const,url:'/cache/p.png',width:100,height:100,duration:5};let ins=insertLibraryAsset(p,asset,2,'empty');assert.equal(ins.clip.startTime,2);assert.equal(ins.clip.trackId,'empty');assert.equal(ins.project.visualTracks.length,p.visualTracks!.length);ins=insertLibraryAsset(ins.project,asset,7,'empty');assert.equal(ins.project.visuals.length,3);assert.equal(ins.project.visualTracks.length,2);assert.equal(p.visuals!.length,1);
+const first=insertLibraryAsset({...p,videoUrl:null,visuals:[],visualTracks:[]},{...asset,kind:'video'},99);assert.equal(first.clip.startTime,0);assert.equal(first.project.videoUrl,asset.url);
+console.log('TEMPLATE REPLACE / SPLIT PRESERVATION / LEGACY CLEANUP / EMPTY ROW / LIBRARY PLACEMENT PASSED');

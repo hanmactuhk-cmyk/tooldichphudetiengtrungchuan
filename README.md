@@ -1,8 +1,14 @@
-# HNstudio 5.8.0 — Bộ cài Windows
+# HNstudio 5.9.0 — Bộ cài Windows
 
 Đọc lời nói hoặc chữ phụ đề tiếng Trung từ video MP4, dịch sang tiếng Việt và tạo giọng VieNeu-TTS. Giao diện mở trong cửa sổ ứng dụng Windows; không phải mở trình duyệt để dùng các chức năng offline. Gemini và ChatGPT vẫn dùng Chrome riêng để đăng nhập và dịch theo lựa chọn của người dùng.
 
-## Mới trong 5.8.0
+## Mới trong 5.9.0
+- Thư viện media: nhập nhiều video/ảnh, tìm và lọc, kéo thumbnail xuống đúng hàng/mốc hoặc dùng lại tệp nhiều lần. Nhập chưa tạo ô; thư viện được sao lưu cùng project.
+- Đổi mẫu thay đúng các ô/hàng của mẫu hiện tại, không thêm hàng sau mỗi lần áp dụng. Giữ thời gian, các đoạn đã cắt và keyframe. Dự án 5.8 được nhận dạng và gộp các hàng mẫu dư khi áp dụng lại.
+- Bố cục Dải trên/dưới chỉ phủ hai mép; Bản tin là lựa chọn riêng có nền chuyển sắc. Tiêu đề/tên kênh và các phần nền vẫn độc lập.
+- Thuộc tính có từng nhóm bo góc với menu thu gọn. Công cụ phụ đề và âm thanh gom thành menu timeline. Kéo đường ngăn để chỉnh chiều cao timeline, dành thêm diện tích preview.
+
+## Có từ 5.8.0
 - Hàng hình tích hợp cùng thước timeline. Mỗi hàng chứa nhiều ô, nhận video/ảnh/chữ/vùng mờ; hàng trên đè hàng dưới. Thêm hàng trống, kéo ô giữa các hàng, đổi tên, ẩn hoặc xóa hàng, đưa lên/xuống. Phụ đề và âm thanh vẫn độc lập như cũ.
 - Video gốc tự có ô chỉnh sau khi tải xong; C cắt, Delete xóa, Ctrl+D nhân đôi; kéo cạnh để trim, bật Co giãn video hoặc giữ Alt khi kéo cạnh phải để đổi tốc độ. Lật ngang/dọc và keyframe cho lớp phủ.
 - Bảng danh sách phụ đề bên phải được chuyển sang nút Danh sách phụ đề. Khu vực phải là bảng thuộc tính, có thể thả nổi hoặc ghim lại. Popup từng phụ đề/giọng cũ vẫn còn.

@@ -1,7 +1,9 @@
 export interface MotionKeyframe {time:number;x:number;y:number;width:number;height:number;opacity:number;}
 export interface VisualTrack {id:string;name:string;enabled:boolean;}
 export interface TextStyle {fontFamily:string;fontSize:number;color:string;bold:boolean;italic:boolean;background:string;radius:number;autoFit:boolean;}
-export interface VisualClip {nativeWidth?:number;nativeHeight?:number;trackId?:string;layer?:number;flipX?:boolean;flipY?:boolean;rate?:number;text?:string;textStyle?:TextStyle;template?:{pattern:string;color:string;secondary:string;fade:boolean;radius:number;};renderKey?:string;id:string;kind:'video'|'image'|'blur'|'text';name:string;url?:string;startTime:number;endTime:number;sourceStart:number;sourceDuration:number;x:number;y:number;width:number;height:number;opacity:number;enabled:boolean;keyframes:MotionKeyframe[];strength?:number;radius?:number;fit?:'contain'|'cover';}
+export type TemplateRole = "top"|"bottom"|"blur"|"channel"|"title";
+export interface MediaAsset {id:string;name:string;kind:"video"|"image";url:string;width:number;height:number;duration:number;}
+export interface VisualClip {assetId?:string;templateRole?:TemplateRole;templateLayout?:"bands"|"news";templateBandHeight?:number;nativeWidth?:number;nativeHeight?:number;trackId?:string;layer?:number;flipX?:boolean;flipY?:boolean;rate?:number;text?:string;textStyle?:TextStyle;template?:{pattern:string;color:string;secondary:string;fade:boolean;radius:number;};renderKey?:string;id:string;kind:'video'|'image'|'blur'|'text';name:string;url?:string;startTime:number;endTime:number;sourceStart:number;sourceDuration:number;x:number;y:number;width:number;height:number;opacity:number;enabled:boolean;keyframes:MotionKeyframe[];strength?:number;radius?:number;fit?:'contain'|'cover';}
 export interface TimelineAudioClip { id:string; subtitleId?:string; origin?:'video'|'file'; track:'voice'|'audio'; name:string; audioUrl:string; startTime:number; trimStart:number; trimEnd:number; sourceDuration:number; volume:number; muted?:boolean; }
 export interface BlurRegion { enabled:boolean; x:number; y:number; width:number; height:number; strength:number; radius?:number; }
 export interface CaptionPosition { x:number; y:number; }
@@ -84,7 +86,7 @@ export interface HardwareVramStatus {
 
 export interface VideoDecoration {bold?:boolean;italic?:boolean;topColors?:Record<number,string>;bottomColors?:Record<number,string>;overlayColor?:string;enabled:boolean;topText:string;bottomText:string;topHeight:number;bottomHeight:number;backgroundColor:string;textColor:string;fontFamily:string;fontSize:number;overlays:{id:string;text:string;x:number;y:number;characterColors?:Record<number,string>}[];}
 export interface ProjectData {
-  visuals?:VisualClip[];visualTracks?:VisualTrack[];videoEdited?:boolean;
+  mediaLibrary?:MediaAsset[];visuals?:VisualClip[];visualTracks?:VisualTrack[];videoEdited?:boolean;
   decoration?:VideoDecoration;
   id: string;
   title: string;

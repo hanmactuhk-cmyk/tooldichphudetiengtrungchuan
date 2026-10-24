@@ -6,7 +6,7 @@ module.exports=function({ipcMain,dialog,mainWindow,trusted,cacheHome,origin,voic
   const project=JSON.parse(JSON.stringify(payload.project));if(!Array.isArray(project.subtitles)||project.subtitles.length>20000)throw Error('Dự án không hợp lệ.');
   const result=await dialog.showSaveDialog(mainWindow,{title:'Lưu dự án HNstudio',defaultPath:path.basename(String(project.title||'Du-an')).replace(/[<>:"/\\|?*]/g,'_')+'.hnproject',filters:[{name:'Dự án HNstudio',extensions:['hnproject']}]});if(result.canceled)return null;
   const destination=result.filePath,assets=path.basename(destination)+'.media-'+crypto.randomUUID().slice(0,8),folder=path.join(path.dirname(destination),assets);await fs.promises.mkdir(folder);
-  const media={},urls=new Set([project.dubAudioUrl,...(project.audioClips||[]).map(c=>c.audioUrl),...project.subtitles.map(c=>c.ttsAudioUrl),...(project.visuals||[]).map(c=>c.url)].filter(Boolean));
+  const media={},urls=new Set([project.dubAudioUrl,...(project.audioClips||[]).map(c=>c.audioUrl),...project.subtitles.map(c=>c.ttsAudioUrl),...(project.visuals||[]).map(c=>c.url),...(project.mediaLibrary||[]).map(c=>c.url)].filter(Boolean));
   for(const url of urls){const name=crypto.randomUUID()+path.extname(cacheFile(url));await fs.promises.copyFile(cacheFile(url),path.join(folder,name));media[url]=name;}
   let video=null;if(project.videoUrl){const source=payload.videoPath||cacheFile(project.videoUrl);if(!/\.(mp4|mov|mkv|webm|avi|m4v|ts|mts|m2ts|mpeg|mpg|3gp|wmv|mp3|wav|m4a|aac|ogg|flac)$/i.test(source))throw Error('Tệp video hoặc âm thanh không hợp lệ.');if(!fs.statSync(source).isFile())throw Error('Không đọc được video nguồn.');video='video.mp4';await fs.promises.copyFile(source,path.join(folder,video));}
   const voices={};const voiceIds=new Set([...(project.characters||[]).map(c=>c.voiceId),...project.subtitles.map(c=>c.voiceId)].filter(id=>/^clone-[a-f0-9]{32}$/.test(String(id))));
@@ -24,6 +24,7 @@ module.exports=function({ipcMain,dialog,mainWindow,trusted,cacheHome,origin,voic
   const media={};for(const [url,name] of Object.entries(document.media||{}))media[url]=await copy(name,path.extname(name));const p=document.project;
   if(p.dubAudioUrl&&!media[p.dubAudioUrl])throw Error('Thiếu bản âm thanh đã ghép.');p.dubAudioUrl=media[p.dubAudioUrl];for(const c of p.audioClips||[]){if(!media[c.audioUrl])throw Error('Thiếu media âm thanh.');c.audioUrl=media[c.audioUrl];}for(const s of p.subtitles)if(s.ttsAudioUrl)s.ttsAudioUrl=media[s.ttsAudioUrl];
   for(const c of p.visuals||[])if(c.url){if(!media[c.url])throw Error('Thiếu media hình ảnh.');c.url=media[c.url];}
+  for(const c of p.mediaLibrary||[]){if(!media[c.url])throw Error('Thiếu media thư viện.');c.url=media[c.url];}
   p.videoUrl=document.video?await copy(document.video,'.mp4'):null;p.currentTime=0;return {project:p,path:file};
  });
 };

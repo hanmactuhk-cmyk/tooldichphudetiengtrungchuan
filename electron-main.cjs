@@ -62,6 +62,8 @@ async function start(){
  mainWindow.webContents.on('will-attach-webview',event=>event.preventDefault());
  let chosenExport=null,lastExport=null;
  const trusted=event=>event.sender===mainWindow?.webContents&&new URL(event.senderFrame.url).origin===origin;
+ ipcMain.handle('hn-get-theme',event=>{if(!trusted(event))throw Error('Nguồn không hợp lệ.');return ['simple','modern','glow'].includes(settings.theme)?settings.theme:'glow'});
+ ipcMain.handle('hn-set-theme',(event,theme)=>{if(!trusted(event)||!['simple','modern','glow'].includes(theme))throw Error('Giao diện không hợp lệ.');settings.theme=theme;fs.writeFileSync(settingsPath,JSON.stringify(settings,null,2));return theme});
  ipcMain.handle('hn-choose-export',async(event,name)=>{
   if(!trusted(event))throw Error('Nguồn không hợp lệ.');
   const result=await dialog.showSaveDialog(mainWindow,{title:'Chọn nơi lưu video MP4',defaultPath:path.join(settings.exportHome||app.getPath('videos'),path.basename(String(name))),filters:[{name:'Video MP4',extensions:['mp4']}]});

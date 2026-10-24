@@ -1,0 +1,7 @@
+import React,{useEffect,useRef} from 'react';
+export function InlineText({value,onChange,onFinish,style}:{value:string;onChange:(s:string)=>void;onFinish:()=>void;style?:React.CSSProperties}) {
+ const ref=useRef<HTMLDivElement>(null),composing=useRef(false);
+ useEffect(()=>{const el=ref.current!;el.innerText=value;el.focus();const selection=window.getSelection(),range=document.createRange();range.selectNodeContents(el);selection?.removeAllRanges();selection?.addRange(range);},[]);
+ useEffect(()=>{const el=ref.current;if(el&&!composing.current&&el.innerText!==value&&document.activeElement!==el)el.innerText=value},[value]);
+ return <div ref={ref} role="textbox" aria-label="Nhập chữ trực tiếp trên preview" aria-multiline="true" contentEditable suppressContentEditableWarning spellCheck={false} className="inline-preview-editor" style={style} onPointerDown={e=>e.stopPropagation()} onDoubleClick={e=>e.stopPropagation()} onCompositionStart={()=>{composing.current=true}} onCompositionEnd={e=>{composing.current=false;onChange(e.currentTarget.innerText)}} onInput={e=>{if(!composing.current)onChange(e.currentTarget.innerText)}} onPaste={e=>{e.preventDefault();document.execCommand('insertText',false,e.clipboardData.getData('text/plain'))}} onBlur={e=>{onChange(e.currentTarget.innerText);onFinish()}} onKeyDown={e=>{e.stopPropagation();if(e.key==='Escape'||(e.key==='Enter'&&(e.ctrlKey||e.metaKey))){e.preventDefault();e.currentTarget.blur()}}}/>;
+}

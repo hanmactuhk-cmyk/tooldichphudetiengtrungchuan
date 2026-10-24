@@ -18,3 +18,7 @@ Các dịch vụ Gemini và ChatGPT không được nhúng vào bản offline. N
 
 ## Natural Earth land outlines
 The decorative world map uses Natural Earth 1:110m land outlines (public domain), simplified to normalized coordinates in src/lib/world-land.json. Source: https://github.com/nvkelso/natural-earth-vector/blob/master/geojson/ne_110m_land.geojson . Terms: https://www.naturalearthdata.com/about/terms-of-use/ . No map data is loaded from the network at runtime.
+
+
+## Vietnamese caption font pack
+33 families sourced from Google Fonts, distributed under the SIL Open Font License. Each family license and the exact file hashes are included in public/fonts/ (manifest.json and *-OFL.txt). Regular/bold/italic static instances are generated from the upstream fonts where supported. scripts/fetch-caption-fonts.py records upstream locations; scripts/test-font-pack.py checks Vietnamese coverage, hashes and licenses. Fonts load locally without network access and are also passed to the MP4 subtitle renderer.

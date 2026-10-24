@@ -1,5 +1,6 @@
+import bundledFonts from './bundled-fonts.json';
 import {CaptionLayout,ProjectData,Subtitle,VideoDecoration} from '../types';
-export const FONTS=['Arial','Segoe UI','Segoe UI Semibold','Segoe UI Black','Segoe UI Light','Segoe UI Semilight','Tahoma','Calibri','Calibri Light','Cambria','Candara','Candara Light','Constantia','Corbel','Corbel Light','Consolas','Courier New','Times New Roman','Verdana','Palatino Linotype'];
+export const FONTS=[...bundledFonts,'Arial','Segoe UI','Segoe UI Semibold','Segoe UI Black','Segoe UI Light','Segoe UI Semilight','Tahoma','Calibri','Calibri Light','Cambria','Candara','Candara Light','Constantia','Corbel','Corbel Light','Consolas','Courier New','Times New Roman','Verdana','Palatino Linotype'];
 export const DEFAULT_DECORATION:VideoDecoration={enabled:false,topText:'TIÊU ĐỀ VIDEO',bottomText:'Hoài Nguyễn Studio',topHeight:.08,bottomHeight:.08,backgroundColor:'#facc15',textColor:'#111111',fontFamily:'Arial',fontSize:3.5,overlays:[]};
 let canvas:HTMLCanvasElement|undefined;
 export function captionBox(text:string,w:number,layout:CaptionLayout){

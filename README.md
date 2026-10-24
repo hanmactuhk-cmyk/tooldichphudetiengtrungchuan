@@ -1,8 +1,17 @@
-# HNstudio 5.9.1 — Bộ cài Windows
+# HNstudio 6.0.0 — Bộ cài Windows
 
 Đọc lời nói hoặc chữ phụ đề tiếng Trung từ video MP4, dịch sang tiếng Việt và tạo giọng VieNeu-TTS. Giao diện mở trong cửa sổ ứng dụng Windows; không phải mở trình duyệt để dùng các chức năng offline. Gemini và ChatGPT vẫn dùng Chrome riêng để đăng nhập và dịch theo lựa chọn của người dùng.
 
-## Mới trong 5.9.1
+## Mới trong 6.0.0
+- Nhấp đúp mọi vùng chữ trên preview để nhập trực tiếp: phụ đề Việt/Trung, tên kênh, tiêu đề, nguồn và chữ thêm. Thuộc tính tự mở đúng đối tượng; nội dung đồng bộ ngay. Enter xuống dòng, Escape hoặc Ctrl+Enter kết thúc nhập. Chữ và phím tắt không kích hoạt phát video khi đang nhập.
+- Thư viện có ô Text kéo thả để tạo hàng chữ riêng. Nhấp đúp ô chữ trên timeline mở popup chỉnh màu, phông và căn trái/giữa/phải bằng biểu tượng.
+- 33 bộ phông mới được đóng gói offline, đã kiểm tra đủ ký tự tiếng Việt (thêm vào các lựa chọn Windows cũ). Phông đi cùng preview và bộ dựng phụ đề MP4; không cần cài phông riêng.
+- Bộ nền/tên kênh/tiêu đề/nguồn dùng một hàng timeline; chọn thành phần và bật/tắt ở Thuộc tính. Xóa mục Ngày đăng. Dự án cũ được gộp hàng khi mở, giữ các mốc và thành phần khác.
+- Video chính, phụ đề và âm thanh ở vùng trên timeline; ảnh/chữ/lớp phủ ở vùng dưới. Kéo và cắt bộ khung áp dụng cùng các thành phần trong bộ.
+- Các nút căn chữ dùng biểu tượng và các giá trị thiết kế dùng cần gạt. Tên kênh mặc định căn giữa cả khung chữ.
+- Ba giao diện: Đơn giản (xám sáng), Hiện đại (xanh đen/ngọc), Nổi bật (trắng ngọc trai, xanh trời/ngọc), khung bo tròn và bóng mềm. Lựa chọn lưu theo hồ sơ ứng dụng, tách khỏi project.
+
+## Có từ 5.9.1
 - Mẫu Bản tin xanh theo ảnh tham khảo: nền chuyển sắc mềm, bản đồ lục địa chìm được đóng gói offline, chữ in hoa căn trái kiểu hẹp.
 - Nhãn kênh độc lập có vòng ký hiệu tùy chỉnh, viền sáng, bóng mềm và bốn kiểu hiển thị. Có thể kéo/đổi cỡ/keyframe như mọi lớp chữ.
 - Ngày đăng và nguồn video có lớp và công tắc riêng. Không sao chép biểu tượng phát hoặc thanh tìm kiếm của nền tảng video vào mẫu.

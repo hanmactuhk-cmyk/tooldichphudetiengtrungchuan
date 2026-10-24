@@ -1,5 +1,5 @@
 """Render the actual picture before padding, so normalized caption/blur coordinates stay aligned."""
-import json,math,os,subprocess,tempfile,uuid,hashlib
+import json,math,os,sys,subprocess,tempfile,uuid,hashlib
 from pathlib import Path
 import cv2,imageio_ffmpeg
 
@@ -50,7 +50,7 @@ def _render_video(source,options,cache,dubbing,progress,cancelled):
   completed_output=output;output=cache/(uuid.uuid4().hex+'.mp4')
   filters.append(f'[{label}]pad={ow}:{oh}:(ow-iw)/2:(oh-ih)/2:black,setsar=1,tpad=stop_mode=clone:stop_duration={max(0,duration-frames/fps):.3f},format=yuv420p[{'padded' if ass else 'outv'}]')
   if ass:
-   fonts=str(Path(os.environ.get('WINDIR','C:/Windows'))/'Fonts').replace('\\','/').replace(':','\\:')
+   fonts=str(Path(getattr(sys,'_MEIPASS',Path(__file__).resolve().parents[2]))/'dist/fonts').replace('\\','/').replace(':','\\:')
    filters.append(f"[padded]ass=captions.ass:fontsdir='{fonts}'[outv]")
   # Probe presence of original audio; a video without audio is a valid input.
   probe=subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(),'-hide_banner','-i',str(source)],capture_output=True,creationflags=0x08000000 if os.name=='nt' else 0)

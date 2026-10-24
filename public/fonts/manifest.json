@@ -1,0 +1,827 @@
+[
+  {
+    "name": "Be Vietnam Pro",
+    "key": "bevietnampro",
+    "files": [
+      {
+        "file": "bevietnampro-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "09e7e54771c4e582eeb80fa6ecac42af862d757f4447615c104ddba5229e4209"
+      },
+      {
+        "file": "bevietnampro-700.ttf",
+        "weight": 700,
+        "style": "normal",
+        "sha256": "4b4789782d6ad7fb51ab8653b7b0af4f522d181b34bff10ac77d76d8ec5496e3"
+      },
+      {
+        "file": "bevietnampro-400-italic.ttf",
+        "weight": 400,
+        "style": "italic",
+        "sha256": "652dcd4d4291882915ddb9fce7ac0173f9060714a158204281c37aa87f2861c8"
+      },
+      {
+        "file": "bevietnampro-700-italic.ttf",
+        "weight": 700,
+        "style": "italic",
+        "sha256": "d55dbc986e954a4b3a5c2cee228e0fb0baf8e39f6cc2b3a97055dd62108ea520"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/bevietnampro/"
+  },
+  {
+    "name": "Roboto",
+    "key": "roboto",
+    "files": [
+      {
+        "file": "roboto-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "2f352ec9a740bfa9c95d5716333c680151313ca8f5795468f5c660e17a2147c6"
+      },
+      {
+        "file": "roboto-700.ttf",
+        "weight": 700,
+        "style": "normal",
+        "sha256": "e012810d6b4c8f12ad3458e165ca2cd44ff7b7cfed718cc2602931e72ce4bde2"
+      },
+      {
+        "file": "roboto-400-italic.ttf",
+        "weight": 400,
+        "style": "italic",
+        "sha256": "1029242431ed647891b23f1fc9d4da99a77337a8928f2d336f868cfc722ac0c6"
+      },
+      {
+        "file": "roboto-700-italic.ttf",
+        "weight": 700,
+        "style": "italic",
+        "sha256": "a88b30188a95daa6241f2d8b50d398b5eb2b4987617570aa94b73c3cf2991274"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/roboto/"
+  },
+  {
+    "name": "Roboto Condensed",
+    "key": "robotocondensed",
+    "files": [
+      {
+        "file": "robotocondensed-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "5393904e533aac4dae403ce96f477e5e62147642ab398f24f97d8a6659e4e049"
+      },
+      {
+        "file": "robotocondensed-700.ttf",
+        "weight": 700,
+        "style": "normal",
+        "sha256": "327048220d4c3289224799198a62d3f20b5cae3a3eaaa89697e5f313f2187e13"
+      },
+      {
+        "file": "robotocondensed-400-italic.ttf",
+        "weight": 400,
+        "style": "italic",
+        "sha256": "883038264144eec0d562cb9dcc472dfe50c7a6957d2e15a941cb26c048071407"
+      },
+      {
+        "file": "robotocondensed-700-italic.ttf",
+        "weight": 700,
+        "style": "italic",
+        "sha256": "d488983ff4e4e2c2aebd6f69930f27c5352684c2524282ab9fd621d0e6cfd55e"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/robotocondensed/"
+  },
+  {
+    "name": "Open Sans",
+    "key": "opensans",
+    "files": [
+      {
+        "file": "opensans-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "f562494397e52481bd8b757c01e8d26cd389725837cbb80f582477dcfb63b116"
+      },
+      {
+        "file": "opensans-700.ttf",
+        "weight": 700,
+        "style": "normal",
+        "sha256": "c8e7b316f17d4fc8ba09655556d9addcfa08b54b24f0d0af599d31581b4fc4f2"
+      },
+      {
+        "file": "opensans-400-italic.ttf",
+        "weight": 400,
+        "style": "italic",
+        "sha256": "a09fc97efb5346e81ccccb26c869a82f3379592671b0913de2b874ad8ae1d978"
+      },
+      {
+        "file": "opensans-700-italic.ttf",
+        "weight": 700,
+        "style": "italic",
+        "sha256": "264228f0f1ceaf8ee95e7de6b64fca1193a38c67fed4a465f3eabb28c79cb5d0"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/opensans/"
+  },
+  {
+    "name": "Noto Sans",
+    "key": "notosans",
+    "files": [
+      {
+        "file": "notosans-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "da11a7327ffe26445d91b2ab3fe3fc4969150f0d8147fe5c6325e919d365a016"
+      },
+      {
+        "file": "notosans-700.ttf",
+        "weight": 700,
+        "style": "normal",
+        "sha256": "ca0293124775c4dd1624842eff8e96a9d2a85c0a1ad4051b2f0425b4bda020c9"
+      },
+      {
+        "file": "notosans-400-italic.ttf",
+        "weight": 400,
+        "style": "italic",
+        "sha256": "731689e0807c8fad2bcb8ce4cf04ad8e3a0b2b1bf7cb6d65c4bae8e50ddfda0e"
+      },
+      {
+        "file": "notosans-700-italic.ttf",
+        "weight": 700,
+        "style": "italic",
+        "sha256": "d7651a3b977c8fe8efa68103f51c3b54568305cbd6dfb3c91dd010a16468c3ee"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/notosans/"
+  },
+  {
+    "name": "Noto Serif",
+    "key": "notoserif",
+    "files": [
+      {
+        "file": "notoserif-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "9cc7ec098e60145f12e10bb96cc11380d9b5afa884412642468d4bf76f761bdf"
+      },
+      {
+        "file": "notoserif-700.ttf",
+        "weight": 700,
+        "style": "normal",
+        "sha256": "10f76e97205fbd5e02d5a2fc1b1e7fb9499819d98c431b0e06e4583810e9af1d"
+      },
+      {
+        "file": "notoserif-400-italic.ttf",
+        "weight": 400,
+        "style": "italic",
+        "sha256": "971d13af04acdc5843938dac7d53a97ced19da11a2d3ac51f7fa8e4f15cf3938"
+      },
+      {
+        "file": "notoserif-700-italic.ttf",
+        "weight": 700,
+        "style": "italic",
+        "sha256": "fccfe1578d148b90abc3f6f986ff0f02640b540fd7fef988d2a9deab18f32b61"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/notoserif/"
+  },
+  {
+    "name": "Montserrat",
+    "key": "montserrat",
+    "files": [
+      {
+        "file": "montserrat-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "c88f6cea79e25c198fc044f86b9e205c87f422c4e3d543029a7ecc54ba227bed"
+      },
+      {
+        "file": "montserrat-700.ttf",
+        "weight": 700,
+        "style": "normal",
+        "sha256": "6c2c1e0eda6e0dfb396e127a55afb97fafee17415ad9e8b43918f46433d3999c"
+      },
+      {
+        "file": "montserrat-400-italic.ttf",
+        "weight": 400,
+        "style": "italic",
+        "sha256": "2de7c8e54cf948171b0e0d8ad4b7c614e439eb5ee59db5a3dbe22ba2c0546d38"
+      },
+      {
+        "file": "montserrat-700-italic.ttf",
+        "weight": 700,
+        "style": "italic",
+        "sha256": "512c4b307b9df7001b7f1f1bbc109ff2bdedd6e0d1726fbf187279151e2cd639"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/"
+  },
+  {
+    "name": "Inter",
+    "key": "inter",
+    "files": [
+      {
+        "file": "inter-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "7fa563e93fed558ec7693ee57163d863014e4fdbb9fde1a4305cb2fc9919a0f9"
+      },
+      {
+        "file": "inter-700.ttf",
+        "weight": 700,
+        "style": "normal",
+        "sha256": "7331b541ddba4572f52c366885b46c5e67f44c55e7ed0415c6e50926c08cc696"
+      },
+      {
+        "file": "inter-400-italic.ttf",
+        "weight": 400,
+        "style": "italic",
+        "sha256": "bd2a493b2b05d312e067c1a1ec07028d7930816f0a5ec6ea37f89066605ac8f4"
+      },
+      {
+        "file": "inter-700-italic.ttf",
+        "weight": 700,
+        "style": "italic",
+        "sha256": "f336ab4a846770e6b8fdfbe3bd077d66211277d8272274a57881c478550f4a4d"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/inter/"
+  },
+  {
+    "name": "Manrope",
+    "key": "manrope",
+    "files": [
+      {
+        "file": "manrope-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "5d5ed87fea27093ad79a72d57293d15deedf5c1f5521e83f0e39415894567e1d"
+      },
+      {
+        "file": "manrope-700.ttf",
+        "weight": 700,
+        "style": "normal",
+        "sha256": "e2206c1591c5ec89282937102528b9ea43d213f05789c5c83f666ae10cda2ae5"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/manrope/"
+  },
+  {
+    "name": "Oswald",
+    "key": "oswald",
+    "files": [
+      {
+        "file": "oswald-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "331ce57fcf718b2fcddfb6b80f1a88381b61147ad7eecbfd825881e9a90617eb"
+      },
+      {
+        "file": "oswald-700.ttf",
+        "weight": 700,
+        "style": "normal",
+        "sha256": "9fb955195ab89c60018e03a4143784f9a7e49d0932c9ac834663d085d3147d26"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/oswald/"
+  },
+  {
+    "name": "Anton",
+    "key": "anton",
+    "files": [
+      {
+        "file": "anton-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "b244dc2c9a00592a7050381267ddc1b3e35447ca6c5462258a4717914095df7c"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/anton/"
+  },
+  {
+    "name": "Bangers",
+    "key": "bangers",
+    "files": [
+      {
+        "file": "bangers-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "ea737aa971cfe60e5aef6350aca15d01e44909735948aced4df33751cf65f79f"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/bangers/"
+  },
+  {
+    "name": "Barlow",
+    "key": "barlow",
+    "files": [
+      {
+        "file": "barlow-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "fe8c240ba5e245eab54993f8c69848f94774151fbffbc277ebe540a3bcbe8f78"
+      },
+      {
+        "file": "barlow-700.ttf",
+        "weight": 700,
+        "style": "normal",
+        "sha256": "b14fe53264acdaa7982d328e009c541cb5d44d8c344426fe718b6d298e58ddfc"
+      },
+      {
+        "file": "barlow-400-italic.ttf",
+        "weight": 400,
+        "style": "italic",
+        "sha256": "80cd428fb74c71f2928c1cd22cffc05eed5ee752708144e54d9f1e151db17412"
+      },
+      {
+        "file": "barlow-700-italic.ttf",
+        "weight": 700,
+        "style": "italic",
+        "sha256": "00918db2897de5d4830431ac241daf9618c511ee0c49ea875ffb356cade6ff89"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/barlow/"
+  },
+  {
+    "name": "Barlow Condensed",
+    "key": "barlowcondensed",
+    "files": [
+      {
+        "file": "barlowcondensed-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "b2f401824cb62b14597a561775a3e6677e52d62641e5ff4fe9c83b4c22e556a0"
+      },
+      {
+        "file": "barlowcondensed-700.ttf",
+        "weight": 700,
+        "style": "normal",
+        "sha256": "019d5fe818222764e85c23dd929272fa214f92299ab0d4b92fc95bb9ed588fd1"
+      },
+      {
+        "file": "barlowcondensed-400-italic.ttf",
+        "weight": 400,
+        "style": "italic",
+        "sha256": "aeae15e40d77e26bb106d20394e17e69adac5c41b571bb208f7b843e703813f4"
+      },
+      {
+        "file": "barlowcondensed-700-italic.ttf",
+        "weight": 700,
+        "style": "italic",
+        "sha256": "94e43c3aef0f940418069abb259726635747a7322a0c705ba479f1a07382f7d5"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/barlowcondensed/"
+  },
+  {
+    "name": "Chakra Petch",
+    "key": "chakrapetch",
+    "files": [
+      {
+        "file": "chakrapetch-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "7f2c188cbb1d23cbdecfd24f96a63464e695d43fd82f674117c1652cb4f81f89"
+      },
+      {
+        "file": "chakrapetch-700.ttf",
+        "weight": 700,
+        "style": "normal",
+        "sha256": "590fc6e497ed143fb90310764e767c6f5b5a64e71c9ef3141120edc183345818"
+      },
+      {
+        "file": "chakrapetch-400-italic.ttf",
+        "weight": 400,
+        "style": "italic",
+        "sha256": "2138b7f36a9b5934c71ed6c6da681f4eddeac490fdc51d19dfcc3c5af24da909"
+      },
+      {
+        "file": "chakrapetch-700-italic.ttf",
+        "weight": 700,
+        "style": "italic",
+        "sha256": "9e2746317bf006bb2a47d139931be615200684a9ead1b917994fd72061c70e5a"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/chakrapetch/"
+  },
+  {
+    "name": "Dosis",
+    "key": "dosis",
+    "files": [
+      {
+        "file": "dosis-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "01cbf0e5484019a49f29b91855cf5bea632f4474c57069018efbf8eed8b88c01"
+      },
+      {
+        "file": "dosis-700.ttf",
+        "weight": 700,
+        "style": "normal",
+        "sha256": "aaf62439c9afe9f3af324581efa33a5c9fb0d3bf81cdcdb5d5354e5c3e4f043c"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/dosis/"
+  },
+  {
+    "name": "Exo 2",
+    "key": "exo2",
+    "files": [
+      {
+        "file": "exo2-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "154948a6b52f28e9c19f9c6e39d1c02728d94df91f325ff1ba8ecc78e92c7e3d"
+      },
+      {
+        "file": "exo2-700.ttf",
+        "weight": 700,
+        "style": "normal",
+        "sha256": "d8f16959c231b0fbed3b4d1db02260874351a930df08e5f64334e9c503ff1402"
+      },
+      {
+        "file": "exo2-400-italic.ttf",
+        "weight": 400,
+        "style": "italic",
+        "sha256": "b38e6f86d5903f84762e82a541513eb8598499472cdb530eae4437cfc9c300c0"
+      },
+      {
+        "file": "exo2-700-italic.ttf",
+        "weight": 700,
+        "style": "italic",
+        "sha256": "ea5ae6648dcc7de3535d5f69a72801665bdbb3ff02b541fb2b33e3bfe0e75cbc"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/exo2/"
+  },
+  {
+    "name": "Josefin Sans",
+    "key": "josefinsans",
+    "files": [
+      {
+        "file": "josefinsans-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "8f41ae9100074837cfcc81367618859e0551dc9fd13b30b858d55fa29d944359"
+      },
+      {
+        "file": "josefinsans-700.ttf",
+        "weight": 700,
+        "style": "normal",
+        "sha256": "e6d9880fb655c219f546e46cbffd01ee59291bed8973f30b60597647b9d63cc7"
+      },
+      {
+        "file": "josefinsans-400-italic.ttf",
+        "weight": 400,
+        "style": "italic",
+        "sha256": "afd2fcf76d10f91c9641941cb6c53f0886f0f900f7155f84ba952c56cd23bd03"
+      },
+      {
+        "file": "josefinsans-700-italic.ttf",
+        "weight": 700,
+        "style": "italic",
+        "sha256": "0a8af180081b0ed3456169e6ad4d9cebab4c6e008aa4689a261ed15383bbeb7c"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/josefinsans/"
+  },
+  {
+    "name": "Merriweather",
+    "key": "merriweather",
+    "files": [
+      {
+        "file": "merriweather-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "69c509bfc9a492f3ac2ca39b20c9cc55982be46bd2a87ad4711a5584ed62eb95"
+      },
+      {
+        "file": "merriweather-700.ttf",
+        "weight": 700,
+        "style": "normal",
+        "sha256": "b4fb53df37c2f45be7290d57a55d41f73a88cef2522443dfcf0999c68931faba"
+      },
+      {
+        "file": "merriweather-400-italic.ttf",
+        "weight": 400,
+        "style": "italic",
+        "sha256": "69904aa8363c48ec77abe7ceb41f293c7cfbca2b5b6afe491cbe4041206b539e"
+      },
+      {
+        "file": "merriweather-700-italic.ttf",
+        "weight": 700,
+        "style": "italic",
+        "sha256": "0865e7d7729adf6ab80f7d28b63dcfdb189523d690e1591711dbb83157bed24f"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/merriweather/"
+  },
+  {
+    "name": "Playfair Display",
+    "key": "playfairdisplay",
+    "files": [
+      {
+        "file": "playfairdisplay-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "dd6d03b8fa8d5ea8d13f2b4899c5aa743416a04ecaeed369c1ec5e8aa32d271b"
+      },
+      {
+        "file": "playfairdisplay-700.ttf",
+        "weight": 700,
+        "style": "normal",
+        "sha256": "c194ba56d500105119c9d0fe35445afc6d0367aae535cfe88bc0ac08c4d67e87"
+      },
+      {
+        "file": "playfairdisplay-400-italic.ttf",
+        "weight": 400,
+        "style": "italic",
+        "sha256": "83636170f6086fe75cca5c8e309e007e46ff46a3caae21d91dcf64aaff997289"
+      },
+      {
+        "file": "playfairdisplay-700-italic.ttf",
+        "weight": 700,
+        "style": "italic",
+        "sha256": "55e35303fd9c66f678986048cdb03f6025d8f47a09e7505756be30af0fb75755"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/playfairdisplay/"
+  },
+  {
+    "name": "Quicksand",
+    "key": "quicksand",
+    "files": [
+      {
+        "file": "quicksand-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "4e6feeda5543313dcc1fa54ed06ee7200c8cfd13262acedc79d5c1e028034683"
+      },
+      {
+        "file": "quicksand-700.ttf",
+        "weight": 700,
+        "style": "normal",
+        "sha256": "2e4d5cb0b7e8b4d11eb0a234aef7a834a1b761171665de19d3b84a2086f43484"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/quicksand/"
+  },
+  {
+    "name": "Lexend",
+    "key": "lexend",
+    "files": [
+      {
+        "file": "lexend-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "8f7988c638e73746a92cacc59d6b7a1225fbb07af48a8e44f197464d03803df4"
+      },
+      {
+        "file": "lexend-700.ttf",
+        "weight": 700,
+        "style": "normal",
+        "sha256": "2d475352d06ff79c099f3c34546f58998bfa61a9eb82147170cfe0b0f012d24f"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/lexend/"
+  },
+  {
+    "name": "Archivo",
+    "key": "archivo",
+    "files": [
+      {
+        "file": "archivo-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "c3dcc32784532aced9d08bd4f28587bbe30f1e6601ef65609b1424e4c9a73a4b"
+      },
+      {
+        "file": "archivo-700.ttf",
+        "weight": 700,
+        "style": "normal",
+        "sha256": "73f17d66ef58bff557b8b85705e2f4aee0bd9d12645f1d8495ff22c3a650b88e"
+      },
+      {
+        "file": "archivo-400-italic.ttf",
+        "weight": 400,
+        "style": "italic",
+        "sha256": "fa1e08561a199faa73ec3501dad734744044fa9a948fd745d8400ba0a97deed9"
+      },
+      {
+        "file": "archivo-700-italic.ttf",
+        "weight": 700,
+        "style": "italic",
+        "sha256": "356374803243ea88b01c15e596aefe834457583c37a5f7004b9bde4a0dc4e5d0"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/archivo/"
+  },
+  {
+    "name": "Asap",
+    "key": "asap",
+    "files": [
+      {
+        "file": "asap-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "869925a247698099f9789b6172b13f1e3481e0a240d50397c092555ee2d3e5d0"
+      },
+      {
+        "file": "asap-700.ttf",
+        "weight": 700,
+        "style": "normal",
+        "sha256": "bfed1fd579ef34258b4c315ac6e4e9f2efaa0bf4445baa80c90cbc5ba6e6dc81"
+      },
+      {
+        "file": "asap-400-italic.ttf",
+        "weight": 400,
+        "style": "italic",
+        "sha256": "1577dd193fe98f3068ac273d0e72fed328ce86e45f00f7313df0896f25a84628"
+      },
+      {
+        "file": "asap-700-italic.ttf",
+        "weight": 700,
+        "style": "italic",
+        "sha256": "bf12d1a35a465bc4e7f5c6a719a7d36f7a822b279b34fa342091612e2b5c03b2"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/asap/"
+  },
+  {
+    "name": "Bitter",
+    "key": "bitter",
+    "files": [
+      {
+        "file": "bitter-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "01b5641717311609181a51f27c96b04a49a9dc70d695ee57637c2212b2c798e4"
+      },
+      {
+        "file": "bitter-700.ttf",
+        "weight": 700,
+        "style": "normal",
+        "sha256": "95f936b228b947e07b0e9e440ad9afebffaf9bc34d274c524851977c98dfd758"
+      },
+      {
+        "file": "bitter-400-italic.ttf",
+        "weight": 400,
+        "style": "italic",
+        "sha256": "67923fb97bd9fa4034f714d4c3afe27b9b29a263e2bc236df7666fc3987195e9"
+      },
+      {
+        "file": "bitter-700-italic.ttf",
+        "weight": 700,
+        "style": "italic",
+        "sha256": "c99b6a99a436269373b26e3c9ce28772db91b70961c95d46043dfc41bd265980"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/bitter/"
+  },
+  {
+    "name": "Comfortaa",
+    "key": "comfortaa",
+    "files": [
+      {
+        "file": "comfortaa-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "8717c81ece1191fbb98269476888353f22bc45f6b0d446382e86470f3cfb57c2"
+      },
+      {
+        "file": "comfortaa-700.ttf",
+        "weight": 700,
+        "style": "normal",
+        "sha256": "6f47bbe8dd718871e03aefb7996ddeceb9314ca0cb9e1876d0a6e01ef613bdf4"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/comfortaa/"
+  },
+  {
+    "name": "Lobster",
+    "key": "lobster",
+    "files": [
+      {
+        "file": "lobster-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "18669c3ab43d13439f59147d4bc25b568d72a71d2f52755e8331fca526e9a6eb"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/lobster/"
+  },
+  {
+    "name": "Pacifico",
+    "key": "pacifico",
+    "files": [
+      {
+        "file": "pacifico-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "a24084b613d4838c562c0e76729394eac078f54f653b403e446124556a167bde"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/pacifico/"
+  },
+  {
+    "name": "Patrick Hand",
+    "key": "patrickhand",
+    "files": [
+      {
+        "file": "patrickhand-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "4e02d2f48c7f809cbe9b40027400889006e84b6876838fdf897492a4756a1255"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/patrickhand/"
+  },
+  {
+    "name": "Dancing Script",
+    "key": "dancingscript",
+    "files": [
+      {
+        "file": "dancingscript-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "14a4cc142d171b9f2656f813cf226dc569fd5fdd9a5c90caafd10116ff512495"
+      },
+      {
+        "file": "dancingscript-700.ttf",
+        "weight": 700,
+        "style": "normal",
+        "sha256": "1afb96d64b32a44fb63fc7437ddd8cc396663b623ab0e29c96ed4b575a0080dd"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/dancingscript/"
+  },
+  {
+    "name": "Baloo 2",
+    "key": "baloo2",
+    "files": [
+      {
+        "file": "baloo2-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "4f7dd2aea37d768c289d3bfa8a9948c4045a0571fa8c1524f5ccc1ca94e9f94f"
+      },
+      {
+        "file": "baloo2-700.ttf",
+        "weight": 700,
+        "style": "normal",
+        "sha256": "30984938b4b70a3c074331ee7ef56438281969d4b90dfab3129c5beccd332a95"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/baloo2/"
+  },
+  {
+    "name": "Saira Condensed",
+    "key": "sairacondensed",
+    "files": [
+      {
+        "file": "sairacondensed-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "a02f341ff6b836ae10492bc96aaafd9f373a4bb1c6c7ba753b8396007b3bfbca"
+      },
+      {
+        "file": "sairacondensed-700.ttf",
+        "weight": 700,
+        "style": "normal",
+        "sha256": "8ff28d778e949ea77c7d0e1f9117814ca2341ae959ab684a8cd957e828e1dfa4"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/sairacondensed/"
+  },
+  {
+    "name": "Nunito",
+    "key": "nunito",
+    "files": [
+      {
+        "file": "nunito-400.ttf",
+        "weight": 400,
+        "style": "normal",
+        "sha256": "ec97fcf6956591d13b70b165760637d495757081be9abea2b29b43f236ab61c8"
+      },
+      {
+        "file": "nunito-700.ttf",
+        "weight": 700,
+        "style": "normal",
+        "sha256": "107a69eaeb4fff474143e8414d9d0bc74e602290da205494591c2fc29261a86c"
+      },
+      {
+        "file": "nunito-400-italic.ttf",
+        "weight": 400,
+        "style": "italic",
+        "sha256": "d4d11c78a7e110090e9e61e7e7ddc559eca86fc83f61108e75448cc8b9916112"
+      },
+      {
+        "file": "nunito-700-italic.ttf",
+        "weight": 700,
+        "style": "italic",
+        "sha256": "6a9a6d6ad37c6c33b5b22e26e2e7014019597764d2d9d0321c7fdaaa85e251f5"
+      }
+    ],
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/nunito/"
+  }
+]

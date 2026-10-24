@@ -38,8 +38,11 @@ jobs:
       - run: pnpm exec tsx scripts/test-speech-cues.ts
       - run: pnpm exec tsx scripts/test-visual-engine.ts
       - run: pnpm exec tsx scripts/test-editor-library.ts
+      - run: pnpm exec tsx scripts/test-template-bundle.ts
       - run: node --check electron-main.cjs
       - run: node scripts/test-project-storage.cjs
+      - run: python -m pip install fonttools==4.67.0
+      - run: python scripts/test-font-pack.py
       - run: python -m compileall -q resources/backend scripts
       - run: python scripts/test_video_subtitles.py
       - run: python scripts/test_whole_submissions.py

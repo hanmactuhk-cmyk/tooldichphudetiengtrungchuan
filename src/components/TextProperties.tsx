@@ -1,0 +1,27 @@
+import React,{useEffect,useRef} from 'react';
+import {ProjectData,TextStyle,TextTarget} from '../types';
+import {DEFAULT_TEXT} from '../lib/raster-visual';
+import {DEFAULT_CAPTION_LAYOUT} from '../lib/caption-layout';
+import {DEFAULT_DECORATION,fontOptions} from '../lib/styled-caption';
+import {AlignButtons} from './AlignButtons';
+import {RangeField} from './RangeField';
+import {PropertySection} from './PropertySection';
+export function TextStyleControls({style:s,onChange,decorative=true}:{style:TextStyle;onChange:(s:TextStyle)=>void;decorative?:boolean}){
+ const patch=(p:Partial<TextStyle>)=>onChange({...s,...p});
+ const alpha=s.backgroundOpacity??(s.background.length===9?parseInt(s.background.slice(7),16)/255:1);
+ return <><label>Phông tiếng Việt<select aria-label="Phông chữ đang chọn" value={s.fontFamily} onChange={e=>patch({fontFamily:e.target.value})}>{fontOptions(s.fontFamily).map(f=><option key={f}>{f}</option>)}</select></label><RangeField label="Cỡ chữ đang chọn" value={s.fontSize} min={.5} max={15} step={.1} unit="%" onChange={fontSize=>patch({fontSize})}/><div className="flex gap-2"><button aria-label="In đậm chữ đang chọn" aria-pressed={s.bold} onClick={()=>patch({bold:!s.bold})}><b>B</b></button><button aria-label="In nghiêng chữ đang chọn" aria-pressed={s.italic} onClick={()=>patch({italic:!s.italic})}><i>I</i></button><AlignButtons value={s.align} label="Căn chữ đang chọn" onChange={align=>patch({align})}/></div><label>Màu chữ<input aria-label="Màu chữ đang chọn" type="color" value={s.color} onChange={e=>patch({color:e.target.value})}/></label><label>Màu nền<input aria-label="Màu nền chữ đang chọn" type="color" value={s.background.slice(0,7)} onChange={e=>patch({background:e.target.value,backgroundOpacity:alpha})}/></label><RangeField label="Độ đục nền chữ" value={alpha*100} onChange={n=>patch({backgroundOpacity:n/100})} unit="%"/><RangeField label="Bo góc nền chữ" value={s.radius*100} max={50} onChange={n=>patch({radius:n/100})} unit="%"/>{decorative&&<><label className="toggle-line"><input type="checkbox" checked={!!s.condensed} onChange={e=>patch({condensed:e.target.checked})}/>Chữ hẹp</label><label className="toggle-line"><input type="checkbox" checked={!!s.uppercase} onChange={e=>patch({uppercase:e.target.checked})}/>In hoa</label></>}</>;
+}
+export function TextProperties({project:p,target:t,onText,onProject,onAdvanced}:{project:ProjectData;target:TextTarget;onText:(t:TextTarget,s:string)=>void;onProject:(fn:(p:ProjectData)=>ProjectData)=>void;onAdvanced?:()=>void}){
+ const root=useRef<HTMLDivElement>(null);useEffect(()=>{const pane=root.current?.closest('.inspector-content');if(pane)pane.scrollTop=0},[t.kind,t.id,t.lang]);
+ const visual=t.kind==='visual'?p.visuals?.find(c=>c.id===t.id):undefined,cue=t.kind==='caption'?p.subtitles.find(c=>c.id===t.id):undefined,d=p.decoration||DEFAULT_DECORATION;
+ let text='',style:TextStyle={...DEFAULT_TEXT};
+ if(visual){text=visual.text||'';style={...DEFAULT_TEXT,...visual.textStyle}}
+ else if(cue){text=t.lang==='zh'?cue.textZh:cue.textVi||'';const s={...DEFAULT_CAPTION_LAYOUT,...p.captionLayout,...cue.captionStyle};style={...style,fontFamily:s.fontFamily||'Arial',fontSize:s.fontSize,color:s.textColor||'#ffffff',background:s.backgroundColor||'#000000',backgroundOpacity:s.backgroundOpacity??.75,bold:s.bold!==false,italic:!!s.italic,radius:s.cornerRadius??.2,align:s.align}}
+ else if(t.kind==='banner'||t.kind==='legacy'){text=t.kind==='banner'?(t.id==='top'?d.topText:d.bottomText):d.overlays.find(c=>c.id===t.id)?.text||'';style={...style,fontFamily:d.fontFamily,fontSize:d.fontSize,color:t.kind==='legacy'?d.overlayColor||'#ffffff':d.textColor,bold:d.bold!==false,italic:!!d.italic,align:d.align,background:'#00000000'}}else return <p>Chọn một vùng chữ trên preview.</p>;
+ const setStyle=(s:TextStyle)=>onProject(p=>{
+  if(visual)return {...p,visuals:p.visuals?.map(c=>c.id===t.id?{...c,textStyle:s}:c)};
+  if(cue)return {...p,subtitles:p.subtitles.map(c=>c.id===t.id?{...c,captionStyle:{...c.captionStyle,fontFamily:s.fontFamily,fontSize:s.fontSize,textColor:s.color,backgroundColor:s.background.slice(0,7),backgroundOpacity:s.backgroundOpacity??1,bold:s.bold,italic:s.italic,cornerRadius:s.radius,align:s.align}}:c)};
+  return {...p,decoration:{...(p.decoration||DEFAULT_DECORATION),fontFamily:s.fontFamily,fontSize:s.fontSize,textColor:s.color,...(t.kind==='legacy'?{overlayColor:s.color}:{}),bold:s.bold,italic:s.italic,align:s.align}};
+ });
+ return <div ref={root} className="text-properties"><PropertySection title={cue?'Chữ phụ đề đang chọn':visual?.name||'Chữ đang chọn'}><p>Nhấp đúp chữ trên preview để nhập ngay trên hình. Các thay đổi tại đây áp dụng trực tiếp.</p><textarea aria-label="Nội dung chữ đang chọn" rows={3} value={text} onChange={e=>onText(t,e.target.value)}/><TextStyleControls style={style} onChange={setStyle} decorative={!!visual}/>{visual?.textStyle?.badge&&<label>Ký hiệu kênh<input aria-label="Ký hiệu nhãn kênh" maxLength={4} value={style.badgeMark||''} onChange={e=>setStyle({...style,badgeMark:e.target.value})}/></label>}{onAdvanced&&<button onClick={onAdvanced}>Vị trí / Keyframe</button>}</PropertySection></div>;
+}

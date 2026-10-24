@@ -1,3 +1,10 @@
+import {TextProperties} from './components/TextProperties';
+import {TemplateParts} from './components/TemplateParts';
+import {TextTarget} from './types';
+import {normalizeTemplateBundle,visualSelection} from './lib/template-bundle';
+import {ensureProjectFonts} from './lib/project-fonts';
+import {DEFAULT_TEXT} from './lib/raster-visual';
+import {TEXT_ASSET} from './components/MediaLibrary';
 import {MediaLibrary} from './components/MediaLibrary';
 import {insertLibraryAsset} from './lib/media-library';
 import {replaceTemplate} from './lib/template-slots';
@@ -40,6 +47,10 @@ import { bufferToWavBlob, synthesizeVieNeuTTS, VIENEU_VOICES, loadVieNeuVoices, 
 import { generateSrt, triggerDownload } from './lib/export-engine';
 
 export default function App() {
+  const [theme,setTheme]=useState(()=>{const saved=localStorage.getItem('hnstudio-theme');return ['simple','modern','glow'].includes(saved||'')?saved!:'glow'});
+  const [themeReady,setThemeReady]=useState(!(window as any).hnDesktop?.getTheme);
+  useEffect(()=>{const api=(window as any).hnDesktop;if(api?.getTheme)api.getTheme().then((saved:string)=>{setTheme(saved);setThemeReady(true)}).catch(()=>setThemeReady(true))},[]);
+  useEffect(()=>{if(themeReady){localStorage.setItem('hnstudio-theme',theme);(window as any).hnDesktop?.setTheme?.(theme).catch(console.error)}},[theme,themeReady]);
   // Main Project State
   const [project, setProject] = useState<ProjectData>(() => ({
     id: 'proj-chinese-drama-01',
@@ -78,8 +89,8 @@ export default function App() {
   const [lastExport,setLastExport]=useState('');
   const handleExportMp4=async(captions:boolean)=>{
     if(!project.videoUrl)return;const desktop=(window as any).hnDesktop;if(desktop&&!await desktop.chooseExport(project.title.replace(/[<>:\x22/\\|?*]/g,'_')+'_HNVoice.mp4'))return;stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,progressPercent:0,currentTaskName:'Chuẩn bị xuất MP4...'}));
-    try{await document.fonts.ready;let exportProject=project;if(project.manualTimeline&&!project.dubAudioUrl){const mixed=await runJob('/api/timeline/mix',{clips:projectClips(project),duration:timelineEnd(project)},(v,t)=>setHardwareStatus(h=>({...h,progressPercent:v,currentTaskName:t})));exportProject={...project,dubAudioUrl:mixed.audioUrl,dubDuration:mixed.duration};setProject(exportProject);}
-      const form=new FormData();form.append('file',await readVideo(exportProject.videoUrl!),exportProject.videoFileName||'video.mp4');form.append('options',JSON.stringify({timelineDuration:timelineEnd(exportProject),visuals:orderedVisuals(await prepareProjectVisuals(exportProject),exportProject.visualTracks),videoEdited:exportProject.videoEdited,ass:generateAss(captions?exportProject:{...exportProject,captionLayout:{...DEFAULT_CAPTION_LAYOUT,...exportProject.captionLayout,language:'off'}}),blur:exportProject.blurRegion,aspect:exportProject.captionLayout?.aspect||'auto',dubAudioUrl:exportProject.dubAudioUrl,originalMuted:exportProject.originalAudioMuted,originalVolume:exportProject.originalAudioVolume}));
+    try{await ensureProjectFonts(project);let exportProject=project;if(project.manualTimeline&&!project.dubAudioUrl){const mixed=await runJob('/api/timeline/mix',{clips:projectClips(project),duration:timelineEnd(project)},(v,t)=>setHardwareStatus(h=>({...h,progressPercent:v,currentTaskName:t})));exportProject={...project,dubAudioUrl:mixed.audioUrl,dubDuration:mixed.duration};setProject(exportProject);}
+      const form=new FormData();form.append('file',await readVideo(exportProject.videoUrl!),exportProject.videoFileName||'video.mp4');form.append('options',JSON.stringify({rendererRevision:'6.0.0',timelineDuration:timelineEnd(exportProject),visuals:orderedVisuals(await prepareProjectVisuals(exportProject),exportProject.visualTracks),videoEdited:exportProject.videoEdited,ass:generateAss(captions?exportProject:{...exportProject,captionLayout:{...DEFAULT_CAPTION_LAYOUT,...exportProject.captionLayout,language:'off'}}),blur:exportProject.blurRegion,aspect:exportProject.captionLayout?.aspect||'auto',dubAudioUrl:exportProject.dubAudioUrl,originalMuted:exportProject.originalAudioMuted,originalVolume:exportProject.originalAudioVolume}));
       const body=await apiJson('/api/video/export',{method:'POST',body:form});window.dispatchEvent(new CustomEvent('hn-job',{detail:body.jobId}));
       for(;;){const job=await apiJson('/api/jobs/'+body.jobId);setHardwareStatus(h=>({...h,progressPercent:job.percent,currentTaskName:job.message}));if(job.state==='done'){if(desktop){setLastExport(await desktop.saveExport(job.result.url));break;}const a=document.createElement('a');a.href=job.result.url;a.download=project.title+'_HNVoice.mp4';a.click();break;}if(['error','cancelled'].includes(job.state))throw new Error(job.message);await new Promise(r=>setTimeout(r,750));}
     }catch(e){alert(String(e));}finally{window.dispatchEvent(new CustomEvent('hn-job',{detail:null}));setHardwareStatus(h=>({...h,isProcessing:false,progressPercent:0,currentTaskName:''}));}
@@ -190,7 +201,8 @@ export default function App() {
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement ||
-        e.target instanceof HTMLSelectElement
+        e.target instanceof HTMLSelectElement ||
+        (e.target instanceof HTMLElement&&e.target.closest('[contenteditable=true]'))
       ) {
         return;
       }
@@ -432,8 +444,16 @@ export default function App() {
   };
 
   const handleExportProjectJson=async()=>{const desktop=(window as any).hnDesktop;if(!desktop){alert('Lưu dự án dùng trong ứng dụng Windows.');return;}stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,currentTaskName:'Đang lưu dự án và media…',progressPercent:1}));try{let videoPath='';if(project.videoUrl){const file=await readVideo(project.videoUrl);if(file instanceof File)videoPath=desktop.filePath(file);}const prepared={...project,visuals:await prepareProjectVisuals(project)};const saved=await desktop.saveProject({project:prepared,videoPath});if(saved)alert('Đã lưu dự án: '+saved);}catch(e){alert(String(e));}finally{setHardwareStatus(h=>({...h,isProcessing:false,currentTaskName:'',progressPercent:0}));}};
-  const handleOpenProject=async()=>{const desktop=(window as any).hnDesktop;if(!desktop){alert('Mở dự án dùng trong ứng dụng Windows.');return;}stopAudioPreview();setIsPlaying(false);try{const result=await desktop.openProject();if(result){validateTimeline(result.project);pushHistory(project);setProject({...result.project,captionLayout:{...DEFAULT_CAPTION_LAYOUT,...result.project.captionLayout}});setCurrentTime(0);loadVieNeuVoices().then(data=>setVoices(data.voices));setActiveSidebarTab('export');}}catch(e){alert(String(e));}};
+  const handleOpenProject=async()=>{const desktop=(window as any).hnDesktop;if(!desktop){alert('Mở dự án dùng trong ứng dụng Windows.');return;}stopAudioPreview();setIsPlaying(false);try{const result=await desktop.openProject();if(result){validateTimeline(result.project);pushHistory(project);setProject({...normalizeTemplateBundle(result.project),captionLayout:{...DEFAULT_CAPTION_LAYOUT,...result.project.captionLayout}});setCurrentTime(0);loadVieNeuVoices().then(data=>setVoices(data.voices));setActiveSidebarTab('export');}}catch(e){alert(String(e));}};
   const [selectedVisual,setSelectedVisual]=useState<string|null>(null);
+  const [textTarget,setTextTarget]=useState<TextTarget|null>(null),[textPopup,setTextPopup]=useState(false);
+  const editProject=(fn:(p:ProjectData)=>ProjectData)=>{pushHistory(project);setProject(fn)};
+  const selectText=(target:TextTarget)=>{stopAudioPreview();setIsPlaying(false);pushHistory(project);setTextTarget(target);setInspectorTab('text');if(target.kind==='visual')setSelectedVisual(target.id)};
+  const updateText=(target:TextTarget,text:string)=>setProject(p=>{text=text.normalize('NFC');
+    if(target.kind==='visual')return {...p,visuals:p.visuals?.map(c=>c.id===target.id?{...c,text}:c)};
+    if(target.kind==='caption')return {...p,subtitles:p.subtitles.map(c=>c.id===target.id?{...c,[target.lang==='zh'?'textZh':'textVi']:text,captionStyle:{...c.captionStyle,characterColors:undefined},status:target.lang==='zh'?c.status:'needs_tts'}:c)};
+    const d=p.decoration||DEFAULT_DECORATION;return {...p,decoration:target.kind==='banner'?{...d,[target.id==='top'?'topText':'bottomText']:text}:{...d,overlays:d.overlays.map(c=>c.id===target.id?{...c,text}:c)}};
+  });
   const [inspectorTab,setInspectorTab]=useState('media'),[audioPopup,setAudioPopup]=useState<string|null>(null),[showSubtitleList,setShowSubtitleList]=useState(false);
   const changeVisuals=(visuals:VisualClip[])=>{setIsPlaying(false);pushHistory(project);setProject(p=>{const normalized=visuals.map(c=>({...c,trackId:c.trackId||'track-'+c.id}));return {...p,visuals:normalized,visualTracks:visualTracks(normalized,visualTracks(p.visuals||[],p.visualTracks||[])),videoEdited:p.videoEdited||visuals.some(c=>c.kind==='video')}});};
   const importLibrary=async(files:File[])=>{
@@ -443,11 +463,12 @@ export default function App() {
   };
   const insertAsset=(id:string,time=currentTime,trackId?:string)=>{
     if(hardwareStatus.isProcessing||libraryBusy)return;
+    if(id===TEXT_ASSET){const clip:VisualClip={id:crypto.randomUUID(),kind:'text',name:'Chữ mới',text:'Nhấp đúp để nhập chữ',textStyle:{...DEFAULT_TEXT,fontFamily:'Be Vietnam Pro',align:'center'},trackId:'text-'+crypto.randomUUID(),startTime:Math.max(0,time),endTime:Math.max(0,time)+5,sourceStart:0,sourceDuration:5,x:.1,y:.35,width:.8,height:.18,opacity:1,enabled:true,keyframes:[]};changeVisuals([...(project.visuals||[]),clip]);setSelectedVisual(clip.id);setTextTarget({kind:'visual',id:clip.id});setInspectorTab('text');setCurrentTime(clip.startTime);return;}
     const asset=project.mediaLibrary?.find(a=>a.id===id);if(!asset)return;
     try{const next=insertLibraryAsset(project,asset,time,trackId);pushHistory(project);setIsPlaying(false);setProject(next.project);setSelectedVisual(next.clip.id);setInspectorTab('media');setCurrentTime(next.clip.startTime);}catch(e){alert(String(e))}
   };
   const prepareProjectVisuals=async(p:ProjectData)=>{const w=p.videoWidth||1920,h=p.videoHeight||1080,ready=await prepareVisuals(p.visuals||[],w,h);setProject(current=>({...current,visuals:current.visuals?.map(c=>{const next=ready.find(x=>x.id===c.id);return next&&rasterKey(c,w,h)===rasterKey(next,w,h)?{...c,url:next.url,renderKey:next.renderKey}:c})}));return ready;};
-  const selectVisual=(id:string|null)=>{setSelectedVisual(id);if(id)setInspectorTab('media');};
+  const selectVisual=(id:string|null)=>{setSelectedVisual(id);if(id)setInspectorTab(id.startsWith('bundle:')?'templates':'media');};
   useEffect(()=>{const f=()=>setShowSubtitleList(x=>!x);window.addEventListener('hn-subtitle-list',f);return()=>window.removeEventListener('hn-subtitle-list',f)},[]);
   const originalClips=projectClips(project).filter(c=>c.origin==='video');
   const changeOriginalVolume=(volume:number)=>{if(originalClips.length)applyTimeline({...project,manualTimeline:true,audioClips:projectClips(project).map(c=>c.origin==='video'?{...c,volume}:c)});else setProject(p=>({...p,originalAudioVolume:volume}));};
@@ -478,9 +499,9 @@ export default function App() {
         /></div>
   ),[project,hardwareStatus.isProcessing,previewExpanded,voices]);
   return (
-    <div className="flex flex-col h-screen min-w-[1100px] w-full bg-[#101014] text-zinc-100 overflow-hidden font-sans select-none">
+    <div data-theme={theme} className="hn-studio flex flex-col h-screen min-w-[1100px] w-full bg-[#101014] text-zinc-100 overflow-hidden font-sans select-none">
       {/* 1. Header Toolbar */}
-      <Header
+      <Header theme={theme} onThemeChange={(value:string)=>{setTheme(value);setThemeReady(true)}}
         hardwareStatus={hardwareStatus}
         projectTitle={project.title}
         onOpenPackaging={() => setIsPackagingModalOpen(true)}
@@ -526,7 +547,7 @@ export default function App() {
 
         {/* Center: Video Player Preview */}
         <VideoPlayer
-          externalInspector={!previewExpanded} videoEdited={project.videoEdited} visuals={orderedVisuals(project.visuals||[],project.visualTracks)} selectedVisual={selectedVisual} onSelectVisual={selectVisual} onVisualChange={changeVisuals} baseWidth={project.videoWidth} baseHeight={project.videoHeight}
+          textEditor={textTarget?<TextProperties project={project} target={textTarget} onText={updateText} onProject={editProject}/>:null} onEditText={selectText} onTextChange={updateText} externalInspector={!previewExpanded} videoEdited={project.videoEdited} visuals={orderedVisuals(project.visuals||[],project.visualTracks)} selectedVisual={selectedVisual} onSelectVisual={selectVisual} onVisualChange={changeVisuals} baseWidth={project.videoWidth} baseHeight={project.videoHeight}
           mediaEditor={<MediaEditor project={project} time={currentTime} selected={selectedVisual} onSelect={setSelectedVisual} onChange={changeVisuals} onProcess={(isProcessing,progressPercent,currentTaskName)=>setHardwareStatus(h=>({...h,isProcessing,progressPercent,currentTaskName}))}/>}
           originalDetachedMuted={originalClips.length>0&&originalClips.every(c=>c.muted)}
           manualTimeline={project.manualTimeline} originalDetached={projectClips(project).some(c=>c.origin==='video')}
@@ -555,7 +576,7 @@ export default function App() {
         />
 
         {/* Right: Subtitle & Dubbing Editor */}
-        {!previewExpanded&&<InspectorDock tab={inspectorTab} onTab={setInspectorTab}>{inspectorTab==='design'?<><VideoDesignPanel layout={project.captionLayout||DEFAULT_CAPTION_LAYOUT} onLayoutChange={captionLayout=>setProject(p=>({...p,captionLayout}))} decoration={project.decoration||DEFAULT_DECORATION} onDecorationChange={decoration=>setProject(p=>({...p,decoration}))}/><LegacyBlurEditor value={project.blurRegion||{enabled:false,x:.1,y:.78,width:.8,height:.15,strength:16}} onChange={blurRegion=>setProject(p=>({...p,blurRegion}))} onConvert={()=>{const blur=project.blurRegion!;const id=crypto.randomUUID();changeVisuals([...(project.visuals||[]),{...blur,id,kind:'blur',name:'Vùng mờ từ dự án',startTime:0,endTime:project.duration,sourceStart:0,sourceDuration:project.duration,opacity:1,keyframes:[]}]);setProject(p=>({...p,blurRegion:{...p.blurRegion!,enabled:false}}));selectVisual(id);}}/></>:inspectorTab==='templates'?<TemplatePanel project={project} onApply={clips=>{pushHistory(project);setIsPlaying(false);setProject(p=>replaceTemplate(p,clips));}}/>:<MediaEditor project={project} time={currentTime} selected={selectedVisual} onSelect={selectVisual} onChange={changeVisuals} onProcess={(isProcessing,progressPercent,currentTaskName)=>setHardwareStatus(h=>({...h,isProcessing,progressPercent,currentTaskName}))}/>}</InspectorDock>}
+        {!previewExpanded&&<InspectorDock tab={inspectorTab} onTab={setInspectorTab}>{inspectorTab==='text'&&textTarget?<TextProperties project={project} target={textTarget} onText={updateText} onProject={editProject} onAdvanced={()=>setInspectorTab('media')}/>:inspectorTab==='design'?<><VideoDesignPanel layout={project.captionLayout||DEFAULT_CAPTION_LAYOUT} onLayoutChange={captionLayout=>setProject(p=>({...p,captionLayout}))} decoration={project.decoration||DEFAULT_DECORATION} onDecorationChange={decoration=>setProject(p=>({...p,decoration}))}/><LegacyBlurEditor value={project.blurRegion||{enabled:false,x:.1,y:.78,width:.8,height:.15,strength:16}} onChange={blurRegion=>setProject(p=>({...p,blurRegion}))} onConvert={()=>{const blur=project.blurRegion!;const id=crypto.randomUUID();changeVisuals([...(project.visuals||[]),{...blur,id,kind:'blur',name:'Vùng mờ từ dự án',startTime:0,endTime:project.duration,sourceStart:0,sourceDuration:project.duration,opacity:1,keyframes:[]}]);setProject(p=>({...p,blurRegion:{...p.blurRegion!,enabled:false}}));selectVisual(id);}}/></>:inspectorTab==='templates'?<><TemplateParts project={project} onProject={editProject} onSelect={(id,isText)=>{setSelectedVisual(id);if(isText)selectText({kind:'visual',id});else setInspectorTab('media')}}/><TemplatePanel project={project} onApply={clips=>{pushHistory(project);setIsPlaying(false);setProject(p=>normalizeTemplateBundle(replaceTemplate(p,clips)));}}/></>:<MediaEditor project={project} time={currentTime} selected={selectedVisual} onSelect={selectVisual} onChange={changeVisuals} onProcess={(isProcessing,progressPercent,currentTaskName)=>setHardwareStatus(h=>({...h,isProcessing,progressPercent,currentTaskName}))}/>}</InspectorDock>}
 
 
       </div>
@@ -563,11 +584,12 @@ export default function App() {
       {lastExport&&<div className="px-3 py-2 text-xs bg-emerald-950 text-emerald-100 flex gap-3 items-center"><span>Đã lưu MP4: {lastExport}</span><button className="underline" onClick={()=>(window as any).hnDesktop?.revealExport()}>Mở thư mục chứa video</button></div>}
       {popupIds.length>0&&project.subtitles.some(s=>popupIds.includes(s.id))&&<CaptionPopup key={popupIds.join(',')} cues={timelineSubtitles(project).filter(s=>popupIds.includes(s.id)).map(s=>({...s,voiceId:s.voiceId||project.characters.find(c=>c.id===s.characterId)?.voiceId}))} layout={project.captionLayout||DEFAULT_CAPTION_LAYOUT} voices={voices} busy={hardwareStatus.isProcessing} onClose={()=>{stopAudioPreview();setPopupIds([]);}} onApply={applyCaptionChanges} onGenerate={generatePopupSpeech} onEditAudio={id=>{const clip=projectClips(project).find(c=>c.subtitleId===id);if(clip){stopAudioPreview();setPopupIds([]);setAudioPopup(clip.id)}}}/>}
       {showSubtitleList&&<FloatingPanel title="Danh sách phụ đề" width={500} onClose={()=>setShowSubtitleList(false)}><div className="floating-subtitle-list">{editorPanel}</div></FloatingPanel>}
+      {textPopup&&textTarget&&<FloatingPanel title="Chỉnh chữ" onClose={()=>setTextPopup(false)}><TextProperties project={project} target={textTarget} onText={updateText} onProject={editProject}/></FloatingPanel>}
       {audioPopup&&projectClips(project).some(c=>c.id===audioPopup)&&<AudioPopup key={audioPopup} clip={projectClips(project).find(c=>c.id===audioPopup)!} onClose={()=>setAudioPopup(null)} onSeek={setCurrentTime} onApply={async clip=>{if(!await applyTimeline({...project,manualTimeline:true,audioClips:projectClips(project).map(c=>c.id===clip.id?clip:c)}))throw Error("Chưa áp dụng: kiểm tra khoảng trống trên hàng âm thanh trước khi kéo dài đoạn.");}}/>}
 
       {/* 3. Bottom: CapCut-Style Multi-Track Timeline */}
       <div className={previewExpanded?'hidden':'contents'}><Timeline
-        onDropAsset={insertAsset} selectedVisual={selectedVisual} onVisualSelect={selectVisual} onVisualsChange={changeVisuals} onVisualTracksChange={tracks=>{pushHistory(project);const removed=visualTracks(project.visuals||[],project.visualTracks).filter(t=>!tracks.some(x=>x.id===t.id)).map(t=>t.id);setProject(p=>({...p,visualTracks:tracks,visuals:p.visuals?.filter(c=>!removed.includes(c.trackId||'track-'+c.id))}))}} onAudioPopup={id=>{setIsPlaying(false);stopAudioPreview();setAudioPopup(id)}}
+        onVisualPopup={id=>{const c=project.visuals?.find(c=>c.id===id);if(c?.kind==='text'){selectText({kind:'visual',id});setTextPopup(true)}else if(id.startsWith('bundle:')){setInspectorTab('templates')}}} onDropAsset={insertAsset} selectedVisual={selectedVisual} onVisualSelect={selectVisual} onVisualsChange={changeVisuals} onVisualTracksChange={tracks=>{pushHistory(project);const removed=visualTracks(project.visuals||[],project.visualTracks).filter(t=>!tracks.some(x=>x.id===t.id)).map(t=>t.id);setProject(p=>({...p,visualTracks:tracks,visuals:p.visuals?.filter(c=>!removed.includes(c.trackId||'track-'+c.id))}))}} onAudioPopup={id=>{setIsPlaying(false);stopAudioPreview();setAudioPopup(id)}}
         project={project} currentTime={currentTime} busy={hardwareStatus.isProcessing}
         canUndo={historyPast.length>0} canRedo={historyFuture.length>0} onUndo={handleUndo} onRedo={handleRedo}
         onSeek={setCurrentTime} onPause={()=>{stopAudioPreview();setIsPlaying(false);}}

@@ -1,14 +1,23 @@
+import worldLand from './world-land.json';
 import React,{useEffect,useRef} from 'react';import {VisualClip,TextStyle} from '../types';
 export const DEFAULT_TEXT:TextStyle={fontFamily:'Arial',fontSize:4,color:'#ffffff',bold:true,italic:false,background:'#00000000',radius:.12,autoFit:true};
 export const PATTERNS=[['world','Bản đồ'],['waves','Sóng mềm'],['dots','Chấm bi'],['diagonal','Sọc chéo'],['grid','Lưới'],['chevron','Chữ V'],['mesh','Tam giác'],['hex','Tổ ong'],['bubbles','Bong bóng'],['stars','Ngôi sao'],['stripes','Đường ngang'],['rays','Tia sáng'],['leaves','Lá'],['particles','Hạt sáng'],['grain','Vân hạt']].map(([id,label])=>({id,label}));
 export const THEMES=Array.from({length:15},(_,i)=>({name:['Ngọc lục bảo','Đại dương','Tím đêm','Đỏ ruby','Hổ phách','Xanh bạc hà','Lam điện','Hồng phấn','Cam hoàng hôn','Đen vàng','Xanh rêu','Tím hồng','Bạc xanh','Đỏ rượu','Xanh trời'][i],color:['#08734d','#073d76','#39216d','#881e3e','#845408','#126b66','#123a85','#813a70','#a13b21','#29251b','#294f32','#682771','#304859','#641d2d','#075972'][i],secondary:['#4ccb9b','#3f9fe5','#a78ae9','#ed6a93','#f2cd68'][i%5],pattern:PATTERNS[i].id}));
 export function rasterKey(c:VisualClip,w:number,h:number){return JSON.stringify([c.kind,c.text,c.textStyle,c.template,c.width,c.height,w,h]);}
 export function rasterVisual(c:VisualClip,w:number,h:number){const canvas=document.createElement('canvas');canvas.width=Math.max(2,Math.round(c.width*w));canvas.height=Math.max(2,Math.round(c.height*h));const ctx=canvas.getContext('2d')!,cw=canvas.width,ch=canvas.height;
- if(c.template){const d=c.template;ctx.beginPath();ctx.roundRect(0,0,cw,ch,Math.min(cw,ch)*d.radius);ctx.clip();const g=ctx.createLinearGradient(0,0,0,ch);g.addColorStop(0,d.fade?d.color+'00':d.secondary);g.addColorStop(d.fade?.25:1,d.color);g.addColorStop(1,d.color);ctx.fillStyle=g;ctx.fillRect(0,0,cw,ch);ctx.globalAlpha=.14;ctx.strokeStyle=d.secondary;ctx.fillStyle=d.secondary;ctx.lineWidth=Math.max(1,cw/400);
+ if(c.template){const d=c.template;ctx.beginPath();ctx.roundRect(0,0,cw,ch,Math.min(cw,ch)*d.radius);ctx.clip();const g=ctx.createLinearGradient(0,0,0,ch);
+ if(d.surface==='news-top'){g.addColorStop(0,'#081d1b88');g.addColorStop(1,'#081d1b00')}
+ else if(d.surface==='news-bottom'){g.addColorStop(0,d.secondary+'00');g.addColorStop(.055,d.secondary+'66');g.addColorStop(.17,d.secondary);g.addColorStop(.56,d.secondary);g.addColorStop(1,d.color)}
+ else{g.addColorStop(0,d.fade?d.color+'00':d.secondary);g.addColorStop(d.fade?.25:1,d.color);g.addColorStop(1,d.color)}ctx.fillStyle=g;ctx.fillRect(0,0,cw,ch);ctx.globalAlpha=d.surface==='news-top'?0:.14;ctx.strokeStyle=d.secondary;ctx.fillStyle=d.secondary;ctx.lineWidth=Math.max(1,cw/400);
  if(d.pattern==='dots')for(let y=12;y<ch;y+=24)for(let x=12;x<cw;x+=24){ctx.beginPath();ctx.arc(x,y,2,0,7);ctx.fill()}
  if(d.pattern==='grid'||d.pattern==='diagonal')for(let x=-ch;x<cw+ch;x+=32){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(d.pattern==='grid'?x:x+ch,ch);ctx.stroke();if(d.pattern==='grid'){ctx.beginPath();ctx.moveTo(0,x);ctx.lineTo(cw,x);ctx.stroke()}}
  if(d.pattern==='waves')for(let y=0;y<ch;y+=22){ctx.beginPath();for(let x=0;x<=cw;x+=4){const yy=y+Math.sin(x/55+y/40)*12;x?ctx.lineTo(x,yy):ctx.moveTo(x,yy)}ctx.stroke()}
- if(d.pattern==='world'){const polygons=[[[.06,.32],[.16,.24],[.3,.3],[.27,.43],[.19,.5],[.1,.43]],[[.25,.5],[.34,.58],[.32,.74],[.27,.84],[.23,.66]],[[.44,.3],[.55,.26],[.61,.34],[.55,.42],[.48,.39]],[[.47,.43],[.61,.44],[.64,.59],[.57,.75],[.5,.66]],[[.6,.28],[.77,.25],[.93,.36],[.88,.51],[.74,.48],[.67,.4]],[[.8,.68],[.9,.67],[.95,.77],[.85,.8]]];for(const poly of polygons){ctx.beginPath();poly.forEach(([x,y],i)=>i?ctx.lineTo(x*cw,y*ch):ctx.moveTo(x*cw,y*ch));ctx.closePath();ctx.fill()}}
+ if(d.pattern==='world'&&d.surface!=='news-top'){
+  ctx.save();ctx.globalAlpha=d.surface==='news-bottom'?.16:.13;ctx.fillStyle=d.surface==='news-bottom'?'#a3f0c2':d.secondary;
+  const mapW=cw*1.15,mapH=d.surface==='news-bottom'?ch*.6:ch*.9,mapX=-cw*.075,mapY=d.surface==='news-bottom'?ch*.47:ch*.07;
+  for(const ring of worldLand){ctx.beginPath();ring.forEach(([x,y],i)=>i?ctx.lineTo(mapX+x*mapW,mapY+y*mapH):ctx.moveTo(mapX+x*mapW,mapY+y*mapH));ctx.closePath();ctx.fill()}
+  ctx.restore();
+ }
 
  if(d.pattern==='chevron'||d.pattern==='mesh')for(let y=0;y<ch;y+=30){ctx.beginPath();for(let x=0;x<=cw;x+=30){ctx.lineTo(x,y+(x/30%2)*18)}ctx.stroke();if(d.pattern==='mesh'){ctx.beginPath();for(let x=0;x<cw;x+=30){ctx.moveTo(x,y);ctx.lineTo(x+15,y+30)}ctx.stroke()}}
  if(d.pattern==='hex')for(let y=0;y<ch+30;y+=40)for(let x=0;x<cw+30;x+=46){ctx.beginPath();for(let i=0;i<6;i++){const a=i*Math.PI/3;ctx.lineTo(x+(y/40%2)*23+23*Math.cos(a),y+23*Math.sin(a))}ctx.closePath();ctx.stroke()}
@@ -18,7 +27,24 @@ export function rasterVisual(c:VisualClip,w:number,h:number){const canvas=docume
  if(d.pattern==='leaves')for(let y=0;y<ch;y+=50)for(let x=0;x<cw;x+=50){ctx.beginPath();ctx.moveTo(x,y+35);ctx.quadraticCurveTo(x-5,y+2,x+35,y);ctx.quadraticCurveTo(x+40,y+30,x,y+35);ctx.fill()}
  ctx.globalAlpha=1;
  }
- if(c.kind==='text'){const d={...DEFAULT_TEXT,...c.textStyle};ctx.fillStyle=d.background;ctx.beginPath();ctx.roundRect(0,0,cw,ch,Math.min(cw,ch)*d.radius);ctx.fill();let size=Math.max(4,w*d.fontSize/100),lines:string[]=[];const wrap=()=>{ctx.font=`${d.italic?'italic ':''}${d.bold?'bold ':''}${size}px "${d.fontFamily}"`;lines=[];for(const para of (c.text||'').split('\n')){let line='';for(const word of para.split(/\s+/)){const test=line?line+' '+word:word;if(line&&ctx.measureText(test).width>cw*.92){lines.push(line);line=word}else line=test}lines.push(line)}};wrap();if(d.autoFit)while(size>5&&(lines.length*size*1.25>ch*.9||lines.some(l=>ctx.measureText(l).width>cw*.92))){size*=.95;wrap()}ctx.fillStyle=d.color;ctx.textAlign='center';ctx.textBaseline='middle';lines.forEach((line,i)=>ctx.fillText(line,cw/2,ch/2+(i-(lines.length-1)/2)*size*1.25));}
+ if(c.kind==='text'){
+  const d={...DEFAULT_TEXT,...c.textStyle};let left=cw*.04,right=cw*.04,top=ch*.05,bottom=ch*.05;
+  if(d.badge){
+   const inset=ch*.09,bh=ch*.78,bx=ch*.04,by=ch*.06,bw=cw-ch*.12,round=bh/2;
+   ctx.save();ctx.shadowColor='#001b2477';ctx.shadowBlur=d.badge==='solid'?0:ch*.075;ctx.shadowOffsetY=d.badge==='solid'?0:ch*.055;ctx.beginPath();ctx.roundRect(bx,by,bw,bh,round);
+   const ring=ctx.createLinearGradient(0,by,0,by+bh);ring.addColorStop(0,'#f5fffcdf');ring.addColorStop(.43,'#9ce1c2a6');ring.addColorStop(1,'#c2f3d251');ctx.fillStyle=d.badge==='solid'?d.background:ring;ctx.fill();ctx.restore();
+   ctx.beginPath();ctx.roundRect(bx+inset,by+inset,bw-inset*2,bh-inset*2,(bh-inset*2)/2);
+   const fill=ctx.createLinearGradient(0,by,0,by+bh);const color=d.background.slice(0,7);fill.addColorStop(0,d.badge==='glass'?color+'a0':color);fill.addColorStop(1,d.badge==='outline'?color+'22':color);ctx.fillStyle=fill;ctx.fill();
+   const mark=d.badgeMark?.trim();left=ch*.23;right=ch*.24;top=by+inset;bottom=ch-(by+bh-inset);
+   if(mark){const r=bh*.27,cx=bx+bh*.52,cy=by+bh*.5;ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fillStyle='#ffffff';ctx.fill();ctx.save();ctx.fillStyle=color;ctx.font=`900 ${r*(mark.length>2?.8:1.1)}px Arial`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(mark.slice(0,4),cx,cy+r*.03,r*1.7);ctx.restore();left=bx+bh*.95;}
+  }else{ctx.fillStyle=d.background;ctx.beginPath();ctx.roundRect(0,0,cw,ch,Math.min(cw,ch)*d.radius);ctx.fill()}
+  const sx=d.condensed?.76:1,available=(cw-left-right)/sx,content=(c.text||''),text=d.uppercase?content.toLocaleUpperCase('vi-VN'):content;
+  let size=Math.max(4,w*d.fontSize/100),lines:string[]=[];const lineSpace=d.condensed?1.18:1.25;
+  const wrap=()=>{ctx.font=`${d.italic?'italic ':''}${d.bold?'900 ':''}${size}px "${d.fontFamily}"`;lines=[];for(const para of text.split('\n')){let line='';for(const word of para.split(/\s+/)){const test=line?line+' '+word:word;if(line&&ctx.measureText(test).width>available){lines.push(line);line=word}else line=test}lines.push(line)}};
+  wrap();if(d.autoFit)while(size>5&&(lines.length*size*lineSpace>ch-top-bottom||lines.some(l=>ctx.measureText(l).width>available))){size*=.95;wrap()}
+  ctx.save();ctx.translate(left,0);ctx.scale(sx,1);ctx.fillStyle=d.color;ctx.textAlign=d.align==='left'?'left':'center';ctx.textBaseline='top';const total=lines.length*size*lineSpace,y=d.verticalAlign==='top'?top:top+(ch-top-bottom-total)/2;
+  lines.forEach((line,i)=>ctx.fillText(line,d.align==='left'?0:available/2,y+i*size*lineSpace));ctx.restore();
+ }
  return canvas;}
 export function RasterVisual({clip,w,h}:{clip:VisualClip;w:number;h:number}){const ref=useRef<HTMLCanvasElement>(null),key=rasterKey(clip,w,h);useEffect(()=>{const c=rasterVisual(clip,w,h),target=ref.current!;target.width=c.width;target.height=c.height;target.getContext('2d')!.drawImage(c,0,0)},[key]);return <canvas ref={ref} className="w-full h-full pointer-events-none"/>}
 export async function prepareVisuals(clips:VisualClip[],w:number,h:number){const result=[];await document.fonts.ready;for(const c of clips){if((c.kind==='text'||c.template)&&(!c.url||c.renderKey!==rasterKey(c,w,h))){const canvas=rasterVisual(c,w,h),blob=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('Không tạo được lớp chữ.')),'image/png')),form=new FormData();form.append('file',blob,'layer.png');const r=await fetch('/api/media/import',{method:'POST',body:form});const data=await r.json();if(!r.ok)throw Error(data.detail||'Không tạo được lớp hình.');result.push({...c,url:data.url,renderKey:rasterKey(c,w,h)})}else result.push(c)}return result;}

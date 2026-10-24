@@ -1,8 +1,14 @@
-# HNstudio 5.9.0 — Bộ cài Windows
+# HNstudio 5.9.1 — Bộ cài Windows
 
 Đọc lời nói hoặc chữ phụ đề tiếng Trung từ video MP4, dịch sang tiếng Việt và tạo giọng VieNeu-TTS. Giao diện mở trong cửa sổ ứng dụng Windows; không phải mở trình duyệt để dùng các chức năng offline. Gemini và ChatGPT vẫn dùng Chrome riêng để đăng nhập và dịch theo lựa chọn của người dùng.
 
-## Mới trong 5.9.0
+## Mới trong 5.9.1
+- Mẫu Bản tin xanh theo ảnh tham khảo: nền chuyển sắc mềm, bản đồ lục địa chìm được đóng gói offline, chữ in hoa căn trái kiểu hẹp.
+- Nhãn kênh độc lập có vòng ký hiệu tùy chỉnh, viền sáng, bóng mềm và bốn kiểu hiển thị. Có thể kéo/đổi cỡ/keyframe như mọi lớp chữ.
+- Ngày đăng và nguồn video có lớp và công tắc riêng. Không sao chép biểu tượng phát hoặc thanh tìm kiếm của nền tảng video vào mẫu.
+- Chọn 15 mẫu nền → Bản tin xanh · theo ảnh mẫu, nhập tên kênh/nội dung/ngày đăng rồi Áp dụng. Mẫu mới thay trên các hàng cũ. Dải trên/dưới vẫn dùng như 5.9.0.
+
+## Có từ 5.9.0
 - Thư viện media: nhập nhiều video/ảnh, tìm và lọc, kéo thumbnail xuống đúng hàng/mốc hoặc dùng lại tệp nhiều lần. Nhập chưa tạo ô; thư viện được sao lưu cùng project.
 - Đổi mẫu thay đúng các ô/hàng của mẫu hiện tại, không thêm hàng sau mỗi lần áp dụng. Giữ thời gian, các đoạn đã cắt và keyframe. Dự án 5.8 được nhận dạng và gộp các hàng mẫu dư khi áp dụng lại.
 - Bố cục Dải trên/dưới chỉ phủ hai mép; Bản tin là lựa chọn riêng có nền chuyển sắc. Tiêu đề/tên kênh và các phần nền vẫn độc lập.

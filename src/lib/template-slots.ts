@@ -20,7 +20,7 @@ export function replaceTemplate(p:ProjectData,incoming:VisualClip[]) {
     const matches=explicit.length?explicit:legacy?[legacy]:[];
     if(!matches.length)return [{...c,trackId:'template-'+c.templateRole}];
     return matches.map(old=>{
-      const geometry=old.templateLayout===c.templateLayout&&old.templateBandHeight===c.templateBandHeight?{x:old.x,y:old.y,width:old.width,height:old.height,keyframes:old.keyframes}:{};
+      const geometry=old.templateDesign===c.templateDesign&&old.templateLayout===c.templateLayout&&old.templateBandHeight===c.templateBandHeight?{x:old.x,y:old.y,width:old.width,height:old.height,keyframes:old.keyframes}:{};
       return {...c,...geometry,id:old.id,trackId:old.trackId||'track-'+old.id,startTime:old.startTime,endTime:old.endTime};
     });
   });

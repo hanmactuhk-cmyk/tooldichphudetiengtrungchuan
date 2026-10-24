@@ -14,3 +14,7 @@ Các dịch vụ Gemini và ChatGPT không được nhúng vào bản offline. N
 
 - Tách giọng/nền: MDX-Net UVR-MDX-NET-Inst_HQ_2 từ https://github.com/TRvlvr/model_repo và cấu hình https://github.com/TRvlvr/application_data; mã suy luận cục bộ độc lập dùng ONNX Runtime và NumPy STFT, xử lý stereo theo cửa sổ có chồng lấn. Nguồn và SHA256 khóa trong models.lock.json. Tham khảo triển khai/giấy phép UVR tại https://github.com/Anjok07/ultimatevocalremovergui.
 - Phông chữ được đọc từ Windows đã cài; không phân phối lại các file phông của Microsoft.
+
+
+## Natural Earth land outlines
+The decorative world map uses Natural Earth 1:110m land outlines (public domain), simplified to normalized coordinates in src/lib/world-land.json. Source: https://github.com/nvkelso/natural-earth-vector/blob/master/geojson/ne_110m_land.geojson . Terms: https://www.naturalearthdata.com/about/terms-of-use/ . No map data is loaded from the network at runtime.

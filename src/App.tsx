@@ -1,3 +1,11 @@
+import {LegacyBlurEditor} from './components/LegacyBlurEditor';
+import {InspectorDock} from './components/InspectorDock';
+import {VideoDesignPanel} from './components/VideoDesignPanel';
+import {TemplatePanel} from './components/TemplatePanel';
+import {AudioPopup} from './components/AudioPopup';
+import {FloatingPanel} from './components/FloatingPanel';
+import {visualTracks,orderedVisuals} from './lib/visual-engine';
+import {prepareVisuals,rasterKey} from './lib/raster-visual';
 import {MediaEditor,VisualTimeline} from './components/MediaEditor';
 import {VisualClip} from './types';
 import {captionSpeechCues} from './lib/speech-cues';
@@ -68,7 +76,7 @@ export default function App() {
   const handleExportMp4=async(captions:boolean)=>{
     if(!project.videoUrl)return;const desktop=(window as any).hnDesktop;if(desktop&&!await desktop.chooseExport(project.title.replace(/[<>:\x22/\\|?*]/g,'_')+'_HNVoice.mp4'))return;stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,progressPercent:0,currentTaskName:'Chuẩn bị xuất MP4...'}));
     try{await document.fonts.ready;let exportProject=project;if(project.manualTimeline&&!project.dubAudioUrl){const mixed=await runJob('/api/timeline/mix',{clips:projectClips(project),duration:timelineEnd(project)},(v,t)=>setHardwareStatus(h=>({...h,progressPercent:v,currentTaskName:t})));exportProject={...project,dubAudioUrl:mixed.audioUrl,dubDuration:mixed.duration};setProject(exportProject);}
-      const form=new FormData();form.append('file',await readVideo(exportProject.videoUrl!),exportProject.videoFileName||'video.mp4');form.append('options',JSON.stringify({timelineDuration:timelineEnd(exportProject),visuals:exportProject.visuals,videoEdited:exportProject.videoEdited,ass:generateAss(captions?exportProject:{...exportProject,captionLayout:{...DEFAULT_CAPTION_LAYOUT,...exportProject.captionLayout,language:'off'}}),blur:exportProject.blurRegion,aspect:exportProject.captionLayout?.aspect||'auto',dubAudioUrl:exportProject.dubAudioUrl,originalMuted:exportProject.originalAudioMuted,originalVolume:exportProject.originalAudioVolume}));
+      const form=new FormData();form.append('file',await readVideo(exportProject.videoUrl!),exportProject.videoFileName||'video.mp4');form.append('options',JSON.stringify({timelineDuration:timelineEnd(exportProject),visuals:orderedVisuals(await prepareProjectVisuals(exportProject),exportProject.visualTracks),videoEdited:exportProject.videoEdited,ass:generateAss(captions?exportProject:{...exportProject,captionLayout:{...DEFAULT_CAPTION_LAYOUT,...exportProject.captionLayout,language:'off'}}),blur:exportProject.blurRegion,aspect:exportProject.captionLayout?.aspect||'auto',dubAudioUrl:exportProject.dubAudioUrl,originalMuted:exportProject.originalAudioMuted,originalVolume:exportProject.originalAudioVolume}));
       const body=await apiJson('/api/video/export',{method:'POST',body:form});window.dispatchEvent(new CustomEvent('hn-job',{detail:body.jobId}));
       for(;;){const job=await apiJson('/api/jobs/'+body.jobId);setHardwareStatus(h=>({...h,progressPercent:job.percent,currentTaskName:job.message}));if(job.state==='done'){if(desktop){setLastExport(await desktop.saveExport(job.result.url));break;}const a=document.createElement('a');a.href=job.result.url;a.download=project.title+'_HNVoice.mp4';a.click();break;}if(['error','cancelled'].includes(job.state))throw new Error(job.message);await new Promise(r=>setTimeout(r,750));}
     }catch(e){alert(String(e));}finally{window.dispatchEvent(new CustomEvent('hn-job',{detail:null}));setHardwareStatus(h=>({...h,isProcessing:false,progressPercent:0,currentTaskName:''}));}
@@ -86,9 +94,9 @@ export default function App() {
   };
 
   const applyTimeline=async(next:ProjectData)=>{
-    if(hardwareStatus.isProcessing)return;stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,progressPercent:0,currentTaskName:'Cập nhật timeline...'}));
-    try{validateTimeline(next);if(project.dubAudioUrl&&timelineEnd(next)===timelineEnd(project)&&JSON.stringify(projectClips(next))===JSON.stringify(projectClips(project))){pushHistory(project);setProject({...next,dubAudioUrl:project.dubAudioUrl,dubDuration:project.dubDuration});return;}const mixed=await runJob('/api/timeline/mix',{clips:projectClips(next),duration:timelineEnd(next)},(v,t)=>setHardwareStatus(h=>({...h,progressPercent:v,currentTaskName:t})));pushHistory(project);setProject({...next,dubAudioUrl:mixed.audioUrl,dubDuration:mixed.duration});setCurrentTime(t=>Math.min(t,mixed.duration));}
-    catch(e){alert(String(e));}finally{setHardwareStatus(h=>({...h,isProcessing:false,progressPercent:0,currentTaskName:''}));}
+    if(hardwareStatus.isProcessing)return false;stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,progressPercent:0,currentTaskName:'Cập nhật timeline...'}));
+    try{validateTimeline(next);if(project.dubAudioUrl&&timelineEnd(next)===timelineEnd(project)&&JSON.stringify(projectClips(next))===JSON.stringify(projectClips(project))){pushHistory(project);setProject({...next,dubAudioUrl:project.dubAudioUrl,dubDuration:project.dubDuration});return true;}const mixed=await runJob('/api/timeline/mix',{clips:projectClips(next),duration:timelineEnd(next)},(v,t)=>setHardwareStatus(h=>({...h,progressPercent:v,currentTaskName:t})));pushHistory(project);setProject({...next,dubAudioUrl:mixed.audioUrl,dubDuration:mixed.duration});setCurrentTime(t=>Math.min(t,mixed.duration));return true;}
+    catch(e){alert(String(e));return false;}finally{setHardwareStatus(h=>({...h,isProcessing:false,progressPercent:0,currentTaskName:''}));}
   };
   const handleTimelineEdit=(edit:TimelineEdit)=>{try{applyTimeline(editTimeline(project,edit));}catch(e){alert(String(e));}};
   const handleTimelineAudio=async(file?:File,stem:'all'|'voice'|'background'='all')=>{
@@ -214,12 +222,13 @@ export default function App() {
         selectedSubtitleId: null,
         dubAudioUrl:undefined,
         dubDuration:undefined,
-        videoEdited:false,visuals:[],videoFileName: file.name,audioClips:undefined,manualTimeline:false,
+        visualTracks:[],videoEdited:false,visuals:[],videoFileName: file.name,audioClips:undefined,manualTimeline:false,
         duration: dur,
         videoWidth:videoEl.videoWidth,videoHeight:videoEl.videoHeight,
         title: file.name.replace(/\.[^/.]+$/, ''),
       }));
       setActiveSidebarTab('asr');
+      const form=new FormData();form.append('file',file,file.name);apiJson('/api/media/import',{method:'POST',body:form}).then(data=>setProject(p=>p.videoUrl!==videoUrl||p.visuals?.some(c=>c.kind==='video')?p:{...p,videoEdited:true,visuals:[...(p.visuals||[]),{id:'base-'+p.id,trackId:'base-video',kind:'video',nativeWidth:data.width,nativeHeight:data.height,name:file.name,url:data.url,startTime:0,endTime:Math.min(dur,data.duration),sourceStart:0,sourceDuration:data.duration,x:0,y:0,width:1,height:1,opacity:1,enabled:true,keyframes:[]}],visualTracks:[{id:'base-video',name:'Video gốc',enabled:true},...(p.visualTracks||[])]})).catch(()=>{});
     };
   };
 
@@ -416,10 +425,14 @@ export default function App() {
     triggerDownload(await response.blob(),project.title+'_VieNeu.wav','audio/wav');
   };
 
-  const handleExportProjectJson=async()=>{const desktop=(window as any).hnDesktop;if(!desktop){alert('Lưu dự án dùng trong ứng dụng Windows.');return;}stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,currentTaskName:'Đang lưu dự án và media…',progressPercent:1}));try{let videoPath='';if(project.videoUrl){const file=await readVideo(project.videoUrl);if(file instanceof File)videoPath=desktop.filePath(file);}const saved=await desktop.saveProject({project,videoPath});if(saved)alert('Đã lưu dự án: '+saved);}catch(e){alert(String(e));}finally{setHardwareStatus(h=>({...h,isProcessing:false,currentTaskName:'',progressPercent:0}));}};
+  const handleExportProjectJson=async()=>{const desktop=(window as any).hnDesktop;if(!desktop){alert('Lưu dự án dùng trong ứng dụng Windows.');return;}stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,currentTaskName:'Đang lưu dự án và media…',progressPercent:1}));try{let videoPath='';if(project.videoUrl){const file=await readVideo(project.videoUrl);if(file instanceof File)videoPath=desktop.filePath(file);}const prepared={...project,visuals:await prepareProjectVisuals(project)};const saved=await desktop.saveProject({project:prepared,videoPath});if(saved)alert('Đã lưu dự án: '+saved);}catch(e){alert(String(e));}finally{setHardwareStatus(h=>({...h,isProcessing:false,currentTaskName:'',progressPercent:0}));}};
   const handleOpenProject=async()=>{const desktop=(window as any).hnDesktop;if(!desktop){alert('Mở dự án dùng trong ứng dụng Windows.');return;}stopAudioPreview();setIsPlaying(false);try{const result=await desktop.openProject();if(result){validateTimeline(result.project);pushHistory(project);setProject({...result.project,captionLayout:{...DEFAULT_CAPTION_LAYOUT,...result.project.captionLayout}});setCurrentTime(0);loadVieNeuVoices().then(data=>setVoices(data.voices));setActiveSidebarTab('export');}}catch(e){alert(String(e));}};
   const [selectedVisual,setSelectedVisual]=useState<string|null>(null);
-  const changeVisuals=(visuals:VisualClip[])=>{setIsPlaying(false);pushHistory(project);setProject(p=>({...p,visuals,videoEdited:p.videoEdited||visuals.some(c=>c.kind==='video')}));};
+  const [inspectorTab,setInspectorTab]=useState('media'),[audioPopup,setAudioPopup]=useState<string|null>(null),[showSubtitleList,setShowSubtitleList]=useState(false);
+  const changeVisuals=(visuals:VisualClip[])=>{setIsPlaying(false);pushHistory(project);setProject(p=>{const normalized=visuals.map(c=>({...c,trackId:c.trackId||'track-'+c.id}));return {...p,visuals:normalized,visualTracks:visualTracks(normalized,visualTracks(p.visuals||[],p.visualTracks||[])),videoEdited:p.videoEdited||visuals.some(c=>c.kind==='video')}});};
+  const prepareProjectVisuals=async(p:ProjectData)=>{const w=p.videoWidth||1920,h=p.videoHeight||1080,ready=await prepareVisuals(p.visuals||[],w,h);setProject(current=>({...current,visuals:current.visuals?.map(c=>{const next=ready.find(x=>x.id===c.id);return next&&rasterKey(c,w,h)===rasterKey(next,w,h)?{...c,url:next.url,renderKey:next.renderKey}:c})}));return ready;};
+  const selectVisual=(id:string|null)=>{setSelectedVisual(id);if(id)setInspectorTab('media');};
+  useEffect(()=>{const f=()=>setShowSubtitleList(x=>!x);window.addEventListener('hn-subtitle-list',f);return()=>window.removeEventListener('hn-subtitle-list',f)},[]);
   const originalClips=projectClips(project).filter(c=>c.origin==='video');
   const changeOriginalVolume=(volume:number)=>{if(originalClips.length)applyTimeline({...project,manualTimeline:true,audioClips:projectClips(project).map(c=>c.origin==='video'?{...c,volume}:c)});else setProject(p=>({...p,originalAudioVolume:volume}));};
   const toggleOriginalMute=()=>{if(originalClips.length){const muted=!originalClips.every(c=>c.muted);applyTimeline({...project,manualTimeline:true,audioClips:projectClips(project).map(c=>c.origin==='video'?{...c,muted}:c)});}else setProject(p=>({...p,originalAudioMuted:!p.originalAudioMuted}));};
@@ -497,7 +510,7 @@ export default function App() {
 
         {/* Center: Video Player Preview */}
         <VideoPlayer
-          videoEdited={project.videoEdited} visuals={project.visuals||[]} selectedVisual={selectedVisual} onSelectVisual={setSelectedVisual} onVisualChange={changeVisuals} baseWidth={project.videoWidth} baseHeight={project.videoHeight}
+          externalInspector={!previewExpanded} videoEdited={project.videoEdited} visuals={orderedVisuals(project.visuals||[],project.visualTracks)} selectedVisual={selectedVisual} onSelectVisual={selectVisual} onVisualChange={changeVisuals} baseWidth={project.videoWidth} baseHeight={project.videoHeight}
           mediaEditor={<MediaEditor project={project} time={currentTime} selected={selectedVisual} onSelect={setSelectedVisual} onChange={changeVisuals} onProcess={(isProcessing,progressPercent,currentTaskName)=>setHardwareStatus(h=>({...h,isProcessing,progressPercent,currentTaskName}))}/>}
           originalDetachedMuted={originalClips.length>0&&originalClips.every(c=>c.muted)}
           manualTimeline={project.manualTimeline} originalDetached={projectClips(project).some(c=>c.origin==='video')}
@@ -526,15 +539,19 @@ export default function App() {
         />
 
         {/* Right: Subtitle & Dubbing Editor */}
-        {editorPanel}
+        {!previewExpanded&&<InspectorDock tab={inspectorTab} onTab={setInspectorTab}>{inspectorTab==='design'?<><VideoDesignPanel layout={project.captionLayout||DEFAULT_CAPTION_LAYOUT} onLayoutChange={captionLayout=>setProject(p=>({...p,captionLayout}))} decoration={project.decoration||DEFAULT_DECORATION} onDecorationChange={decoration=>setProject(p=>({...p,decoration}))}/><LegacyBlurEditor value={project.blurRegion||{enabled:false,x:.1,y:.78,width:.8,height:.15,strength:16}} onChange={blurRegion=>setProject(p=>({...p,blurRegion}))} onConvert={()=>{const blur=project.blurRegion!;const id=crypto.randomUUID();changeVisuals([...(project.visuals||[]),{...blur,id,kind:'blur',name:'Vùng mờ từ dự án',startTime:0,endTime:project.duration,sourceStart:0,sourceDuration:project.duration,opacity:1,keyframes:[]}]);setProject(p=>({...p,blurRegion:{...p.blurRegion!,enabled:false}}));selectVisual(id);}}/></>:inspectorTab==='templates'?<TemplatePanel project={project} onApply={clips=>{changeVisuals([...(project.visuals||[]),...clips]);setProject(p=>({...p,decoration:{...(p.decoration||DEFAULT_DECORATION),enabled:false}}));}}/>:<MediaEditor project={project} time={currentTime} selected={selectedVisual} onSelect={selectVisual} onChange={changeVisuals} onProcess={(isProcessing,progressPercent,currentTaskName)=>setHardwareStatus(h=>({...h,isProcessing,progressPercent,currentTaskName}))}/>}</InspectorDock>}
+
 
       </div>
 
       {lastExport&&<div className="px-3 py-2 text-xs bg-emerald-950 text-emerald-100 flex gap-3 items-center"><span>Đã lưu MP4: {lastExport}</span><button className="underline" onClick={()=>(window as any).hnDesktop?.revealExport()}>Mở thư mục chứa video</button></div>}
-      {popupIds.length>0&&project.subtitles.some(s=>popupIds.includes(s.id))&&<CaptionPopup key={popupIds.join(',')} cues={timelineSubtitles(project).filter(s=>popupIds.includes(s.id)).map(s=>({...s,voiceId:s.voiceId||project.characters.find(c=>c.id===s.characterId)?.voiceId}))} layout={project.captionLayout||DEFAULT_CAPTION_LAYOUT} voices={voices} busy={hardwareStatus.isProcessing} onClose={()=>{stopAudioPreview();setPopupIds([]);}} onApply={applyCaptionChanges} onGenerate={generatePopupSpeech}/>}
-      {!previewExpanded&&!!project.visuals?.length&&<VisualTimeline clips={project.visuals} time={currentTime} selected={selectedVisual} onSelect={id=>{setSelectedVisual(id);window.dispatchEvent(new Event('hn-open-media'));}} onSeek={t=>{setIsPlaying(false);setCurrentTime(t)}} onChange={changeVisuals}/>}
+      {popupIds.length>0&&project.subtitles.some(s=>popupIds.includes(s.id))&&<CaptionPopup key={popupIds.join(',')} cues={timelineSubtitles(project).filter(s=>popupIds.includes(s.id)).map(s=>({...s,voiceId:s.voiceId||project.characters.find(c=>c.id===s.characterId)?.voiceId}))} layout={project.captionLayout||DEFAULT_CAPTION_LAYOUT} voices={voices} busy={hardwareStatus.isProcessing} onClose={()=>{stopAudioPreview();setPopupIds([]);}} onApply={applyCaptionChanges} onGenerate={generatePopupSpeech} onEditAudio={id=>{const clip=projectClips(project).find(c=>c.subtitleId===id);if(clip){stopAudioPreview();setPopupIds([]);setAudioPopup(clip.id)}}}/>}
+      {showSubtitleList&&<FloatingPanel title="Danh sách phụ đề" width={500} onClose={()=>setShowSubtitleList(false)}><div className="floating-subtitle-list">{editorPanel}</div></FloatingPanel>}
+      {audioPopup&&projectClips(project).some(c=>c.id===audioPopup)&&<AudioPopup key={audioPopup} clip={projectClips(project).find(c=>c.id===audioPopup)!} onClose={()=>setAudioPopup(null)} onSeek={setCurrentTime} onApply={async clip=>{if(!await applyTimeline({...project,manualTimeline:true,audioClips:projectClips(project).map(c=>c.id===clip.id?clip:c)}))throw Error("Chưa áp dụng: kiểm tra khoảng trống trên hàng âm thanh trước khi kéo dài đoạn.");}}/>}
+
       {/* 3. Bottom: CapCut-Style Multi-Track Timeline */}
       <div className={previewExpanded?'hidden':'contents'}><Timeline
+        selectedVisual={selectedVisual} onVisualSelect={selectVisual} onVisualsChange={changeVisuals} onVisualTracksChange={tracks=>{pushHistory(project);const removed=visualTracks(project.visuals||[],project.visualTracks).filter(t=>!tracks.some(x=>x.id===t.id)).map(t=>t.id);setProject(p=>({...p,visualTracks:tracks,visuals:p.visuals?.filter(c=>!removed.includes(c.trackId||'track-'+c.id))}))}} onAudioPopup={id=>{setIsPlaying(false);stopAudioPreview();setAudioPopup(id)}}
         project={project} currentTime={currentTime} busy={hardwareStatus.isProcessing}
         canUndo={historyPast.length>0} canRedo={historyFuture.length>0} onUndo={handleUndo} onRedo={handleRedo}
         onSeek={setCurrentTime} onPause={()=>{stopAudioPreview();setIsPlaying(false);}}

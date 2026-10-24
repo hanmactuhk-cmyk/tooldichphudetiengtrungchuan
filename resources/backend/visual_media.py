@@ -24,7 +24,7 @@ def geo(c,t):
 def validate_visuals(clips,cache):
  if len(clips)>500:raise ValueError('Tối đa 500 lớp hình ảnh.')
  for c in clips:
-  if c.get('kind') not in ['video','image','blur']:raise ValueError('Loại lớp không hợp lệ.')
+  if c.get('kind') not in ['video','image','blur','text']:raise ValueError('Loại lớp không hợp lệ.')
   a,b=float(c['startTime']),float(c['endTime'])
   if not math.isfinite(a+b) or a<0 or b<=a or b>86400:raise ValueError('Thời gian lớp không hợp lệ.')
   if len(c.get('keyframes',[]))>20000:raise ValueError('Quá nhiều keyframe.')
@@ -34,7 +34,7 @@ def validate_visuals(clips,cache):
    start=float(c.get('sourceStart',0));source=cv2.VideoCapture(str(media_path(cache,c['url'])))
    try:limit=source.get(7)/(source.get(5) or 25)
    finally:source.release()
-   if not math.isfinite(start) or start<0 or start+b-a>limit+.05:raise ValueError('Đoạn cắt vượt thời lượng video nguồn.')
+   if not math.isfinite(start) or start<0 or start+(b-a)*float(c.get('rate',1))>limit+.05 or not .1<=float(c.get('rate',1))<=8:raise ValueError('Đoạn cắt vượt thời lượng video nguồn.')
  return clips
 
 @lru_cache(maxsize=128)
@@ -44,6 +44,12 @@ def round_mask(w,h,r):
  cv2.rectangle(m,(radius,0),(w-radius-1,h-1),255,-1);cv2.rectangle(m,(0,radius),(w-1,h-radius-1),255,-1)
  for x,y in [(radius,radius),(w-radius-1,radius),(radius,h-radius-1),(w-radius-1,h-radius-1)]:cv2.circle(m,(x,y),radius,255,-1,cv2.LINE_AA)
  return m
+
+def flipped(image,c):
+ if c.get('flipX') and c.get('flipY'):return cv2.flip(image,-1)
+ if c.get('flipX'):return cv2.flip(image,1)
+ if c.get('flipY'):return cv2.flip(image,0)
+ return image
 
 def paste(frame,image,g,fit):
  h,w=frame.shape[:2];x,y=round(g['x']*w),round(g['y']*h);bw,bh=max(1,round(g['width']*w)),max(1,round(g['height']*h));bw=min(w*2,bw);bh=min(h*2,bh)
@@ -59,10 +65,11 @@ def compose(source,options,cache,folder,progress,cancelled):
  for c in clips:c['_keys']=sorted(c.get('keyframes') or [],key=lambda k:k['time']);c['_times']=[k['time'] for k in c['_keys']]
  cap=cv2.VideoCapture(str(source));w,h=int(cap.get(3)),int(cap.get(4));source_fps=cap.get(5) or 25;fps=min(60,source_fps);source_duration=cap.get(7)/source_fps;cap.release()
  duration=max(float(options.get('timelineDuration') or source_duration),max((c['endTime'] for c in clips),default=0));frames=math.ceil(duration*fps)
+ clips.sort(key=lambda c:c.get('layer',{'video':0,'image':1,'text':1,'blur':2}[c['kind']]))
  video=[c for c in clips if c['kind']=='video'];edited=options.get('videoEdited',bool(video));caps={};images={}
  for c in clips:
   if c['kind']=='video':caps[c['id']]=cv2.VideoCapture(str(media_path(cache,c['url'])))
-  elif c['kind']=='image':
+  elif c['kind'] in ['image','text']:
    image=cv2.imdecode(np.fromfile(str(media_path(cache,c['url'])),np.uint8),cv2.IMREAD_UNCHANGED)
    if image is None:raise ValueError('Ảnh không đọc được.')
    images[c['id']]=image
@@ -78,18 +85,18 @@ def compose(source,options,cache,folder,progress,cancelled):
     if abs(c.get(cv2.CAP_PROP_POS_FRAMES)-target)>1:c.set(cv2.CAP_PROP_POS_FRAMES,target)
     ok,img=c.read()
     if ok:frame=img
-   for kind in ['video','image','blur']:
-    for c in clips:
-     if c['kind']!=kind or not c.get('enabled',True) or not c['startTime']<=t<c['endTime']:continue
-     g=geo(c,t)
-     if kind=='video':
-      v=caps[c['id']];target=round((float(c.get('sourceStart',0))+t-c['startTime'])*(v.get(5) or fps))
-      if abs(v.get(cv2.CAP_PROP_POS_FRAMES)-target)>1:v.set(cv2.CAP_PROP_POS_FRAMES,target)
-      ok,img=v.read()
-      if ok:paste(frame,img,g,c.get('fit','contain'))
-     elif kind=='image':paste(frame,images[c['id']],g,c.get('fit','contain'))
-     else:
-      x,y=max(0,min(w-1,round(g['x']*w))),max(0,min(h-1,round(g['y']*h)));bw,bh=max(1,min(w-x,round(g['width']*w))),max(1,min(h-y,round(g['height']*h)));roi=frame[y:y+bh,x:x+bw];sigma=max(1,min(40,float(c.get('strength',16))));blurred=cv2.GaussianBlur(roi,(0,0),sigma);alpha=round_mask(bw,bh,max(0,min(.5,float(c.get('radius',.22)))))[:,:,None]/255*max(0,min(1,g['opacity']));frame[y:y+bh,x:x+bw]=(roi*(1-alpha)+blurred*alpha).astype(np.uint8)
+   for c in clips:
+    kind=c['kind']
+    if not c.get('enabled',True) or not c['startTime']<=t<c['endTime']:continue
+    g=geo(c,t)
+    if kind=='video':
+     v=caps[c['id']];target=round((float(c.get('sourceStart',0))+(t-c['startTime'])*float(c.get('rate',1)))*(v.get(5) or fps))
+     if abs(v.get(cv2.CAP_PROP_POS_FRAMES)-target)>1:v.set(cv2.CAP_PROP_POS_FRAMES,target)
+     ok,img=v.read()
+     if ok:paste(frame,flipped(img,c),g,c.get('fit','contain'))
+    elif kind in ['image','text']:paste(frame,flipped(images[c['id']],c),g,c.get('fit','contain'))
+    else:
+     x,y=max(0,min(w-1,round(g['x']*w))),max(0,min(h-1,round(g['y']*h)));bw,bh=max(1,min(w-x,round(g['width']*w))),max(1,min(h-y,round(g['height']*h)));roi=frame[y:y+bh,x:x+bw];sigma=max(1,min(40,float(c.get('strength',16))));blurred=cv2.GaussianBlur(roi,(0,0),sigma);alpha=round_mask(bw,bh,max(0,min(.5,float(c.get('radius',.22)))))[:,:,None]/255*max(0,min(1,g['opacity']));frame[y:y+bh,x:x+bw]=(roi*(1-alpha)+blurred*alpha).astype(np.uint8)
    writer.write(frame)
    if n%max(1,round(fps))==0:progress(min(59,2+int(n/max(1,frames)*57)),'Dựng video / ảnh / chuyển động…')
  finally:
@@ -102,7 +109,8 @@ def compose(source,options,cache,folder,progress,cancelled):
    if not c.get('enabled',True):continue
    p=media_path(cache,c['url']);probe=subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(),'-hide_banner','-i',str(p)],capture_output=True,creationflags=0x08000000 if os.name=='nt' else 0)
    if b'Audio:' not in probe.stderr:continue
-   args+=['-i',str(p)];filters.append(f"[{idx}:a]atrim=start={float(c.get('sourceStart',0))}:duration={c['endTime']-c['startTime']},asetpts=PTS-STARTPTS,adelay={round(c['startTime']*1000)}:all=1[a{idx}]");labels.append(f'[a{idx}]');idx+=1
+   args+=['-i',str(p)];from dubbing import tempo_filters
+   filters.append(f"[{idx}:a]atrim=start={float(c.get('sourceStart',0))}:duration={(c['endTime']-c['startTime'])*float(c.get('rate',1))},asetpts=PTS-STARTPTS,"+tempo_filters(float(c.get('rate',1)))+f",adelay={round(c['startTime']*1000)}:all=1[a{idx}]");labels.append(f'[a{idx}]');idx+=1
   if labels:
    filters.append(''.join(labels)+f'amix=inputs={len(labels)}:duration=longest:normalize=0,apad[a]');target=Path(folder)/'scene.mp4';args+=['-filter_complex',';'.join(filters),'-map','0:v','-map','[a]','-c:v','copy','-c:a','aac','-t',str(duration),str(target)];r=subprocess.run(args,capture_output=True,creationflags=0x08000000 if os.name=='nt' else 0)
    if r.returncode:raise ValueError('Không ghép được tiếng video đã cắt: '+r.stderr.decode(errors='replace')[-600:])

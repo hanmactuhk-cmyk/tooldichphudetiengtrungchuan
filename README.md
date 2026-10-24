@@ -1,8 +1,17 @@
-# HNstudio 5.7.0 — Bộ cài Windows
+# HNstudio 5.8.0 — Bộ cài Windows
 
 Đọc lời nói hoặc chữ phụ đề tiếng Trung từ video MP4, dịch sang tiếng Việt và tạo giọng VieNeu-TTS. Giao diện mở trong cửa sổ ứng dụng Windows; không phải mở trình duyệt để dùng các chức năng offline. Gemini và ChatGPT vẫn dùng Chrome riêng để đăng nhập và dịch theo lựa chọn của người dùng.
 
-## Mới trong 5.7.0
+## Mới trong 5.8.0
+- Hàng hình tích hợp cùng thước timeline. Mỗi hàng chứa nhiều ô, nhận video/ảnh/chữ/vùng mờ; hàng trên đè hàng dưới. Thêm hàng trống, kéo ô giữa các hàng, đổi tên, ẩn hoặc xóa hàng, đưa lên/xuống. Phụ đề và âm thanh vẫn độc lập như cũ.
+- Video gốc tự có ô chỉnh sau khi tải xong; C cắt, Delete xóa, Ctrl+D nhân đôi; kéo cạnh để trim, bật Co giãn video hoặc giữ Alt khi kéo cạnh phải để đổi tốc độ. Lật ngang/dọc và keyframe cho lớp phủ.
+- Bảng danh sách phụ đề bên phải được chuyển sang nút Danh sách phụ đề. Khu vực phải là bảng thuộc tính, có thể thả nổi hoặc ghim lại. Popup từng phụ đề/giọng cũ vẫn còn.
+- Nhấp đúp hoặc chuột phải ô âm thanh để mở popup sóng âm, nghe thử, kéo tốc độ giữ cao độ và áp dụng. Đổi tốc độ chỉ tác động ô âm thanh, không đổi phụ đề. Giọng/âm thanh ở cùng hàng vẫn không được chồng nhau.
+- 15 mẫu màu và hoa văn khác nhau. Mỗi mẫu tạo riêng nền trên, nền dưới, vùng mờ, tên kênh và tiêu đề. Mỗi thành phần có hàng, thời gian, màu/độ đục và vị trí riêng. Tiêu đề/tên kênh kéo trực tiếp và chỉnh phông, cỡ, màu trong bảng lớp.
+- Mẫu mới tắt dải trang trí cũ để tránh chồng. Giá trị cũ vẫn được giữ ở tab Nền cũ; vùng mờ cũ có thể đưa lên một hàng mới.
+- Video gốc chưa tách tiếng: tiếng đi theo tốc độ video. Âm thanh đã tách là ô độc lập, chỉnh tốc độ riêng trong popup nếu cần.
+
+## Các chức năng đã có từ 5.7.0
 - Dịch qua ChatGPT hoặc Gemini: gửi toàn bộ văn bản hoặc một tệp SRT, prompt dịch ngắn gọn theo thời lượng. Không chia lô.
 - Preview có zoom riêng, vừa khung, toàn màn hình; bảng thiết kế/làm mờ/media nổi, kéo, thu gọn và đổi kích thước.
 - Video / Ảnh / Keyframe: khởi tạo video gốc trên hàng hình, thêm video/ảnh, cắt tại vạch phát, kéo mép để trim, di chuyển, nhân đôi hoặc xóa từng lớp. Cắt video không tự kéo các hàng phụ đề/âm thanh khác.
@@ -14,7 +23,7 @@
 
 ## Cài đặt Windows
 
-**Đã cài bản đầy đủ:** lưu project rồi đóng ứng dụng, tải `HNVoice-Studio-5.7.0-Update-Setup.exe` ở [bản cập nhật 5.7.0](https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan/releases/tag/v5.7.0) rồi cài vào đúng thư mục hiện tại. Bản cập nhật giữ model đã cài; không phải tải lại model. 5.7.0 sửa đồng bộ giọng theo đúng mốc phụ đề, tự tăng tốc câu dài và giữ nguyên giờ câu sau; có logo HNstudio, hướng dẫn và giới thiệu Hoài Nguyễn Studio. Giao diện không hiện tên model hoặc các màn hình kỹ thuật.
+**Đã cài bản đầy đủ:** lưu project rồi đóng ứng dụng, tải `HNVoice-Studio-5.8.0-Update-Setup.exe` ở [bản cập nhật 5.8.0](https://github.com/hanmactuhk-cmyk/tooldichphudetiengtrungchuan/releases/tag/v5.8.0) rồi cài vào đúng thư mục hiện tại. Bản cập nhật giữ model đã cài; không phải tải lại model. 5.8.0 sửa đồng bộ giọng theo đúng mốc phụ đề, tự tăng tốc câu dài và giữ nguyên giờ câu sau; có logo HNstudio, hướng dẫn và giới thiệu Hoài Nguyễn Studio. Giao diện không hiện tên model hoặc các màn hình kỹ thuật.
 
 - **Popup một câu / nhóm:** nhấp đúp hoặc chuột phải vào hàng phụ đề Việt; cũng có nút Chỉnh popup trong bảng bên phải. Chọn tất cả phụ đề Việt hoặc Ctrl+A khi timeline có tiêu điểm, rồi chuột phải để chỉnh nhóm. Popup kéo được, không che mờ hoặc khóa ứng dụng phía sau.
 - Popup sửa chữ, chọn giọng, cỡ chữ, đậm/thường, nghiêng/thường, phông, màu chữ/nền, độ đục và bo góc cho các câu đã chọn. Bôi đen ký tự trong ô văn bản, chọn màu rồi bấm Tô màu. Kiểu chữ áp dụng cả nhóm; nội dung và màu riêng sửa theo câu đang chọn.
@@ -44,7 +53,7 @@ Dữ liệu bản cài nằm ở `%LOCALAPPDATA%/HN Voice Studio/UserData`. Có 
 2. Chọn dịch Offline, Gemini hoặc ChatGPT. Với dịch qua web, bấm Mở Chrome và tự đăng nhập. Với ChatGPT, công cụ gửi toàn bộ SRT trong đúng một yêu cầu, đợi phản hồi đầy đủ rồi kiểm tra đủ số câu và đúng mốc trước khi nhập. Không tự chia 40 câu hoặc tự gửi tiếp từng phần; nếu dịch thiếu, giữ nguyên phụ đề hiện tại và báo lỗi. Công cụ yêu cầu giữ mốc, sát nghĩa, ngắn gọn và đúng nhân xưng. Có thể sao chép yêu cầu và dán SRT trả về để nhập thủ công.
 3. Duyệt bản dịch, gán nhân vật/quan hệ/xưng hô/giọng cho từng câu. Tạo giọng và căn timeline.
 4. Chọn khung tự động theo video, 16:9 hoặc 9:16. Kéo phụ đề trong phần hình ảnh; chọn áp dụng toàn bộ hoặc riêng câu hiện tại. Chỉnh cỡ chữ/chiều rộng, bấm “Tách đôi câu” khi câu quá dài; thời gian được chia liên tiếp và cần tạo lại giọng. Dùng nút phóng to khung hình khi chỉnh video dọc; Escape để trở lại.
-5. Nghe kiểm tra rồi xuất SRT gốc, SRT theo giọng đã căn, ASS giữ vị trí hoặc WAV toàn bộ. **SRT không lưu vị trí/cỡ chữ**; dùng ASS để mang bố cục sang trình hỗ trợ ASS. Xuất MP4 để ghi khung hình, vùng mờ, phụ đề và âm thanh vào video.
+5. Nghe kiểm tra rồi xuất SRT hoặc MP4. **SRT không lưu vị trí/cỡ chữ**. MP4 ghi khung hình, vùng mờ, phụ đề và âm thanh vào video. Lưu dự án để tiếp tục biên tập.
 
 Giọng bắt đầu đúng mốc phụ đề Việt. Câu dài tự tăng tốc để kết thúc trước giờ kết thúc phụ đề và trước câu sau, không đẩy mốc hoặc cắt đuôi lời. Áp dụng đồng nhất cho tạo hàng loạt, tạo lại từng câu và popup. Nếu tỷ lệ cần thiết vượt 12 lần, ứng dụng yêu cầu rút gọn chữ hoặc kéo dài phụ đề, không áp dụng âm thanh bị lệch. Tiếng video gốc tự tắt sau khi tạo giọng; bật lại thủ công có thể nghe hai nguồn cùng lúc. Nghe thử một câu sẽ dừng nguồn đang phát. Đã có xuất MP4 lồng tiếng; chưa tự nhận diện người nói; cần gán nhân vật thủ công. Lưu dự án .hnproject để mở lại video, timeline và giọng clone; chưa có tự động lưu.
 

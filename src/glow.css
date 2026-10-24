@@ -140,3 +140,10 @@
 .hn-studio[data-theme=glow] .clip-context button{color:#202b65}
 .hn-studio .new-track-drop:hover{opacity:1;background:#88ccff22}
 @media(prefers-reduced-motion:reduce){.clip-context{animation:none}}
+
+/* Selected clips must remain obvious over every theme and muted state. */
+.hn-studio [data-testid=timeline] :is([data-visual-id],[data-media-id])[data-selected=true]{outline:3px solid #ffe66d!important;outline-offset:-3px;border:2px solid #fff!important;box-shadow:inset 0 0 0 3px #152365,0 0 0 1px #152365,0 0 12px #ffda6880!important;z-index:25;font-weight:900!important;opacity:1!important;filter:brightness(1.2)}
+.hn-studio [data-testid=timeline] :is([data-visual-id],[data-media-id])[data-selected=true]>span{font-weight:900!important;text-shadow:0 1px 2px #0008}
+.clip-drag-ghost{position:fixed;z-index:150;pointer-events:none;border:2px solid #fff;border-radius:7px;background:#264eaaed;color:white;height:30px;padding:5px 8px;font-size:11px;font-weight:800;overflow:hidden;white-space:nowrap;box-shadow:0 6px 16px #18285870}
+.clip-drop-indicator{position:fixed;z-index:140;pointer-events:none;border:2px solid #50e5d0;background:#55ead526;box-shadow:inset 0 0 0 1px #fff8;color:#fff;text-shadow:0 1px 3px #172852;font-size:11px;font-weight:800;padding:5px 12px;border-radius:5px}
+.clip-drop-indicator.new{border-style:dashed;background:#176a8aeb;border-color:#a0ffde}

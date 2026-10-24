@@ -17,3 +17,5 @@ const first=insertLibraryAsset({...p,videoUrl:null,visuals:[],visualTracks:[]},{
 console.log('TEMPLATE REPLACE / SPLIT PRESERVATION / LEGACY CLEANUP / EMPTY ROW / LIBRARY PLACEMENT PASSED');
 
 const upgraded=replaceTemplate(changed,preset.map(c=>({...c,templateLayout:"news",templateDesign:"news-v2",x:.075})));assert(upgraded.visuals.filter(c=>c.templateRole==="title").every(c=>c.x===.075));assert.deepEqual(upgraded.visuals.filter(c=>c.templateRole==="title").map(c=>[c.startTime,c.endTime]),[[0,4],[4,10]]);console.log("NEWS DESIGN UPGRADE KEEPS SPLIT TIMING PASSED");
+
+assert.equal(insertLibraryAsset(p,asset,4,'base-video').clip.trackId,'base-video');

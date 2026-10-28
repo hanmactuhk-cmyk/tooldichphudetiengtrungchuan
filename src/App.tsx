@@ -28,7 +28,7 @@ import {visualTracks,orderedVisuals} from './lib/visual-engine';
 import {prepareVisuals,rasterKey} from './lib/raster-visual';
 import {MediaEditor,VisualTimeline} from './components/MediaEditor';
 import {VisualClip,MediaAsset} from './types';
-import {captionSpeechCues} from './lib/speech-cues';
+import {captionSpeechCues,detectSubtitleSpeakers,normalizeSpeakerName,speakerPrefix,stripSpeakerPrefix} from './lib/speech-cues';
 import {CaptionPopup,CaptionChange} from './components/CaptionPopup';
 import {DEFAULT_DECORATION} from './lib/styled-caption';
 import {rememberVideo,readVideo} from './lib/video-source';
@@ -56,6 +56,26 @@ import { runQwenTranslation, retranslateSingleSentence } from './lib/translator-
 import { bufferToWavBlob, synthesizeVieNeuTTS, VIENEU_VOICES, loadVieNeuVoices, stopAudioPreview } from './lib/vieneu-engine';
 import { generateSrt, triggerDownload } from './lib/export-engine';
 
+function mergeImportedSrt(existing:Subtitle[],incoming:Subtitle[],language:'zh'|'vi',defaultCharacterId:string){
+  const subtitles=existing.map(c=>({...c}));const used=new Set<string>(),invalidatedAudio=new Set<string>();let changed=false,added=0,updated=0;
+  for(const row of incoming){
+    const match=subtitles.map((cue,index)=>({cue,index,start:Math.abs(cue.startTime-row.startTime),end:Math.abs(cue.endTime-row.endTime)})).filter(x=>!used.has(x.cue.id)&&x.start<=.35&&x.end<=.8).sort((a,b)=>a.start+a.end*.2-(b.start+b.end*.2))[0];
+    if(match){used.add(match.cue.id);const cue=match.cue;
+      if(language==='vi'){
+        const text=(row.textVi||'').trim();if(text&&text!==cue.textVi){subtitles[match.index]={...cue,textVi:text,ttsAudioUrl:undefined,ttsDuration:undefined,dubStartTime:undefined,dubEndTime:undefined,ttsFitSpeed:undefined,ttsShift:undefined,status:'needs_tts'};invalidatedAudio.add(cue.id);changed=true;updated++;}
+      }else{
+        const text=(row.textZh||'').trim();if(text&&text!==cue.textZh){subtitles[match.index]={...cue,textZh:text,status:cue.textVi?.trim()?'needs_retranslation':'raw'};changed=true;updated++;}
+      }
+      continue;
+    }
+    const text=language==='vi'?(row.textVi||'').trim():(row.textZh||'').trim();if(!text)continue;
+    subtitles.push({id:crypto.randomUUID(),startTime:row.startTime,endTime:row.endTime,textZh:language==='zh'?text:'',textVi:language==='vi'?text:undefined,characterId:defaultCharacterId,speed:1,pitch:0,volume:1,status:language==='vi'?'translated':'raw'});
+    changed=true;added++;
+  }
+  subtitles.sort((a,b)=>a.startTime-b.startTime||a.endTime-b.endTime);
+  return {subtitles,invalidatedAudio,changed,added,updated};
+}
+
 export default function App() {
   const [theme,setTheme]=useState(()=>{const saved=localStorage.getItem('hnstudio-theme');return ['simple','modern','glow','glow-dark'].includes(saved||'')?saved!:'glow'});
   const [themeReady,setThemeReady]=useState(!(window as any).hnDesktop?.getTheme);
@@ -73,7 +93,7 @@ export default function App() {
     originalAudioMuted: false,
     bgmDucking: true,
     subtitles: [],
-    characters: [{id:'speaker-1',name:'Người nói',gender:'female',role:'Chưa phân vai',relationship:'Chưa xác định',pronounSelf:'',pronounCall:'',color:'#3B82F6',voiceId:'Hải Đăng',speed:1,pitch:0}],
+    characters: [{id:'speaker-1',name:'Người nói',gender:'female',role:'Chưa phân vai',relationship:'Chưa xác định',pronounSelf:'',pronounCall:'',color:'#3B82F6',voiceId:'Hải Đăng',speed:1,pitch:0,expressivity:.3}],
     translationMode: 'offline',
     selectedSubtitleId: 'sub-01',
     currentTime: 0,
@@ -84,14 +104,23 @@ export default function App() {
   useEffect(()=>{loadVieNeuVoices().then(data=>setVoices(data.voices)).catch(console.error);},[]);
   useEffect(()=>{const handler=(e:Event)=>setJobId((e as CustomEvent).detail);window.addEventListener('hn-job',handler);return()=>window.removeEventListener('hn-job',handler);},[]);
   const handleCancel=async()=>{if(jobId)await apiJson('/api/jobs/'+jobId+'/cancel',{method:'POST'});};
+  const applyImportedSrt=(rows:Subtitle[],language:'zh'|'vi',fileName?:string)=>{
+    if(!rows.length){alert('Không tìm thấy câu phụ đề hợp lệ trong SRT.');return;}
+    pushHistory(project);setProject(p=>{
+      const merged=mergeImportedSrt(p.subtitles,rows,language,p.characters[0]?.id||'speaker-1');
+      const audioClips=p.audioClips?.filter(c=>!c.subtitleId||!merged.invalidatedAudio.has(c.subtitleId));
+      const nextTitle=fileName&&!p.videoUrl&&(!p.subtitles.length||p.title.startsWith('Dự án mới'))?fileName.replace(/\.srt$/i,''):p.title;
+      return {...p,subtitles:merged.subtitles,audioClips,...(merged.changed?{dubAudioUrl:undefined,dubDuration:undefined}:{}),title:nextTitle,duration:p.videoUrl?p.duration:Math.max(p.duration,...rows.map(s=>s.endTime))};
+    });
+  };
   const handleImportSrt=async(file:File,language:'zh'|'vi')=>{
     try{const data=await apiJson('/api/subtitles/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({srt:await file.text(),language})});
-      pushHistory(project);setProject(p=>({...p,subtitles:data.subtitles,audioClips:p.audioClips?.filter(c=>c.track==='audio'),dubAudioUrl:undefined,dubDuration:undefined,title:file.name.replace(/\.srt$/i,''),duration:p.videoUrl?p.duration:Math.max(p.duration,...data.subtitles.map((s:Subtitle)=>s.endTime))}));setActiveSidebarTab(language==='vi'?'characters':'translation');
+      applyImportedSrt(data.subtitles,language,file.name);setActiveSidebarTab(language==='vi'?'characters':'translation');
     }catch(e){alert(String(e));}
   };
   const handleImportTranslation=async(srt:string)=>{
-    try{const data=await apiJson('/api/translation/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({srt,subtitles:project.subtitles})});
-      const map=new Map<string,any>(data.translations.map((r:any)=>[r.id,r]));pushHistory(project);setProject(p=>({...p,dubAudioUrl:undefined,dubDuration:undefined,audioClips:p.audioClips?.filter(c=>c.track==='audio'),subtitles:p.subtitles.map(s=>({...s,textVi:map.get(s.id).viFull,ttsAudioUrl:undefined,ttsDuration:undefined,status:'translated'}))}));setActiveSidebarTab('characters');
+    try{const data=await apiJson('/api/subtitles/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({srt,language:'vi'})});
+      applyImportedSrt(data.subtitles,'vi');setActiveSidebarTab('characters');
     }catch(e){alert(String(e));}
   };
 
@@ -297,7 +326,7 @@ export default function App() {
   };
 
   // 3. Run Qwen3-4B-Instruct-2507 Translation
-  const handleRunTranslation = async (mode: TranslationProvider,inputMode:'text'|'srt-file'='srt-file') => {
+  const handleRunTranslation = async (mode: TranslationProvider,inputMode:'text'|'srt-file'='srt-file',speakerMode:'single'|'multi'='single') => {
     if(project.subtitles.some(s=>s.smartSourceId&&!s.hiddenVi)){alert('Phụ đề đang có nhóm đã chia. Hoàn tác lần chia trước trước khi dịch lại để giữ nguyên liên kết tiếng Trung.');return;}
     pushHistory(project);
     setHardwareStatus((h) => ({
@@ -320,7 +349,7 @@ export default function App() {
             progressPercent: percent,
             currentTaskName: log,
           }));
-        },inputMode
+        },inputMode,speakerMode
       );
 
       setProject((p) => ({
@@ -365,7 +394,7 @@ export default function App() {
         async p=>{let result;if(options.recognition==='gemini'){let url=p.videoUrl!;const parts=recognitionParts(p);if(parts.length!==1||parts[0].sourceStart!==0||parts[0].rate!==1||parts[0].offset!==0||Math.abs(parts[0].duration-p.duration)>.05){const rendered=await exportProjectVideo({...p,dubAudioUrl:undefined,originalAudioMuted:false},progress,false);url=rendered.url;}const form=new FormData();form.append('file',await readVideo(url),'video.mp4');form.append('duration',String(timelineEnd(p)));result=await uploadJob('/api/gemini/video-subtitles',form,progress)}else result={subtitles:await recognizeProject(p,options.recognition,.55,progress)};
           if(!result.subtitles?.length)throw Error('Không có phụ đề; Auto dừng tại nhận diện.');return commit({...p,subtitles:result.subtitles,audioClips:projectClips(p).filter(c=>c.track!=='voice'),dubAudioUrl:undefined,dubDuration:undefined,manualTimeline:true})},
         async p=>{const subtitles=await runQwenTranslation(p.subtitles,p.characters,options.provider,progress,options.inputMode);if(subtitles.some(c=>!c.textVi?.trim()))throw Error('Bản dịch chưa đầy đủ.');return commit({...p,subtitles,translationMode:options.provider})},
-        async p=>{const subtitles=p.subtitles.map(c=>({...c,voiceId:options.voiceId,volume:options.volume}));const cues=captionSpeechCues(subtitles,new Set(subtitles.map(c=>c.id)),p.characters);const speech=await runJob('/api/timeline/speech',{cues},progress);if(speech.clips.length!==cues.length)throw Error('Thiếu âm thanh thuyết minh.');const updates=new Map<string,any>(speech.subtitles.map((c:any)=>[c.id,c]));const clips=[...projectClips(p).filter(c=>c.track!=='voice'),...speech.clips];let next={...p,subtitles:subtitles.map(c=>({...c,...updates.get(c.id),status:'synced' as const})),audioClips:clips,manualTimeline:true,originalAudioMuted:true};validateTimeline(next);const mixed=await runJob('/api/timeline/mix',{clips,duration:timelineEnd(next)},progress);return commit({...next,dubAudioUrl:mixed.audioUrl,dubDuration:mixed.duration})},
+        async p=>{const subtitles=p.subtitles.map(c=>({...c,voiceId:options.voiceId,volume:options.volume,expressivity:options.expressivity}));const cues=captionSpeechCues(subtitles,new Set(subtitles.map(c=>c.id)),p.characters);const speech=await runJob('/api/timeline/speech',{cues},progress);if(speech.clips.length!==cues.length)throw Error('Thiếu âm thanh thuyết minh.');const updates=new Map<string,any>(speech.subtitles.map((c:any)=>[c.id,c]));const clips=[...projectClips(p).filter(c=>c.track!=='voice'),...speech.clips];let next={...p,subtitles:subtitles.map(c=>({...c,...updates.get(c.id),status:'synced' as const})),audioClips:clips,manualTimeline:true,originalAudioMuted:true};validateTimeline(next);const mixed=await runJob('/api/timeline/mix',{clips,duration:timelineEnd(next)},progress);return commit({...next,dubAudioUrl:mixed.audioUrl,dubDuration:mixed.duration})},
         async p=>{const exported=await exportProjectVideo(p,progress);if(autoStop.current)throw Error('Đã dừng Auto trước khi lưu.');destination=await desktop.saveAutoOutput({token:options.folder.token,url:exported.url,name:options.name,srt:options.saveSrt?generateSrt(p.subtitles,'vi'):undefined});if(options.saveProject)await desktop.saveProject({project:{...p,visuals:await prepareVisuals(p.visuals||[],p.videoWidth||1920,p.videoHeight||1080)},autoToken:options.folder.token});setLastExport(destination);progress(100,'Đã xuất xong MP4');return p}
       ],i=>{stage=i;report(i,0,AUTO_STEPS[i]);setActiveSidebarTab((['project','asr','translation','characters','export'] as const)[i])},()=>autoStop.current);
       return destination||lastExport;
@@ -437,11 +466,44 @@ export default function App() {
   // Update Character properties
   const handleAddCharacter=()=>{
     pushHistory(project);const count=project.characters.length;
-    setProject(p=>({...p,characters:[...p.characters,{id:'speaker-'+Date.now(),name:'Nhân vật '+(count+1),gender:'female',role:'',relationship:'',pronounSelf:'',pronounCall:'',color:['#3B82F6','#EC4899','#F59E0B','#8B5CF6'][count%4],voiceId:'Mai Anh',speed:1,pitch:0}]}));
+    setProject(p=>({...p,characters:[...p.characters,{id:'speaker-'+Date.now(),name:'Nhân vật '+(count+1),gender:'female',role:'',relationship:'',pronounSelf:'',pronounCall:'',color:['#3B82F6','#EC4899','#F59E0B','#8B5CF6'][count%4],voiceId:'Mai Anh',speed:1,pitch:0,expressivity:.3}]}));
+  };
+  const handleDetectCharacters=()=>{
+    const names=detectSubtitleSpeakers(project.subtitles);
+    if(!names.length)return {found:0,added:0,linked:0};
+    const byName=new Map(project.characters.map(c=>[normalizeSpeakerName(c.name),c]));
+    const palette=['#3B82F6','#EC4899','#F59E0B','#8B5CF6','#14B8A6','#F97316'];
+    const added:Character[]=[];
+    for(const name of names){
+      const key=normalizeSpeakerName(name);if(!key||byName.has(key))continue;
+      const genderHint=/thieugia|tiensinh|congtu|ong|anh|chuno/.test(key)?'male':/phunu|tieu thu|cogai|balao|me|chigai/.test(key)?'female':undefined;
+      const voice=voices.find(v=>genderHint&&v.gender===genderHint)||voices[0];
+      const character:Character={id:'speaker-'+crypto.randomUUID(),name,gender:genderHint||(voice?.gender==='male'?'male':'female'),role:'',relationship:'',pronounSelf:'',pronounCall:'',color:palette[(project.characters.length+added.length)%palette.length],voiceId:voice?.id||project.characters[0]?.voiceId||'Mai Anh',speed:1,pitch:0,expressivity:.3};
+      added.push(character);byName.set(key,character);
+    }
+    let linked=0;
+    const subtitles=project.subtitles.map(s=>{const prefix=speakerPrefix(s.textVi?.trim()||s.textZh?.trim()||'');const character=prefix?byName.get(prefix.key):undefined;if(!character||s.characterId===character.id)return s;linked++;return {...s,characterId:character.id};});
+    if(added.length||linked){pushHistory(project);setProject(p=>({...p,characters:[...p.characters,...added],subtitles}));}
+    return {found:names.length,added:added.length,linked};
+  };
+  const handleDeleteCharacter=(id:string)=>{
+    const character=project.characters.find(c=>c.id===id);if(!character)return;
+    if(!window.confirm(`Xóa nhân vật “${character.name}” khỏi danh sách giọng đọc? Phụ đề và âm thanh đã tạo sẽ được giữ lại.`))return;
+    pushHistory(project);setProject(p=>({...p,characters:p.characters.filter(c=>c.id!==id)}));
+  };
+  const handleRemoveSpeakerNames=()=>{
+    const subtitles=project.subtitles.map(s=>{
+      if(!s.textVi)return s;
+      const textVi=stripSpeakerPrefix(s.textVi,project.characters);
+      return textVi===s.textVi?s:{...s,textVi};
+    });
+    const removed=subtitles.filter((s,i)=>s.textVi!==project.subtitles[i]?.textVi).length;
+    if(removed){pushHistory(project);setProject(p=>({...p,subtitles}));}
+    return removed;
   };
   const handleUpdateCharacter = (id:string,updates:Partial<Character>) => {
     pushHistory(project);
-    const audioChanged=['voiceId','speed','pitch'].some(k=>k in updates);
+    const audioChanged=['voiceId','speed','pitch','expressivity'].some(k=>k in updates);
     if(audioChanged){stopAudioPreview();setIsPlaying(false);}
     setProject(p=>({...p,characters:p.characters.map(c=>c.id===id?{...c,...updates}:c),...(audioChanged?{dubAudioUrl:undefined,dubDuration:undefined,audioClips:p.audioClips?.filter(c=>!p.subtitles.some(s=>s.id===c.subtitleId&&s.characterId===id)),subtitles:p.subtitles.map(s=>s.characterId===id?{...s,...updates,ttsAudioUrl:undefined,ttsDuration:undefined,status:'needs_tts'}:s)}:{})}));
   };
@@ -458,9 +520,14 @@ export default function App() {
     triggerDownload(generateSrt(cues,'vi'),project.title+'_theo_giong.srt','text/plain');
   };
   const handleExportWav = async () => {
-    if(!project.dubAudioUrl){alert('Hãy tạo giọng đọc và ghép timeline trước khi xuất.');return;}
-    const response=await fetch(project.dubAudioUrl);if(!response.ok){alert('Âm thanh không còn trong bộ nhớ. Hãy tạo lại.');return;}
-    triggerDownload(await response.blob(),project.title+'_VieNeu.wav','audio/wav');
+    const voiceClips=projectClips(project).filter(c=>c.track==='voice'&&!c.muted);
+    if(!voiceClips.length){alert('Chưa có giọng đọc trên timeline. Hãy tạo giọng đọc trước khi xuất WAV.');return;}
+    setHardwareStatus(h=>({...h,isProcessing:true,progressPercent:0,currentTaskName:'Đang gom giọng đọc thành WAV…'}));
+    try{
+      const mixed=await runJob('/api/timeline/mix',{clips:voiceClips,duration:timelineEnd(project)},(progressPercent,currentTaskName)=>setHardwareStatus(h=>({...h,progressPercent,currentTaskName})));
+      const response=await fetch(mixed.audioUrl);if(!response.ok)throw Error('Không tải được WAV giọng đọc.');
+      triggerDownload(await response.blob(),project.title+'_thuyet_minh.wav','audio/wav');
+    }catch(e){alert(String(e));}finally{setHardwareStatus(h=>({...h,isProcessing:false,progressPercent:0,currentTaskName:''}));}
   };
 
   const handleExportProjectJson=async()=>{const desktop=(window as any).hnDesktop;if(!desktop){alert('Lưu dự án dùng trong ứng dụng Windows.');return;}stopAudioPreview();setIsPlaying(false);setHardwareStatus(h=>({...h,isProcessing:true,currentTaskName:'Đang lưu dự án và media…',progressPercent:1}));try{let videoPath='';if(project.videoUrl){const file=await readVideo(project.videoUrl);if(file instanceof File)videoPath=desktop.filePath(file);}const prepared={...project,visuals:await prepareProjectVisuals(project)};const saved=await desktop.saveProject({project:prepared,videoPath});if(saved)alert('Đã lưu dự án: '+saved);}catch(e){alert(String(e));}finally{setHardwareStatus(h=>({...h,isProcessing:false,currentTaskName:'',progressPercent:0}));}};
@@ -593,6 +660,9 @@ export default function App() {
           onExportProjectJson={handleExportProjectJson}
           onUpdateCharacter={handleUpdateCharacter}
           onAddCharacter={handleAddCharacter}
+          onDetectCharacters={handleDetectCharacters}
+          onDeleteCharacter={handleDeleteCharacter}
+          onRemoveSpeakerNames={handleRemoveSpeakerNames}
         />}</div>
 
         {/* Center: Video Player Preview */}

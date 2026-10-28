@@ -1,5 +1,5 @@
 import {ProjectData,Subtitle} from '../types';
-import {projectClips,validateTimeline} from './timeline-engine';
+import {validateTimeline} from './timeline-engine';
 
 export interface SplitSettings {maxWords:number;wordsPerSecond:number;maxSpeed:number;protectedPhrases:string[];allowConcise:boolean;}
 export const DEFAULT_SPLIT:SplitSettings={maxWords:8,wordsPerSecond:3,maxSpeed:1.2,protectedPhrases:[],allowConcise:false};
@@ -58,8 +58,9 @@ export function applySmartSplit(p:ProjectData,plan:SplitPlan):ProjectData{
  for(const s of p.subtitles){const row=map.get(s.id);if(!row){subtitles.push(capIds.has(s.id)?{...s,smartMaxSpeed:plan.settings.maxSpeed}:s);continue;}subtitles.push({...s,hiddenVi:true,smartOriginal:true});const sourceId=s.smartSourceId||s.id,group=crypto.randomUUID();
   for(const c of row.parts)subtitles.push({...s,id:crypto.randomUUID(),textVi:c.text,hiddenZh:true,hiddenVi:false,smartOriginal:false,smartSourceId:sourceId,smartGroupId:group,smartGroupCount:row.parts.length,smartGroupStart:row.parts[0].start,smartGroupEnd:row.parts[row.parts.length-1].end,smartMaxSpeed:plan.settings.maxSpeed,smartWarnings:row.warnings,startTime:c.start,endTime:c.end,viStartTime:c.start,viEndTime:c.end,ttsAudioUrl:undefined,ttsDuration:undefined,dubStartTime:undefined,dubEndTime:undefined,ttsFitSpeed:undefined,ttsShift:undefined,suggestedViShort:undefined,status:row.warnings.some(w=>w.includes('thời lượng'))?'warning_overflow':'needs_tts'});
  }
- const audioClips=projectClips(p).map(c=>c.subtitleId&&map.has(c.subtitleId)?{...c,muted:true}:c);
  if(subtitles.length>20000)throw Error('Quá 20.000 đoạn sau khi chia. Hãy xử lý từng project nhỏ hơn.');
- return validateTimeline({...p,subtitles,audioClips,manualTimeline:true,dubAudioUrl:undefined,dubDuration:undefined,smartSplitSettings:plan.settings,smartSplitBackup:{subtitles:p.subtitles,audioClips:p.audioClips,manualTimeline:p.manualTimeline,dubAudioUrl:p.dubAudioUrl,dubDuration:p.dubDuration,selectedSubtitleId:p.selectedSubtitleId},selectedSubtitleId:subtitles.find(s=>s.smartGroupId&&!s.hiddenVi)?.id||p.selectedSubtitleId});
+ // This action changes captions only. Preserve the existing voice clip and
+ // rendered mix byte-for-byte; the hidden parent continues to own its audio.
+ return validateTimeline({...p,subtitles,manualTimeline:true,smartSplitSettings:plan.settings,smartSplitBackup:{subtitles:p.subtitles,audioClips:p.audioClips,manualTimeline:p.manualTimeline,dubAudioUrl:p.dubAudioUrl,dubDuration:p.dubDuration,selectedSubtitleId:p.selectedSubtitleId},selectedSubtitleId:subtitles.find(s=>s.smartGroupId&&!s.hiddenVi)?.id||p.selectedSubtitleId});
 }
 export function undoSmartSplit(p:ProjectData):ProjectData{if(!p.smartSplitBackup)throw Error('Không có bản trước khi chia.');return {...p,...p.smartSplitBackup,smartSplitBackup:undefined};}

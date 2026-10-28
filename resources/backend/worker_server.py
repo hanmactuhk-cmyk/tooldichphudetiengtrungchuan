@@ -22,7 +22,7 @@ from translation import OfflineTranslator
 from browser_translation import BrowserTranslator
 from subtitle_contract import validate_cues,from_srt,parse_srt
 from jobs import JOBS
-app = FastAPI(title='HN Voice Studio', version='6.0.7')
+app = FastAPI(title='HN Voice Studio', version='6.1.5')
 DUBBING=DubbingService(MODELS,CACHE,lambda *args:ffmpeg(*args))
 TRANSLATOR=OfflineTranslator(MODELS)
 BROWSER_HOME=Path(os.environ.get('HN_BROWSER_HOME',APP_DIR/'data/chrome-profiles'))
@@ -51,7 +51,7 @@ def ffmpeg(*args):
 @app.get('/health')
 @app.get('/api/health')
 def health():
-    return {'status':'ok','device':'cpu','models':{n:(MODELS/n).is_dir() for n in ['whisper-small','qwen3','vieneu','ocr-zh']},'modelDirectory':str(MODELS),'version':'6.0.7','instanceId':os.environ.get('HN_INSTANCE_ID'),'activeModel':POOL.name,'modelLoads':POOL.loads}
+    return {'status':'ok','device':'cpu','videoEncoder':'NVENC/QSV/AMF auto','videoCompositor':'cuda-auto','models':{n:(MODELS/n).is_dir() for n in ['whisper-small','qwen3','vieneu','ocr-zh']},'modelDirectory':str(MODELS),'version':'6.1.5','instanceId':os.environ.get('HN_INSTANCE_ID'),'activeModel':POOL.name,'modelLoads':POOL.loads}
 _ASR_CONTEXT=threading.local()
 def asr_progress(percent,message):
     if getattr(_ASR_CONTEXT,'cancelled',lambda:False)():raise RuntimeError('Đã dừng nhận diện.')
@@ -230,10 +230,11 @@ class TranslateRequest(BaseModel):
     provider:Literal['offline','gemini','chatgpt']='offline'
     mode:str='fast'
     inputMode:Literal['text','srt-file']='srt-file'
+    speakerMode:Literal['single','multi']='single'
 
 def run_translation(req,progress=lambda *_:None,cancelled=lambda:False):
     if req.provider=='offline':return TRANSLATOR.translate(req.subtitles,req.characters,progress,cancelled)
-    return BROWSERS.translate(req.provider,req.subtitles,req.characters,progress,cancelled,input_mode=req.inputMode)
+    return BROWSERS.translate(req.provider,req.subtitles,req.characters,progress,cancelled,input_mode=req.inputMode,speaker_mode=req.speakerMode)
 
 @app.post('/api/translate')
 def translate(req:TranslateRequest):
@@ -277,6 +278,7 @@ class TtsRequest(BaseModel):
     speed:float=Field(default=1,ge=0.5,le=2)
     pitch:float=Field(default=0,ge=-10,le=10)
     volume:float=Field(default=1,ge=0,le=2)
+    expressivity:float=Field(default=.3,ge=0,le=1)
 @app.get('/api/voices')
 def voices():return DUBBING.voices()
 @app.post('/api/voices/clone')
@@ -392,7 +394,7 @@ def timeline_speech(req:TimelineSpeechRequest):
 
 @app.post('/api/tts')
 def tts(req:TtsRequest):
-    try:return DUBBING.synthesize(req.text,req.voice_id,req.speed,req.pitch,req.volume)
+    try:return DUBBING.synthesize(req.text,req.voice_id,req.speed,req.pitch,req.volume,req.expressivity)
     except ValueError as exc:raise HTTPException(422,str(exc))
 
 class DubRequest(BaseModel):

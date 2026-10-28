@@ -85,8 +85,8 @@ export function bufferToWavBlob(buffer: AudioBuffer): Blob {
   return new Blob([arrayBuffer], { type: 'audio/wav' });
 }
 
-export async function synthesizeVieNeuTTS(text:string,voiceId:string,speed=1,pitch=0,volume=1):Promise<{audioUrl:string;duration:number;wavBlob:Blob}> {
-  const response=await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,voice_id:voiceId,speed,pitch,volume})});
+export async function synthesizeVieNeuTTS(text:string,voiceId:string,speed=1,pitch=0,volume=1,expressivity=.3):Promise<{audioUrl:string;duration:number;wavBlob:Blob}> {
+  const response=await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,voice_id:voiceId,speed,pitch,volume,expressivity})});
   const data=await response.json();if(!response.ok) throw new Error(data.detail || 'Tạo giọng thất bại');
   const audio=await fetch(data.audioUrl);if(!audio.ok) throw new Error('Không đọc được âm thanh đã tạo.');
   const wavBlob=await audio.blob();return {audioUrl:data.audioUrl,duration:data.duration,wavBlob};

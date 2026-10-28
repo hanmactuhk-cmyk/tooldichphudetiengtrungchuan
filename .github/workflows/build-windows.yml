@@ -55,14 +55,15 @@ jobs:
       - run: python scripts/test_video_subtitles.py
       - run: python scripts/test_whole_submissions.py
       - run: python scripts/test_browser_ready.py
-      - if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_build }}
+      - if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/release/hn601') || (github.event_name == 'workflow_dispatch' && inputs.full_build) }}
         run: powershell -ExecutionPolicy Bypass -File scripts/build-desktop.ps1
-      - if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_build }}
+      - if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/release/hn601') || (github.event_name == 'workflow_dispatch' && inputs.full_build) }}
         uses: actions/upload-artifact@v4
         with:
-          name: HNVoice-Electron-Windows-complete
+          name: HN601-Portable-${{ github.run_number }}
           path: release/win-unpacked/**
           compression-level: 0
+          if-no-files-found: error
       - if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_build && inputs.build_installer }}
         shell: pwsh
         run: |

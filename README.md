@@ -1,10 +1,12 @@
-## HN601 6.0.7 — Tự động chia câu dài
+## HN601 6.1.1 — Chọn NVIDIA NVENC hoặc Intel Quick Sync
 
-Ở bước Dịch hoặc Giọng đọc, chọn **Tự động chia câu dài → Xem trước → Áp dụng**. Mặc định tối đa 8 từ theo khoảng trắng (chỉnh 4–20), mục tiêu 3 từ/giây, giới hạn tăng tốc TTS 1,2×. Phụ đề Trung giữ nguyên. Các đoạn Việt kế thừa nhân vật/giọng, nằm trong khoảng gốc và có liên kết ID. Chia câu không tạo thêm thời gian đọc: câu thiếu thời gian vẫn được cảnh báo để duyệt.
+Thiết lập xuất MP4 cho chọn **GPU NVIDIA rời · NVENC**, **Intel Quick Sync · QSV** hoặc **Tự động chọn phần cứng**. Trên máy có GTX 1050 Ti, NVENC là lựa chọn mặc định; QSV dành cho đồ họa Intel tích hợp. Nếu bộ mã hóa chọn không khả dụng, tự thử phần cứng khác rồi mới lùi về CPU. CUDA ghép được các lớp ảnh tĩnh đục; ảnh/chữ trong suốt, làm mờ, keyframe và chuyển động vẫn dùng bộ ghép CPU để giữ đúng hình.
 
-Giữ toàn bộ chữ và dấu câu ở chế độ mặc định; ưu tiên dấu câu, mệnh đề và tên riêng. Có ô bảo vệ cụm từ/tên riêng; các điểm ngắt khó cần duyệt thủ công. Có thể chỉnh bản nháp cô đọng với xác nhận đã duyệt ý nghĩa. Không tự xóa ý.
+Ở bước Dịch hoặc Giọng đọc, chọn **Tự động chia câu dài → Xem trước → Áp dụng chỉ phụ đề**. Mặc định tối đa 8 từ theo khoảng trắng (chỉnh 4–20). Tính năng này chỉ chia dòng Việt để hiển thị dễ đọc trên video; không nhờ ChatGPT viết lại, không xóa chữ và không đổi phụ đề Trung. Mốc các đoạn mới nằm liên tiếp trong khoảng câu gốc.
 
-Khi bạn bấm tạo giọng, dùng VieNeu-TTS v3 Turbo, đo WAV thật và phân bổ lại các đoạn trong nhóm gốc nếu chọn cả nhóm. Không cắt đuôi lời hoặc vượt giới hạn tốc độ. Nếu vẫn không vừa, dừng và giữ kết quả cũ. Batch chỉ tạo những câu mới/thay đổi; từng câu vẫn nghe thử/tạo lại riêng được.
+Giữ toàn bộ chữ và dấu câu; ưu tiên dấu câu, mệnh đề và tên riêng. Có ô bảo vệ cụm từ/tên riêng; các điểm ngắt khó cần duyệt thủ công. Thời lượng hiển thị được ước tính để chia mốc phụ đề, chỗ chưa chắc sẽ có cảnh báo.
+
+Nếu câu đã có âm thanh thuyết minh, bấm chia chỉ thay phụ đề: giữ nguyên file âm thanh, vị trí, thời lượng, âm lượng, tốc độ và bản mix; không tắt tiếng, không cắt clip, không tạo TTS mới và không dựng lại audio. Giọng hiện có vẫn là một đoạn liên tục trên timeline. Nếu chủ động tạo giọng lại sau đó, các phụ đề mới sẽ được dùng như những câu riêng.
 
 Có Hoàn tác lần chia trước, được lưu cùng project và media cũ; Ctrl+Z cũng hoạt động. SRT Trung và Việt xuất riêng như trước. Sau khi chia, hãy hoàn tác trước nếu muốn dịch lại cả câu gốc.
 

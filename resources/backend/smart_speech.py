@@ -33,7 +33,7 @@ def measured_speech(cues,dubbing,progress,cancelled):
         limit=float(cue.get('smartMaxSpeed',12))
         if not math.isfinite(limit) or not 1<=limit<=12:raise ValueError('Giới hạn tốc độ không hợp lệ.')
         progress(int(i/len(ordered)*80),f'Đang tạo và đo giọng {i+1}/{len(ordered)}')
-        raw.append(dubbing.synthesize(cue['textVi'],cue.get('voiceId'),cue.get('speed',1),cue.get('pitch',0),cue.get('volume',1)))
+        raw.append(dubbing.synthesize(cue['textVi'],cue.get('voiceId'),cue.get('speed',1),cue.get('pitch',0),cue.get('volume',1),cue.get('expressivity',.3)))
     planned=allocate_groups(ordered,raw);pairs=sorted(zip(planned,raw),key=lambda p:float(p[0]['startTime']));result=[]
     for i,(cue,clip) in enumerate(pairs):
         if cancelled():raise RuntimeError('Đã dừng tạo giọng.')

@@ -88,11 +88,11 @@ class DubbingService:
             backbone_repo=str(self.models/'vieneu'),onnx_dir=str(self.models/'vieneu/onnx_update'),
             codec_dir=str(self.models/'vieneu-codec'),threads=min(4,os.cpu_count() or 2))
 
-    def synthesize(self, text, voice=None, speed=1, pitch=0, volume=1):
+    def synthesize(self, text, voice=None, speed=1, pitch=0, volume=1, expressivity=.3):
         with self.synth_lock:
-            return self._synthesize(text,voice,speed,pitch,volume)
+            return self._synthesize(text,voice,speed,pitch,volume,expressivity)
 
-    def _synthesize(self, text, voice=None, speed=1, pitch=0, volume=1):
+    def _synthesize(self, text, voice=None, speed=1, pitch=0, volume=1, expressivity=.3):
         text=str(text).strip()
         if not text or len(text)>5000:raise ValueError('Mỗi đoạn đọc cần từ 1 đến 5.000 ký tự.')
         voice=voice or self.voices_data['default_voice']
@@ -100,8 +100,9 @@ class DubbingService:
         if voice not in self.voices_data['presets']:
             if voice not in {v['id'] for v in self.custom_voices()}:raise ValueError('Giọng đọc không hợp lệ.')
             with np.load(self.voice_home/(voice+'.npz'),allow_pickle=False) as data:voice_argument={'speaker_emb':data['speaker_emb'],'codes':data['codes']}
-        speed=_number(speed,.5,2,'Tốc độ');pitch=_number(pitch,-10,10,'Cao độ');volume=_number(volume,0,2,'Âm lượng')
-        raw_key=hashlib.sha256(json.dumps([MODEL_VERSION,text,voice],ensure_ascii=False).encode()).hexdigest()
+        speed=_number(speed,.5,2,'Tốc độ');pitch=_number(pitch,-10,10,'Cao độ');volume=_number(volume,0,2,'Âm lượng');expressivity=_number(expressivity,0,1,'Cách thể hiện')
+        temperature=.25+.45*expressivity
+        raw_key=hashlib.sha256(json.dumps([MODEL_VERSION,text,voice,round(expressivity,4)],ensure_ascii=False).encode()).hexdigest()
         raw=self.cache/(raw_key+'.raw.wav')
         key=hashlib.sha256(json.dumps([raw_key,speed,pitch,volume]).encode()).hexdigest()
         output=self.cache/(key+'.wav')
@@ -111,7 +112,7 @@ class DubbingService:
                 with POOL.use('vieneu',self._load) as model:
                     # Recheck after acquiring the single model lock.
                     if not raw.is_file():
-                        audio=model.infer(text,voice=voice_argument,temperature=.65,max_chars=256,apply_watermark=False)
+                        audio=model.infer(text,voice=voice_argument,temperature=temperature,max_chars=256,apply_watermark=False)
                         audio=np.asarray(audio,dtype=np.float32).reshape(-1)
                         if not len(audio) or not np.isfinite(audio).all():raise RuntimeError('VieNeu trả âm thanh rỗng hoặc lỗi.')
                         peak=float(np.max(np.abs(audio)))
@@ -196,6 +197,6 @@ class DubbingService:
         for i,cue in enumerate(cues):
             if cancelled():raise RuntimeError('Đã dừng tạo giọng.')
             progress(round(i/len(cues)*95),f'VieNeu: tạo giọng câu {i+1}/{len(cues)}')
-            clips.append(self.synthesize(cue['textVi'],cue.get('voiceId'),cue.get('speed',1),cue.get('pitch',0),cue.get('volume',1)))
+            clips.append(self.synthesize(cue['textVi'],cue.get('voiceId'),cue.get('speed',1),cue.get('pitch',0),cue.get('volume',1),cue.get('expressivity',.3)))
         progress(97,'Căn thời lượng và ghép giọng, tránh chồng tiếng...')
         return self.mix(cues,clips,video_duration)

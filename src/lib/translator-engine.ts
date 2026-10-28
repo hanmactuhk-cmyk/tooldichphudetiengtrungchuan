@@ -40,9 +40,9 @@ export function evaluateDubbingPacing(
   };
 }
 
-export async function runQwenTranslation(subtitles: Subtitle[], characters: Character[], mode: TranslationProvider, onProgress:(p:number,t:string)=>void,inputMode:'text'|'srt-file'='srt-file'): Promise<Subtitle[]> {
+export async function runQwenTranslation(subtitles: Subtitle[], characters: Character[], mode: TranslationProvider, onProgress:(p:number,t:string)=>void,inputMode:'text'|'srt-file'='srt-file',speakerMode:'single'|'multi'='single'): Promise<Subtitle[]> {
   onProgress(1,'Đang chuẩn bị dịch có ngữ cảnh...');
-  const data=await runJob('/api/translate-job',{subtitles,characters,provider:mode,inputMode},onProgress);
+  const data=await runJob('/api/translate-job',{subtitles,characters,provider:mode,inputMode,speakerMode:mode==='offline'?'single':speakerMode},onProgress);
   if(!Array.isArray(data.translations) || data.translations.length!==subtitles.length) throw new Error('Thiếu bản dịch.');
   const map=new Map<string,any>(data.translations.map((t:any)=>[t.id,t]));
   const results=subtitles.map(sub=>{

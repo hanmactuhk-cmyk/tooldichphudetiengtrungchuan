@@ -25,7 +25,7 @@ async function freePort(){
 }
 async function start(){
  const root=app.isPackaged?process.resourcesPath:path.join(__dirname,'resources');
- const executable=path.join(root,'runtime','hn-worker','hn-worker.exe');
+ const executable=path.join(root,'runtime','hn-worker-615','hn-worker.exe');
  if(!fs.existsSync(executable))throw new Error('Thiếu bộ xử lý. Hãy giải nén đủ bộ phát hành hoặc chạy scripts/build-worker.ps1 khi xây từ mã nguồn.');
  const data=app.getPath('userData');fs.mkdirSync(data,{recursive:true});let settings={};
  const settingsPath=path.join(data,'desktop-settings.json');

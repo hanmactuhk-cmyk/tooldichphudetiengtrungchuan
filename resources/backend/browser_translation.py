@@ -13,7 +13,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from http.client import HTTPConnection
 from browser_upload import attach_local_file
-from subtitle_contract import INSTRUCTION,to_srt,from_srt,validate_cues,parse_srt
+from subtitle_contract import INSTRUCTION,MULTI_SPEAKER_INSTRUCTION,to_srt,from_srt,validate_cues,parse_srt
 
 class AttachmentNotReady(ValueError):pass
 
@@ -253,7 +253,7 @@ class BrowserTranslator:
             time.sleep(1)
         raise ValueError('Hết thời gian chờ phản hồi đầy đủ. '+(str(validation_error) if validation_error else '')+' Phản hồi vẫn ở Chrome.')
 
-    def translate(self,provider,cues,characters=None,progress=lambda *_:None,cancelled=lambda:False,input_mode='srt-file'):
+    def translate(self,provider,cues,characters=None,progress=lambda *_:None,cancelled=lambda:False,input_mode='srt-file',speaker_mode='single'):
         validate_cues(cues);cfg=self.config(provider)
         if not self.locks[provider].acquire(blocking=False):raise ValueError('Đã có một phiên dịch trên hồ sơ này. Hãy chờ phiên đó hoàn tất.')
         try:
@@ -280,14 +280,15 @@ class BrowserTranslator:
                         page.goto(cfg['url'],wait_until='domcontentloaded',timeout=180000)
                         context_prompt='\nThông tin nhân vật (nếu có):\n'+json.dumps(characters or [],ensure_ascii=False)
                         if results:context_prompt+='\nBản dịch trước để giữ xưng hô:\n'+json.dumps(results[-8:],ensure_ascii=False)
+                        instruction=INSTRUCTION+(('\n'+MULTI_SPEAKER_INSTRUCTION) if speaker_mode=='multi' else '')
                         if input_mode=='srt-file':
                             source=Path(folder)/('hn-'+uuid.uuid4().hex[:8]+'.srt')
                             source.write_text(to_srt(batch),encoding='utf-8')
                             try:attachments.append(self.attach_srt(page,source,progress,cancelled))
                             except AttachmentNotReady:
                                 retries+=1;progress(4,'Tệp SRT chưa sẵn sàng; chờ 30 giây rồi đính kèm lại...');self.pause(30,cancelled);continue
-                            prompt=INSTRUCTION+f' Toàn bộ {len(batch)} câu tiếng Trung nằm trong tệp {source.name} đính kèm. Hãy đọc toàn bộ tệp và dịch đủ từ câu 1 đến câu {len(batch)} trong một lần trả lời, không chỉ dịch một phần rồi hỏi có tiếp tục không.'+context_prompt
-                        else:prompt=INSTRUCTION+context_prompt+'\n<SRT_CAN_DICH>\n'+to_srt(batch)+'\n</SRT_CAN_DICH>'
+                            prompt=instruction+f' Toàn bộ {len(batch)} câu tiếng Trung nằm trong tệp {source.name} đính kèm. Hãy đọc toàn bộ tệp và dịch đủ từ câu 1 đến câu {len(batch)} trong một lần trả lời, không chỉ dịch một phần rồi hỏi có tiếp tục không.'+context_prompt
+                        else:prompt=instruction+context_prompt+'\n<SRT_CAN_DICH>\n'+to_srt(batch)+'\n</SRT_CAN_DICH>'
                         before={selector:page.locator(selector).count() for selector in cfg['answers']}
                         try:self.send_prompt_once(page,cfg,prompt,before,progress,cancelled,attachment_name=source.name if input_mode=='srt-file' else None)
                         except AttachmentNotReady:
